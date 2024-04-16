@@ -45,7 +45,7 @@ inl rec write forall t. (x : t) : () = real
                     else unbox x (fun (k,v) => write k . write "(" . write v . write ")")
                 if heap_union_is x && var_is x then (join body()) : bool 
                 else body()
-            elif nominal_is x && prototype_has `t printable then printable `t x
+            elif nominal_is x && prototype_has `(`x) printable then printable `(`x) x
             // elif layout_is x then write *x // TODO: Deal with all the layout type cases.
             else error_type "Unsupported type."
             

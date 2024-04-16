@@ -175,15 +175,16 @@ inl (**) forall t y. (a : pu t) (b : pu y) : pu (t * y) = pair a b
 
 inl size (pu p) = p.size
 
-open tensorm
-nominal binary_array t = tensor int float
+nominal binary_array t = tensorm.tensor int float
 inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
+    open tensorm
     inl ar = tensor_create p.size
     loop.for' {from=0; nearTo=p.size} (fun i => tensor_set i 0 ar)
     p.pickle x (0,ptr_at_current_offset ar)
     binary_array ar
 
 inl deserialize forall t. (pu p : pu t) ~(binary_array x : binary_array t) : t =
+    open tensorm
     inl x,c = p.unpickle (0,ptr_at_current_offset x)
     assert (c = 1) "Invalid format detected during deserialization."
     x
@@ -192,12 +193,13 @@ open console
 instance printable binary_array t = fun (binary_array x) => console.write_ln x
 
 union card = King | Queen | Jack
-
+union action = Raise | Fold | Call
 
 type game_state = {
     stack : int
     pot : int
-    card : card
+    card : card 
+    action_history : tensorm.tensor int action
     }
 
 inl main() =
@@ -206,15 +208,20 @@ inl main() =
         Queen = unit()
         Jack = unit()
     }
+    inl p_action = alt {
+        Raise = unit()
+        Fold = unit()
+        Call = unit()
+    }
     inl p : pu game_state = 
-        int 10 ** int 10 ** p_card
+        int 10 ** int 10 ** p_card ** array 5 p_action
         |> wrap {
-            out = fun stack, pot, card => {stack pot card}
-            inp = fun {stack pot card} => stack, pot, card
+            out = fun stack, pot, card, action_history => {stack pot card action_history}
+            inp = fun {stack pot card action_history} => stack, pot, card, action_history
             }
-    serialize p {stack=5; pot=8; card=King}
+    serialize p {stack=5; pot=8; card=King; action_history=open tensorm in ;[Raise; Raise; Call]}
     |> fun x => write_ln x . x
-    |> deserialize p 
+    |> deserialize p
     |> write_ln
     // inl r = {from= -20; nearTo=20}
     // loop.for' r fun i =>

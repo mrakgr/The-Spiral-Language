@@ -1,152 +1,22 @@
-Error trace on line: 57, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\core.spi.
-inl (|>) a b = b a
-               ^
-Error trace on line: 48, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-    write l
+Error trace on line: 205, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+inl main() =
+        ^
+Error trace on line: 206, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+    inl p_card = alt {
     ^
-Error trace on line: 45, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-    write x
+Error trace on line: 211, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+    inl p_action = alt {
     ^
-Error trace on line: 14, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        inl p (a,b) = 
-        ^
-Error trace on line: 23, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
-        ^
-Error trace on line: 24, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-           ^
-Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-                      ^
-Error trace on line: 24, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-                                  ^
-Error trace on line: 24, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-                                              ^
-Error trace on line: 25, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-           ^
-Error trace on line: 25, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-                      ^
-Error trace on line: 25, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-                                  ^
-Error trace on line: 25, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-                                              ^
-Error trace on line: 26, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : f32) | (x : f64) => p ("%f", x)
-           ^
-Error trace on line: 26, column: 24 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : f32) | (x : f64) => p ("%f", x)
-                       ^
-Error trace on line: 27, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : string) => p ("%s", x)
-           ^
-Error trace on line: 28, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : char) => p ("%c", x)
-           ^
-Error trace on line: 29, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : bool) => p ("%s", if x then "true" else "false")
-           ^
-Error trace on line: 30, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (a,b) => write a . write ", " . write b
-           ^
-Error trace on line: 31, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | {} as x =>
-          ^
-Error trace on line: 31, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | {} as x =>
+Error trace on line: 216, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+    inl p : pu game_state = 
+    ^
+Error trace on line: 222, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+    serialize p {stack=5; pot=8; card=King; action_history=open tensorm in ;[Raise; Raise; Call]}
+    ^
+Error trace on line: 222, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+    serialize p {stack=5; pot=8; card=King; action_history=open tensorm in ;[Raise; Raise; Call]}
                 ^
-Error trace on line: 32, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-            write '{'
-            ^
-Error trace on line: 33, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-            record_fold (fun {state=separator key value} => 
-            ^
-Error trace on line: 33, column: 30 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-            record_fold (fun {state=separator key value} => 
-                             ^
-Error trace on line: 34, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-                write separator
-                ^
-Error trace on line: 35, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-                write (symbol_to_string key) . write " = " . write value
-                ^
-Error trace on line: 35, column: 48 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-                write (symbol_to_string key) . write " = " . write value
-                                               ^
-Error trace on line: 35, column: 62 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-                write (symbol_to_string key) . write " = " . write value
-                                                             ^
-Error trace on line: 14, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        inl p (a,b) = 
-        ^
-Error trace on line: 23, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
-        ^
-Error trace on line: 24, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-           ^
-Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-                      ^
-Error trace on line: 24, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-                                  ^
-Error trace on line: 24, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
-                                              ^
-Error trace on line: 25, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-           ^
-Error trace on line: 25, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-                      ^
-Error trace on line: 25, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-                                  ^
-Error trace on line: 25, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
-                                              ^
-Error trace on line: 26, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : f32) | (x : f64) => p ("%f", x)
-           ^
-Error trace on line: 26, column: 24 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : f32) | (x : f64) => p ("%f", x)
-                       ^
-Error trace on line: 27, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : string) => p ("%s", x)
-           ^
-Error trace on line: 28, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : char) => p ("%c", x)
-           ^
-Error trace on line: 29, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (x : bool) => p ("%s", if x then "true" else "false")
-           ^
-Error trace on line: 30, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | (a,b) => write a . write ", " . write b
-           ^
-Error trace on line: 31, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | {} as x =>
-          ^
-Error trace on line: 39, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | () => ()
-          ^
-Error trace on line: 40, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | x when symbol_is x => write (symbol_to_string x)
-          ^
-Error trace on line: 41, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-        | x => 
-          ^
-Error trace on line: 42, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-            if prototype_has `t printable then printable `t x
-            ^
-Error trace on line: 42, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
-            if prototype_has `t printable then printable `t x
-               ^
-Expected a nominal.
-Got: {card : card; pot : i32; stack : i32}
+Error trace on line: 222, column: 76 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\pickler.spi.
+    serialize p {stack=5; pot=8; card=King; action_history=open tensorm in ;[Raise; Raise; Call]}
+                                                                           ^
+Only stack allocated primitive types (i8,i16,i32,i64 and u8,u16,u32,u64 and f32,f64 and bool) are allowed in CuPy arrays.
