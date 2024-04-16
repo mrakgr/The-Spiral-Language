@@ -3,8 +3,8 @@
 type state = int * array float
 nominal pu a = {
     pickle : a -> state -> ()
-    size : uint
-    unpickle : state -> a * uint
+    size : int
+    unpickle : state -> a * int
     }
 
 inl unit() = pu {
@@ -16,11 +16,13 @@ inl unit() = pu {
         (), if x = 1 then 1 else 0
     }
 
+// Serializes the unsigned integer as a one-hot vector. Require memory proportional to the given size.
 inl uint size : pu uint =
     pu {size
         pickle = fun x (i,s : state) =>
-            assert (0 <= x && x < size) "Pickle failure. Int value out of bounds."
-            set s (i + conv x) 1
+            inl x = conv x
+            assert (x < size) "Pickle failure. Int value out of bounds."
+            set s (i + x) 1
         unpickle = fun (from,s : state) =>
             inl ~(from,nearTo) = from, from+size
             join
@@ -31,8 +33,53 @@ inl uint size : pu uint =
                         if x = 0 then case,c else i,c+1
                         ) (0,0)
                 assert (c = 0 || c = 1) "Unpickling failure. Too many active indices in the one-hot vector."
-                (case - from), c
+                conv(case - from), c
         }
+
+// Serializes the integer as a one-hot vector. Require memory proportional to the given size.
+inl int size : pu int =
+    pu {size
+        pickle = fun x s => (uint size).pickle (conv x) s
+        unpickle = fun s => (uint size).unpickle s |> fun a,b => conv a, b
+    }
+
+// Serializes the unsigned integer as a dense binary vector. Require memory proportional to the given size.
+inl bin_uint size : pu uint =
+    pu {size
+        pickle = fun ~x ~(i,s : state) => join
+            inl x = x + 1
+            assert (x <> 0) "Pickle failure. The input is too large in the binary serializer."
+            loop.for {from=0; nearTo=size} (fun i' x =>
+                inl bit = x &&& 1
+                set s (i + i') conv(x &&& 1)
+                x >>> 1
+                ) x
+            |> fun x => assert (x = 0) "Picke failure. The remains of the input has to equal zero in the binary pickler."
+        unpickle = fun ~(from,s : state) => join
+            loop.forDown {to=0; nearFrom=size} (fun i' x =>
+                inl bit = index s (from + i')
+                assert (bit = 0 || bit = 1) "Unpickling failure. The int type must either be active or inactive."
+                (x <<< 1) ||| conv bit
+                ) 0
+            |> fun x => x - 1, if 0 < x then 1 else 0
+    }
+
+// Serializes the integer range as a dense binary vector. Require memory proportional to the ceiling base-2 logarithm of the given range.
+inl bin_int (range : {from : int; nearTo : int}) : pu int =
+    // Gets the minimal number of bits needed to represent a given integer.
+    inl ceil_log2 x = 
+        assert (lit_is x) "The input should be known at compile time."
+        inl rec loop i = if x <= (1 <<< i) - 1 then i else loop (i+1)
+        loop 0
+    inl size = ceil_log2 (range.nearTo - range.from + 1)
+    pu {size
+        pickle = fun x s => 
+            assert (range.from <= x && x < range.nearTo) "Pickle failure. The input is out of the bounds of the given range."
+            (bin_uint size).pickle conv(x - range.from) s
+        unpickle = fun s => 
+            inl a,b = (bin_uint size).unpickle s
+            (conv a + range.from), b
+    }
 
 inl array forall t. size (pu el : pu t) : pu (tensorm.tensor int t) =
     open tensorm
@@ -76,7 +123,6 @@ inl pair (pu a') (pu b') =
             assert (c = 0 || c = 2) "Unpickling failure. Two sides of a pair should either all be active or inactive."
             (x,x'), c / 2
         }
-inl (**) a b = pair a b
 
 inl wrap {inp=a out=b} (pu p) =
     pu {size = p.size
@@ -125,17 +171,52 @@ inl alt forall t r. (l : r) : pu t =
 inl option forall t. (a : pu t) : pu (option t) = alt { Some = a; None = unit() }
 inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { Ok = a; Error = b }
 inl (++) forall t y. (a : pu t) (b : pu y) : pu (choice2 t y) = alt { C1of2 = a; C2of2 = b }
+inl (**) forall t y. (a : pu t) (b : pu y) : pu (t * y) = pair a b
 
 inl size (pu p) = p.size
 
-nominal binary_array t = array float
+open tensorm
+nominal binary_array t = tensor int float
 inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
-    inl ar = create p.size
-    loop.for' {from=0; nearTo=p.size} (fun i => set ar i 0)
-    p.pickle x (0,ar)
+    inl ar = tensor_create p.size
+    loop.for' {from=0; nearTo=p.size} (fun i => tensor_set i 0 ar)
+    p.pickle x (0,ptr_at_current_offset ar)
     binary_array ar
 
 inl deserialize forall t. (pu p : pu t) ~(binary_array x : binary_array t) : t =
-    inl x,c = p.unpickle (0,x)
+    inl x,c = p.unpickle (0,ptr_at_current_offset x)
     assert (c = 1) "Invalid format detected during deserialization."
     x
+
+open console
+instance printable binary_array t = fun (binary_array x) => console.write_ln x
+
+union card = King | Queen | Jack
+
+
+type game_state = {
+    stack : int
+    pot : int
+    card : card
+    }
+
+inl main() =
+    inl p_card = alt {
+        King = unit()
+        Queen = unit()
+        Jack = unit()
+    }
+    inl p : pu game_state = 
+        int 10 ** int 10 ** p_card
+        |> wrap {
+            out = fun stack, pot, card => {stack pot card}
+            inp = fun {stack pot card} => stack, pot, card
+            }
+    serialize p {stack=5; pot=8; card=King}
+    |> fun x => write_ln x . x
+    |> deserialize p 
+    |> write_ln
+    // inl r = {from= -20; nearTo=20}
+    // loop.for' r fun i =>
+        // serialize p (conv i) |> deserialize p |> write_ln
+    ()

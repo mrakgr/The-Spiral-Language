@@ -1,5 +1,3 @@
-open corebase
-
 inl prim x = real
     match x with
     | (x : i8) | (x : i16) | (x : i32) | (x : i64) => "%d", x
@@ -10,17 +8,7 @@ inl prim x = real
 
 prototype printable t : t -> ()
 
-inl rec write_sa forall dim el. (x : sa dim el) : () =
-    inl array_limit = 100
-    write "["
-    open sam
-    loop.for' {from=0; nearTo=min array_limit (length x)} (fun i =>
-        write (index x i)
-        if i + 1 < length x then write "; "
-        )
-    if length x > array_limit then write "; ..."
-    write "]"
-and inl write forall t. (x : t) : () = real
+inl rec write forall t. (x : t) : () = real
     inl rec write x = 
         open real_core
         inl p (a,b) = 
@@ -51,11 +39,15 @@ and inl write forall t. (x : t) : () = real
         | () => ()
         | x when symbol_is x => write (symbol_to_string x)
         | x => 
-            typecase `x with
-            | sa ~dim ~el => write_sa `dim `el x
-            | ~t =>
-                if prototype_has `t printable then printable `t x
-                else error_type "Unsupported type."
+            if union_is x then
+                inl body () = 
+                    if prototype_has `(`x) printable then printable `(`x) x
+                    else unbox x (fun (k,v) => write k . write "(" . write v . write ")")
+                if heap_union_is x && var_is x then (join body()) : bool 
+                else body()
+            elif nominal_is x && prototype_has `t printable then printable `t x
+            // elif layout_is x then write *x // TODO: Deal with all the layout type cases.
+            else error_type "Unsupported type."
             
     write x
 

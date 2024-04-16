@@ -13,11 +13,14 @@ modules:
         optionm
         monad
         arraym
+        console
         tensorm/
             utils*
             tensor_main-
+            printing
             partitionm
-        pickler    
+        sam
+        pickler
         
     corepython/
         
@@ -25,10 +28,8 @@ modules:
         base-
         rangem
         intrinsic
-        sam 
         random
         sortm
-        console
         tensor_cuda
         cupy
         thread_scope
@@ -37,8 +38,7 @@ modules:
         wmma
         pragma 
         cooperative_groups
-        printing
-
+        
     ml/
         matmul
         primitives

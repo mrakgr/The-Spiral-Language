@@ -1,5 +1,4 @@
 // The array template module. Generic functions for array like structures.
-open corebase
 open loop
 
 // Creates an empty array.
@@ -25,3 +24,15 @@ instance comparable sa dim el = generic_comparable
 
 // Initializes array using the given function.
 inl init forall dim el. f : sa dim el = init (real real_core.type_lit_to_lit `dim) f
+
+open console
+inl sa_print forall dim el. array_limit (x : sa dim el) : () =
+    write "["
+    loop.for' {from=0; nearTo=min array_limit (length x)} (fun i =>
+        write (index x i)
+        if i + 1 < length x then write "; "
+        )
+    if length x > array_limit then write "; ..."
+    write "]"
+
+instance printable sa dim el = sa_print 100

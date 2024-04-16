@@ -6,9 +6,6 @@ inl threads_per_block() : int = 512
 inl blocks_per_grid() : int = 1
 // inl blocks_per_grid() : int = sms_per_gpu()
 
-// Statically sized array with a type literal for a dimension.
-nominal sa dim el = array el
-
 // Base reference type
 nominal ref t = $"`t &"
 inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"

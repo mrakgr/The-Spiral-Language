@@ -134,7 +134,15 @@ inl apply_ptr forall dim el. (tensor {bodies dim} : tensor dim el) : tensor dim 
                     }
                 ) bodies
         }
-// inl apply_ptr forall dim el. (t : tensor dim el) : tensor dim el = t
+
+// Returns the pointer at the specified index. The tensor must be a singleton.
+inl ptr_at_current_offset forall dim el. (t : tensor dim el) : array el = 
+    inl (tensor {dim bodies}) = apply_ptr t
+    real map (fun x => x.array) bodies : array el
+
+// Returns the leading stride. The tensor must be a singleton.
+inl stride_fst forall b el. (tensor {dim bodies} : tensor (int * b) el) : int = real
+    map (fun (tensor_body {stride=a,_}) => a) bodies : int
 
 // The template function for the tensor view.
 inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) 

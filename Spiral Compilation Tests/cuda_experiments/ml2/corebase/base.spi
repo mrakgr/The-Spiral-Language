@@ -23,6 +23,9 @@ inl global (x : string) : () = !!!!Global(x)
 
 nominal array t = array_base t
 
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = array el
+
 // Creates an array.
 prototype create ar el : int -> ar el
 // Indexes into an array.
