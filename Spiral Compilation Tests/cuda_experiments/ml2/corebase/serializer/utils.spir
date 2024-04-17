@@ -1,0 +1,63 @@
+open real_core
+
+type ptr = array u8
+type size = u64
+type tag = i32
+
+inl rec offsets forall el. offset =
+    inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
+    inl align forall el. s = modup s (sizeof `el)
+    inl rec f forall el. =
+        open struct
+        infer_mapFold `el (forall el. s =>
+            if singleton_type_is `el then s, s
+            elif union_type_is `el then
+                inl tag, s = f `tag s
+                inl union_fields, s =
+                    union_to_record `el forall r. =>
+                    record_type_fold (fun (m,max_offset) key => forall value. =>
+                        inl value, new_offset = f `value s
+                        {m with $key=value}, max max_offset new_offset
+                        ) ({}, s) `r
+                (exists [] { tag union_fields }), s
+            elif prim_type_is `el then
+                inl s = align `el s
+                offset (exists [el] s), s + sizeof `el
+            else
+                print_static `el // TODO: Put in string interpolation into the language.
+                error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+            )
+    f `el (conv `size 0) |> fst
+
+inl ptr_at_offset ptr (exists t. offset) = 
+    backend_switch {
+        cuda = $"(`t *)(!ptr+!offset)" : array t
+        python = typecase cupy_type t with ~ct => $"!ptr[!offset:].view(`ct)" : array t
+    }
+
+inl deserialize forall t. (ptr : ptr) : t = offsets `t (fun offset => index (ptr_at_offset ptr offset) 0)
+inl serialize forall t. (ptr : ptr) (v : t) : () = 
+    inl rec f offsets =
+        open struct
+        iter2 (fun offset v =>
+            if singleton_is v then ()
+            elif union_is v then
+                inl (exists. { tag union_fields }) = offset
+                f tag (union_tag v)
+                !!!!Unbox(v,fun k,v => f (union_fields k) v)
+            elif prim_is v then
+                inl array = ptr_at_offset ptr offset
+                set array 0 v // We need to do this instead of setting the array directly in order to cast it to the correct type.
+            else
+                error_type "Unsupported type encountered during serialization."
+            ) offsets
+    f (offsets `t id) v
+
+
+union qwe =
+    | A : i32
+    | B : i8 * i8 * i32
+    | C
+
+inl main() : () =
+    print_static(offsets `(i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}) id)

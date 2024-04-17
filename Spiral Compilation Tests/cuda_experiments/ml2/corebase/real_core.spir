@@ -118,8 +118,12 @@ inl heap_union_is x = !!!!HeapUnionIs(x)
 inl layout_is x = !!!!LayoutIs(x)
 // Returns boolean whether the term is a nominal type.
 inl nominal_is x = !!!!NominalIs(x)
+// Returns boolean whether the term is a existential type.
+inl exists_is x = !!!!ExistsIs(x)
 // Returns boolean whether the term is a function.
 inl function_is x = !!!!FunctionIs(x)
+// Returns boolean whether the type is a symbol or an unit type.
+inl singleton_is x = (match x with () => true | _ => false) || !!!!SymbolIs(x)
 // Returns boolean whether the type has the relevant prototype.
 inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
 // Returns boolean whether the float is a Nan.
@@ -194,6 +198,10 @@ inl heap_union_type_is forall x. = !!!!HeapUnionTypeIs(`x)
 inl layout_type_is forall x. = !!!!LayoutTypeIs(`x)
 // Returns boolean whether the type is a nominal type.
 inl nominal_type_is forall x. = !!!!NominalTypeIs(`x)
+// Returns boolean whether the type is a existential type.
+inl exists_type_is x = !!!!ExistsTypeIs(x)
+// Returns boolean whether the type is a symbol or an unit type.
+inl singleton_type_is forall x. = (typecase x with () => true | _ => false) || !!!!SymbolTypeIs(`x)
 
 // Converts the term slots array of a compile time function into a tuple.
 inl function_term_slots_get a = !!!!FunctionTermSlotsGet(a)
@@ -214,6 +222,9 @@ inl union_to_record forall t. on_succ = !!!!UnionToRecord(`t,on_succ)
 
 // Strips the nominal wrapper from the value.
 inl nominal_strip x = !!!!NominalStrip(x)
+
+// Strips the existential wrapper from the value.
+inl exists_strip x = !!!!ExistsStrip(x)
 
 // Creates a nominal or an union type based on the input.
 inl nominal_create forall t. x = !!!!NominalCreate(x, `t)

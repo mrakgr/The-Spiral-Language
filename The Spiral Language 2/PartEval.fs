@@ -2122,6 +2122,10 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DFunction _ | DV(L(_,YFun _)) -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
+        | EOp(_,ExistsIs,[a]) ->
+            match term s a with
+            | DExists _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
         | EOp(_,PrimTypeIs,[EType(_,a)]) ->
             match ty s a with
             | YPrim _ -> DLit (LitBool true)
@@ -2148,6 +2152,10 @@ let peval (env : TopEnv) (x : E) =
             match ty s a with
             | YLayout _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
+        | EOp(_,ExistsTypeIs,[EType(_,a)]) ->
+            match ty s a with
+            | YExists -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
         | EOp(_,NominalTypeIs,[EType(_,a)]) ->
             match ty s a with
             | YNominal _ | YApply _ -> DLit (LitBool true)
@@ -2157,6 +2165,10 @@ let peval (env : TopEnv) (x : E) =
             | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> raise_type_error s "Cannot strip the nominal wrapper from an union."
             | DNominal(a,_) -> a
             | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_data a)
+        | EOp(_,ExistsStrip,[a]) -> 
+            match term s a with
+            | DExists(_,a) -> a
+            | a -> raise_type_error s <| sprintf "Expected an existential.\nGot: %s" (show_data a)
         | EOp(_,PrototypeHas,[prot; EType(_,a)]) ->
             let body (x : Nominal) =
                 let prot_er () = raise_type_error s "Expected a forall or a prototype apply."

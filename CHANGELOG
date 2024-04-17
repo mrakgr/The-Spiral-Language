@@ -1,3 +1,8 @@
+2.8.7 (4/17/2024)
+
+* The parser now allows for parsing of existentials with zero type variables.
+* Added the `ExistsStrip`, `ExistsTypeIs` and `ExistslIs` ops to the language.
+
 2.8.6 (4/15/2024)
 
 * Some changes to the readme and the Spiral config descriptions.

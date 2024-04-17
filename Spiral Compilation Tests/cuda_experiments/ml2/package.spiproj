@@ -20,6 +20,8 @@ modules:
             printing
             partitionm
         sam
+        serializer/
+            utils*
         pickler
         
     corepython/

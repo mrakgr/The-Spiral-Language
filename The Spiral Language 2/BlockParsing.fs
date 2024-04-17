@@ -57,7 +57,8 @@ type Op =
     | Dyn
 
     // Nominal 
-    | NominalCreate // Also creates the union
+    | NominalCreate // In addition to regular nominals, it can also creates unions
+    | NominalStrip
 
     // Union
     | Unbox
@@ -141,6 +142,7 @@ type Op =
     | LayoutIs
     | NominalIs
     | FunctionIs
+    | ExistsIs
     | PrototypeHas
 
     // Static Type Is
@@ -149,8 +151,8 @@ type Op =
     | UnionTypeIs
     | HeapUnionTypeIs
     | LayoutTypeIs
+    | ExistsTypeIs
     | NominalTypeIs
-    
 
     // Panic
     | FailWith
@@ -159,7 +161,7 @@ type Op =
     | PrintStatic
     | PrintRaw
     | ErrorType
-    | NominalStrip
+    | ExistsStrip
     | StringLitToSymbol
     | SymbolToString
     
@@ -765,12 +767,12 @@ let forall d =
         match List.append x x' with [] -> Ok q | er -> Error er
         ) d
 let pat_exists d = 
-    (skip_keyword SpecExists >>. many1 (range read_small_type_var) .>> skip_op "." 
+    (skip_keyword SpecExists >>. many (range read_small_type_var) .>> skip_op "." 
     >>= fun q _ -> 
         match duplicates DuplicateExistsVar q with [] -> Ok q | er -> Error er
         ) d
 let exists d = 
-    (skip_keyword SpecExists >>. many1 forall_var .>> skip_op "." 
+    (skip_keyword SpecExists >>. many forall_var .>> skip_op "." 
     >>= fun q _ -> 
         let x' = q |> List.collect (fun (_,l) -> duplicates DuplicateConstraint l)
         let x = q |> List.map (fun ((r,(a,_)),_) -> r,a) |> duplicates DuplicateExistsVar

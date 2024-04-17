@@ -12,7 +12,7 @@ inl rec size x : i32 =
     | _ when symbol_is x => 0
     | _ => 
         typecase `x with
-        | a _ ~t => 
+        | a _ ~t =>
             if prim_type_is `t then size_prim `i32 + size_prim `t * length `a `i32 `t x
             else am.fold `a `i32 `i32 `t (fun s x => s + size x) (size_prim `i32) x
         | string => size_prim `i32 + size_prim `char * sm.length `i32 x

@@ -1,4 +1,4 @@
 open real_pickle
 inl size forall t. (x : t) : i32 = real size x
-inl pickle forall t. (x : t) (state : mut i32 * a i32 u8) = real pickle x state
+inl pickle forall t. (x : t) (state : mut i32 * a i32 u8) : () = real pickle x state
 inl unpickle forall t. (state : mut i32 * a i32 u8) : t = real unpickle `t state
