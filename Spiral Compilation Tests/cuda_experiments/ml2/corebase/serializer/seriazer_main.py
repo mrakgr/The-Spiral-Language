@@ -18,7 +18,7 @@ class US0_2(NamedTuple): # C
     tag = 2
 US0 = Union[US0_0, US0_1, US0_2]
 def main():
-    v0 = cp.empty(256,dtype=cp.uint8)
+    v0 = cp.empty(32,dtype=cp.uint8)
     v2 = v0[0:].view(cp.int8)
     v3 = v2
     v3[0] = 1

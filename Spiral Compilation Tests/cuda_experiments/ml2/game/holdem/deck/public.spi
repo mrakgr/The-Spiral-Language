@@ -1,5 +1,6 @@
 open corebase
 open corecuda
+open sam
 open cardm
 
 // Draws a single card from a deck.
@@ -15,7 +16,7 @@ let draw_card rng deck : card * deck =
 // Draws an array of cards from a deck.
 let draw_cards forall dim. rng deck : sa dim card * deck =
     open sam
-    inl out : sa dim card = create
+    inl out : sa dim card = create'
     out, loop.for {from=0; nearTo=length out} (fun i deck =>
         inl card, deck = draw_card rng deck
         set out i card

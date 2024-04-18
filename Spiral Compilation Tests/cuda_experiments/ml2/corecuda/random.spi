@@ -70,11 +70,13 @@ inl sample_masked_bit_u32_2 (a,b : u32 * u32) (i : i32) =
 
 inl sample_masked_bit_u64 (x : u64) i = sample_masked_bit_u32_2 (conv x, conv (x >>> 32)) i
 
+open arraym
+open sam
+
 // Randomly samples an index of an action with replacement.
 // Takes in a unnormalized probability distribution as the first argument.
 // Returns the index of a randomly selected item inside it.
 let sample_discrete' forall dim. (dist : sa dim float) rng =
-    open arraym
     inl dist = scan_inclusive (+) dist
     inl sum = last dist
     inl r = uniform rng * sum
@@ -89,7 +91,6 @@ let sample_discrete' forall dim. (dist : sa dim float) rng =
 // Takes in a unnormalized probability distribution as the first argument.
 // Returns the index of a randomly selected item inside it.
 let sample_discrete forall dim el. (dist : sa dim (el * float)) rng =
-    open arraym
     inl i = sample_discrete' (map snd dist) rng
     fst (index dist i)
 

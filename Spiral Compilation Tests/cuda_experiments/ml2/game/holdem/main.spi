@@ -1,5 +1,6 @@
 open corebase
 open corecuda
+open sam
 open cardm
 
 type pid = i8
@@ -33,7 +34,7 @@ instance action random_player_env = fun (pl0,pl1,pid) cards config (random_playe
     inl raise x = 
         inl v = pot + x
         RaiseTo v, if pl1.pot + config.bb <= v && v <= config.stack_size then 0.25 else 0
-    inl actions : sa 8 (action * f32) = sam.fromList [
+    inl actions : sa 8 (action * f32) = arraym.fromList [
         Fold, if pl0.pot < pl1.pot then 1 else 0
         Call, 2
         raise (pot / 4)
@@ -86,11 +87,11 @@ instance showdown random_player_env = fun (pl0,pl1) community_cards env =>
     match pl0.hand, pl1.hand with
     | Some h0, Some h1 => 
         let score h0 = 
-            inl ar : sa 7 card = sam.create
-            inl f i x = sam.set ar i x . i+1
+            inl ar : sa 7 card = create'
+            inl f i x = set ar i x . i+1
             inl i = listm.fold f 0 [fst h0; snd h0]
             inl i = listm.fold f i community_cards
-            if i <> sam.length ar then error_type "The length of the array needs to be the same as the length community cards"
+            if i <> length ar then error_type "The length of the array needs to be the same as the length community cards"
             hand_scorer.score ar
         inl h0, h1 = score h0, score h1
         inl r =

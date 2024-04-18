@@ -1,0 +1,14 @@
+open corebase
+open serializer
+
+union qwe =
+    | A : i32
+    | B : i8 * i8 * i32
+    | C
+
+type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
+inl main() =
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+    serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+    deserialize offsets ptr

@@ -1,6 +1,8 @@
 open corebase
 open corecuda
 open type_arith
+open arraym
+open sam
 open cardm
 
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)

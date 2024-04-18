@@ -74,4 +74,3 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                 error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
             ) offsets
     f offsets
-

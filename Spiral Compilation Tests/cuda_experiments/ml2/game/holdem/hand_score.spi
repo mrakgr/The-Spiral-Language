@@ -1,5 +1,6 @@
 open corebase
 open corecuda
+open sam
 open cardm
 
 nominal hand_score = { score : i8; hand : sa 5 card }

@@ -19,7 +19,6 @@ modules:
             tensor_main-
             printing
             partitionm
-        sam
         serializer/
             types-
             utils*
@@ -30,6 +29,7 @@ modules:
         
     corecuda/
         base-
+        sam
         rangem
         intrinsic
         random
@@ -42,6 +42,8 @@ modules:
         wmma
         pragma 
         cooperative_groups
+        tests/
+            serializer 
         
     ml/
         matmul
@@ -66,5 +68,3 @@ modules:
 
         leduc/
             main
-
-    serializer_gpu_test
