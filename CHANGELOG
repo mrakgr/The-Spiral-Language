@@ -1,6 +1,7 @@
 2.8.8 (4/18/2024)
 
 * Implemented the Failwith case in the Cuda backend. Now exceptions can be raised there.
+* Improved the error message for real functions in top down segment.
 
 2.8.7 (4/17/2024)
 

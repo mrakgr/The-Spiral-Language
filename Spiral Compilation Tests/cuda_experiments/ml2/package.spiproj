@@ -21,6 +21,7 @@ modules:
             partitionm
         sam
         serializer/
+            types-
             utils*
             seriazer_main-
         pickler

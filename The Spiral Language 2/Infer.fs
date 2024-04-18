@@ -552,7 +552,7 @@ let show_type_error (env : TopEnv) x =
     | ModuleIndexFailed a -> sprintf "The module does not have the key: %s" a
     | ExpectedModule a -> sprintf "Expected a module.\nGot: %s" (f a)
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
-    | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment."
+    | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment. They can only be used in `real` expressions or .spir modules."
     | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
     | CasePatternNotFoundForType(i,n) -> sprintf "%s does not have the %s case." (show_nominal env i) n
     | CasePatternNotFound n -> sprintf "Cannot find a function with the same name as the %s case in the environment." n

@@ -1,6 +1,6 @@
 open utils
-// nominal offset_data t = `(offsets `t)
 
-// inl offsets forall t. : offset_data t =
+inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
+inl serialize forall el. (offsets : offsets el) (ptr : ptr) (v : el) : () = real serialize offsets ptr v
+inl deserialize forall el. (offsets : offsets el) (ptr : ptr) : el = real deserialize offsets ptr
 
-inl serialize ()

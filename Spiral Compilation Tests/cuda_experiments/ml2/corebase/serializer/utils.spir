@@ -4,7 +4,7 @@ type ptr = array u8
 type size = u64
 type tag = i32
 
-inl rec offsets forall el. =
+inl calculate_offsets forall el. =
     inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
     inl align forall el. s = modup s (sizeof `el)
     inl rec f forall el. =
@@ -35,7 +35,8 @@ inl ptr_at_offset (ptr : ptr) (exists t. offset) =
         python = fun () => typecase cupy_type t with ~ct => $"!ptr[!offset:].view(`ct)" : array t
     }
 
-inl serialize forall t. offsets (ptr : ptr) (v : t) : () = 
+nominal offsets t = `(calculate_offsets `t)
+inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
     inl rec f offsets =
         open struct
         iter2 (fun (exists el. offset) v =>
@@ -52,7 +53,7 @@ inl serialize forall t. offsets (ptr : ptr) (v : t) : () =
             ) offsets
     f offsets v
 
-inl deserialize forall el. offsets (ptr : ptr) : el = 
+inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el = 
     inl rec f offsets =
         open struct
         map (fun (exists el. offset) =>
