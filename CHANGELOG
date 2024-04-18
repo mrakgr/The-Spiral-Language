@@ -1,3 +1,7 @@
+2.8.8 (4/18/2024)
+
+* Implemented the Failwith case in the Cuda backend. Now exceptions can be raised there.
+
 2.8.7 (4/17/2024)
 
 * The parser now allows for parsing of existentials with zero type variables.

@@ -1,0 +1,13 @@
+open corebase
+open serializer
+
+union qwe =
+    | A : i32
+    | B : i8 * i8 * i32
+    | C
+
+type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
+inl main() =
+    inl ptr = create `array `u8 256
+    serialize `t ptr (1i8, 2i8, 4i32, C, {a = .hello; b = 234.5f32; c = 12f64})
+    deserialize `t ptr

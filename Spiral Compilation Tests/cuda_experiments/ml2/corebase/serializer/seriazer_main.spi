@@ -1,0 +1,6 @@
+open utils
+// nominal offset_data t = `(offsets `t)
+
+// inl offsets forall t. : offset_data t =
+
+inl serialize ()

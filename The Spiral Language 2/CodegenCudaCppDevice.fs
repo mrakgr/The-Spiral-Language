@@ -392,7 +392,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | TyLayoutHeapMutableSet(L(i,t),b,c) -> raise_codegen_error "Cannot set a value into a layout type in the Cuda C++ backend due to them needing to be heap allocated."
         | TyArrayLiteral(a,b') -> raise_codegen_error "Compiler error: TyArrayLiteral should have been taken care of in TyLet."
         | TyArrayCreate(a,b) ->  raise_codegen_error "Compiler error: TyArrayCreate should have been taken care of in TyLet."
-        | TyFailwith(a,b) -> raise_codegen_error "Failwith is not supported in the Cuda C++ backend."
+        | TyFailwith(a,b) ->
+            let string_in_op = function DLit (LitString b) -> lit_string b | b -> raise_codegen_error "In the Cuda backend, the exception string must be a literal."
+            let fmt = @"%s\n"
+            line s $"printf(\"{fmt}\", {string_in_op b});"
+            line s "asm(\"exit;\");" // TODO: Print out the error traces as well.
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 
             let rec loop = function
