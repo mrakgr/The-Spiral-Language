@@ -18,7 +18,7 @@ union qwe =
     | C
 
 type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
-inl main() =
+inl main() = // host only
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
     serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)

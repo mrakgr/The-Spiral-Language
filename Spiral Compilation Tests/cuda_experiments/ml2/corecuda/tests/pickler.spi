@@ -1,0 +1,38 @@
+open corebase
+open console
+open pickler
+
+union card = King | Queen | Jack
+union action = Raise | Fold | Call
+
+type game_state = {
+    stack : int
+    pot : int
+    card : card 
+    action_history : tensorm.tensor int action
+    }
+
+inl main() =
+    run fun _ =>
+        if rangem.threads_in_grid().from = 0 then
+            inl p_card = alt {
+                King = unit()
+                Queen = unit()
+                Jack = unit()
+            }
+            inl p_action = alt {
+                Raise = unit()
+                Fold = unit()
+                Call = unit()
+            }
+            inl p : pu game_state = 
+                int 10 ** int 10 ** p_card ** array 5 p_action
+                |> wrap {
+                    out = fun stack, pot, card, action_history => {stack pot card action_history}
+                    inp = fun {stack pot card action_history} => stack, pot, card, action_history
+                    }
+            serialize p {stack=5; pot=8; card=King; action_history=tensorm.fromList [Raise; Raise; Call]}
+            // |> fun x => write_ln x . x
+            |> deserialize p
+            |> write_ln
+            ()

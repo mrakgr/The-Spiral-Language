@@ -43,7 +43,8 @@ modules:
         pragma 
         cooperative_groups
         tests/
-            serializer 
+            serializer
+            pickler
         
     ml/
         matmul

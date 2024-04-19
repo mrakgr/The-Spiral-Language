@@ -15,6 +15,11 @@ nominal tensor dim el = {
 // Create a tensor from an array.
 inl fromArray forall t. (x : array t) : tensor int t = tensor {dim = length x; bodies = real tensor_body `int `t {array = x; stride = 1; offset = 0}}
 
+// Create a tensor from a list.
+inl fromList forall t. (x : list t) : tensor int t = 
+    inl array : array t = arraym.fromList x
+    tensor {dim = listm.length x; bodies = real tensor_body `int `t {array stride = 1; offset = 0}}
+
 // Overloads the ;[] array constructor.
 inl array forall t. (x : array_base t) : tensor int t = fromArray (array x)
 

@@ -7,8 +7,41 @@ union qwe =
     | C
 
 type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
-inl main() =
+inl test1() = // gpu only
+    run' {shared_mem=0} fun () =>
+        if rangem.threads_in_grid().from = 0 then
+            inl offsets = calculate_offsets
+            inl ptr = create conv(offsets_size offsets)
+            serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+            deserialize offsets ptr
+            |> console.write_ln
+
+inl test2() = // host to gpu
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
+    inl print() =
+        loop.for' {from=0; nearTo=offsets_size offsets} fun i =>
+            index ptr (conv i) |> console.write_ln
     serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
     deserialize offsets ptr
+    |> console.write_ln
+    // print()
+    run' {shared_mem=0} fun () =>
+        if rangem.threads_in_grid().from = 0 then
+            // print()
+            deserialize offsets ptr
+            |> console.write_ln
+
+inl test3() = // host to gpu
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+    run' {shared_mem=0} fun () =>
+        if rangem.threads_in_grid().from = 0 then
+            serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+            deserialize offsets ptr
+            |> console.write_ln
+
+    deserialize offsets ptr
+    |> console.write_ln
+
+inl main() = test3()

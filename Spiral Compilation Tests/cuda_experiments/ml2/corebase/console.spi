@@ -42,7 +42,12 @@ inl rec write forall t. (x : t) : () = real
             if union_is x then
                 inl body () = 
                     if prototype_has `(`x) printable then printable `(`x) x
-                    else unbox x (fun (k,v) => write k . write "(" . write v . write ")")
+                    else unbox x (fun (k,v) => 
+                        write k
+                        match v with
+                        | () => ()
+                        | _ => write "(" . write v . write ")"
+                        )
                 if heap_union_is x && var_is x then (join body()) : bool 
                 else body()
             elif nominal_is x && prototype_has `(`x) printable then printable `(`x) x

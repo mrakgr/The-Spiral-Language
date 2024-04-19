@@ -1,3 +1,7 @@
+2.8.9 (4/18/2024)
+
+* Fixed a bug where i8 types weren't being printed correctly on the Cuda side.
+
 2.8.8 (4/18/2024)
 
 * Implemented the Failwith case in the Cuda backend. Now exceptions can be raised there.

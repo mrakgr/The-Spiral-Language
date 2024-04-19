@@ -192,38 +192,3 @@ inl deserialize forall t. (pu p : pu t) ~(binary_array x : binary_array t) : t =
 open console
 instance printable binary_array t = fun (binary_array x) => console.write_ln x
 
-union card = King | Queen | Jack
-union action = Raise | Fold | Call
-
-type game_state = {
-    stack : int
-    pot : int
-    card : card 
-    action_history : tensorm.tensor int action
-    }
-
-inl main() =
-    inl p_card = alt {
-        King = unit()
-        Queen = unit()
-        Jack = unit()
-    }
-    inl p_action = alt {
-        Raise = unit()
-        Fold = unit()
-        Call = unit()
-    }
-    inl p : pu game_state = 
-        int 10 ** int 10 ** p_card ** array 5 p_action
-        |> wrap {
-            out = fun stack, pot, card, action_history => {stack pot card action_history}
-            inp = fun {stack pot card action_history} => stack, pot, card, action_history
-            }
-    serialize p {stack=5; pot=8; card=King; action_history=open tensorm in ;[Raise; Raise; Call]}
-    |> fun x => write_ln x . x
-    |> deserialize p
-    |> write_ln
-    // inl r = {from= -20; nearTo=20}
-    // loop.for' r fun i =>
-        // serialize p (conv i) |> deserialize p |> write_ln
-    ()
