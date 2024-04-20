@@ -1,10 +1,14 @@
-from flask import Flask, current_app
+from core import socketio, app
+from routes import main_page
+from namespace.game import GameNamespace
 
-app = Flask(__name__,static_url_path="")
+def run_debug(): 
+    """
+    Runs the applicaation in debug mode with SocketIO support.
+    """
+    socketio.run(app,debug=True)
+    
+app.register_blueprint(main_page)
+socketio.on_namespace(GameNamespace('/game'))
 
-@app.route("/")
-def hello():
-    return current_app.send_static_file("index.html")
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == "__main__": run_debug()
