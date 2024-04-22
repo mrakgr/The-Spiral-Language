@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "npm run watch",
+            "label": "Watch TS Files",
             "type": "shell",
             "command": "npm",
             "args": [
@@ -16,7 +16,7 @@
             "group": "build"
         },
         {
-            "label": "poetry shell & python backend/main.py",
+            "label": "Start Flask Server",
             "type": "shell",
             "command": "poetry",
             "args": [
@@ -31,10 +31,10 @@
             "group": "build"
         },
         {
-            "label": "Run frontend & backend",
+            "label": "Watch Frontend & Run Backend",
             "dependsOn": [
-                "npm run watch",
-                "poetry shell & python backend/main.py"
+                "Watch TS Files",
+                "Start Flask Server"
             ],
             "problemMatcher": [],
             "group": {
