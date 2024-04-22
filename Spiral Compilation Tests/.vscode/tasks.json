@@ -1,0 +1,46 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "npm run watch",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "watch"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/cuda_experiments/ml2/ui"
+            },
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "poetry shell & python backend/main.py",
+            "type": "shell",
+            "command": "poetry",
+            "args": [
+                "run",
+                "python", 
+                "backend/main.py",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/cuda_experiments/ml2/ui"
+            },
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
+            "label": "Run frontend & backend",
+            "dependsOn": [
+                "npm run watch",
+                "poetry shell & python backend/main.py"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+  }

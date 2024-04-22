@@ -1,9 +1,0 @@
-{
-    "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe",
-    "python.autoComplete.extraPaths": [
-        "./cython_experiments/ui_holdem16 (static copies)"
-    ],
-    "python.analysis.extraPaths": [
-        "./cython_experiments/ui_holdem16 (static copies)"
-    ]
-}
