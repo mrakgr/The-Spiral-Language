@@ -22,34 +22,8 @@ type UI_State = {
 // Creates a span with the specified gap in pixels.
 const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></span>`
 
-@customElement('spiral-ui')
-class Spiral_UI extends LitElement {
-    static styles = css`
-        :host {
-            display: block;
-            box-sizing: border-box;
-            height: 100vh;
-            padding: 8px;
-            border: 6px solid;
-            border-color: #5b0000;
-            border-radius: 3px;
-        }
-
-        .main {
-            display: flex;
-            flex-direction: row;
-            height: 100%;
-            box-sizing: border-box;
-        }
-
-        rps-menu {
-            flex: 1;
-        }
-
-        .game-area {
-            flex: 6;
-        }
-    `
+@customElement('rps-ui')
+class RPS_UI extends LitElement {
 
     @property({type: Object}) state : UI_State = {
         pl_type: ["Computer", "Human"]
@@ -68,15 +42,44 @@ class Spiral_UI extends LitElement {
         })
     }
 
+    static styles = css`
+        :host {
+            display: flex;
+            flex-direction: row;
+            box-sizing: border-box;
+            height: 100vh;
+            padding: 8px;
+            border: 6px solid;
+            border-color: #5b0000;
+            border-radius: 3px;
+        }
+        
+        rps-menu {
+            flex: 1;
+        }
+        
+        .game_area {
+            display: flex;
+            flex-direction: column;
+            flex: 6;
+        }
+
+        rps-game {
+            flex: 6;
+        }
+        
+        rps-history {
+            flex: 1;
+        }
+    `
     render(){
         return html`
-            <div class='main'>
-                <rps-menu .pl_type=${this.state.pl_type}></rps-menu>
+            <rps-menu .pl_type=${this.state.pl_type}></rps-menu>
+            ${gap(10)}
+            <div class="game_area">
+                <rps-game></rps-game>
                 ${gap(10)}
-                <div class='game-area'>
-                    Game Area
-                </div>
-                <div></div>
+                <rps-history></rps-history>
             </div>
         `
     }
@@ -88,6 +91,27 @@ class RPS_Element extends LitElement {
     }
 }
 
+@customElement('rps-game')
+class RPS_Game extends RPS_Element {
+    static styles = css`
+        :host {
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            background-color: white;
+            padding: 4px;
+            border: 3px solid;
+            border-radius: 5px;
+            font-size: 2em;
+        }
+    `
+
+    render() {
+        return html`
+            
+            `
+    }
+}
 @customElement('rps-menu')
 class RPS_Menu extends RPS_Element {
     static styles = css`
@@ -147,45 +171,32 @@ class RPS_Menu extends RPS_Element {
     }
 }
 
-@customElement('rps-game')
-class RPS_Game extends RPS_Element {
-    static styles = css`
-        :host {
-            display: block;
-            background-color: #d7d7d7;
-            padding: 4px;
-            border: 3px solid;
-            border-radius: 5px;
-            min-height: 80vh;
-        }
-
-        button {
-            width: 100%;
-        }
-    `
-    
-    start_game = () => this.dispatch_rps_event(['start_game', true])
-
-    render() {
-        return html`
-            <button @click=${this.start_game}>Start Game</button>
-        `
-    }
-}
-
 @customElement('rps-history')
 class RPS_History extends RPS_Element {
     static styles = css`
         :host {
-            display: block;
-            background-color: #d7d7d7;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            background-color: white;
             padding: 4px;
             border: 3px solid;
             border-radius: 5px;
+            font-size: 2em;
+            overflow: auto;
+        }
+
+        div {
+            color: gray;
         }
     `
 
-    @property({type: Array}) messages : string [] = []
+    @property({type: Array}) messages : string [] = ["qwe", "asd"]
+
+    protected updated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+        // Scroll the message window to the bottom on ever new message.
+        this.scrollTo({top: this.scrollHeight});
+    }
     
     render() {
         return html`
