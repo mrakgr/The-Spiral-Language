@@ -15,17 +15,9 @@ type RPS_Events =
     | ['start_game', true]
     | ['player_changed', RPS_Players[]]
 
-
-// type RPS_State = 
-//     | ["game_done", {
-//         player_1_action : RPS_Actions
-//         player_2_action : RPS_Actions
-//     }]
-//     | ["game_not_started", true]
-//     | ["game_waiting", {
-//         player_1_action : RPS_Actions | null
-//         player_2_action : RPS_Actions | null
-//     }]
+type UI_State = {
+    pl_type : RPS_Players[];
+}
 
 // Creates a span with the specified gap in pixels.
 const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></span>`
@@ -59,36 +51,27 @@ class Spiral_UI extends LitElement {
         }
     `
 
-    @property({type: Array}) pl_type : RPS_Players[] = ["Computer", "Human"];
+    @property({type: Object}) state : UI_State = {
+        pl_type: ["Computer", "Human"]
+    };
 
-    on_rps = ([tag, arg] : RPS_Events) => {
-        switch (tag){
-            case "player_changed":
-                this.pl_type = arg;
-                break;
-            case 'start_game':
-                break;
-            default:
-                assert_tag_is_never(tag);
-        }
-    }
-
+    socket = io('/game')
     constructor(){
         super()
-        const socket = io('/game');
-        socket.on('connect', function() {
-            socket.emit('update', {data: `I'm connected!`});
+        this.socket.on('update', (state) => {
+            console.log(state);
+            this.state = state;
         });
         this.addEventListener('rps', (ev) => {
             ev.stopPropagation();
-            this.on_rps((ev as CustomEvent<RPS_Events>).detail)
+            this.socket.emit('update', (ev as CustomEvent<RPS_Events>).detail);
         })
     }
 
     render(){
         return html`
             <div class='main'>
-                <rps-menu .pl_type=${this.pl_type}></rps-menu>
+                <rps-menu .pl_type=${this.state.pl_type}></rps-menu>
                 ${gap(10)}
                 <div class='game-area'>
                     Game Area
