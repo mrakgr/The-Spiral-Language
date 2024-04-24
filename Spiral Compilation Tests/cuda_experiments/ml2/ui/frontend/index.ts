@@ -91,8 +91,14 @@ class RPS_Element extends LitElement {
     }
 }
 
+type RPS_Game_State = 
+    | ["game_not_started", true]
+    | ["waiting_for_player", true]
+
 @customElement('rps-game')
 class RPS_Game extends RPS_Element {
+    @property({type: Array}) state : RPS_Game_State = ["waiting_for_player", true]
+
     static styles = css`
         :host {
             display: flex;
@@ -103,12 +109,46 @@ class RPS_Game extends RPS_Element {
             border: 3px solid;
             border-radius: 5px;
             font-size: 2em;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .actions {
+            flex-direction: row;
+        }
+
+        button {
+            font-size: inherit;
         }
     `
 
+    render_state(){
+        const [tag,arg] = this.state
+        switch (tag){
+            case "game_not_started": return html`
+                <div>
+                    Please start the game...
+                </div>
+            `
+            case "waiting_for_player": return html`
+                <div>
+                    This is here for centering to work.
+                </div>
+                <div>
+                    Game in progress...
+                </div>
+                <div class="actions">
+                    <button>Rock</button>
+                    <button>Paper</button>
+                    <button>Scissors</button>
+                </div>
+            `
+        }
+    }
+
     render() {
         return html`
-            
+            ${this.render_state()}
             `
     }
 }
@@ -119,12 +159,13 @@ class RPS_Menu extends RPS_Element {
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
-            background-color: #d7d7d7;
+            background-color: hsl(0,100%,98%);
             padding: 4px;
             border: 3px solid;
             border-radius: 5px;
             height: 100%;
             font-size: 2em;
+            align-items: center;
         }
 
         button {
