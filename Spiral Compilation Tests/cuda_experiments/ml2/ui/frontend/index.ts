@@ -64,7 +64,7 @@ class Spiral_UI extends LitElement {
     on_rps = ([tag, arg] : RPS_Events) => {
         switch (tag){
             case "player_changed":
-                this.pl_type = [];
+                this.pl_type = arg;
                 break;
             case 'start_game':
                 break;
@@ -85,19 +85,9 @@ class Spiral_UI extends LitElement {
         })
     }
 
-    @property({type: Number}) idx = 0
-
-    on_wtf = () => {
-        this.pl_type = ["wer"] as any
-        this.idx = this.idx + 1
-    }
-    
     render(){
         return html`
             <div class='main'>
-                ${this.pl_type}
-                ${this.idx}
-                <button @click=${this.on_wtf}>WTF</button>
                 <rps-menu .pl_type=${this.pl_type}></rps-menu>
                 ${gap(10)}
                 <div class='game-area'>
@@ -149,10 +139,6 @@ class RPS_Menu extends RPS_Element {
         this.dispatch_rps_event(["player_changed", pl_type])
     }
 
-    on_print = () => {
-        console.log(this.pl_type);
-    }
-
     render() {
         return html`
             <div>
@@ -174,16 +160,12 @@ class RPS_Menu extends RPS_Element {
                     <option value="Human">Human</option>
                 </select>
             </div>
-            <div>
-                <button @click=${this.on_print}>Print pls</button>
-            </div>
             `
     }
 }
 
 @customElement('rps-game')
 class RPS_Game extends RPS_Element {
-
     static styles = css`
         :host {
             display: block;
@@ -197,7 +179,6 @@ class RPS_Game extends RPS_Element {
         button {
             width: 100%;
         }
-
     `
     
     start_game = () => this.dispatch_rps_event(['start_game', true])
@@ -211,7 +192,6 @@ class RPS_Game extends RPS_Element {
 
 @customElement('rps-history')
 class RPS_History extends RPS_Element {
-
     static styles = css`
         :host {
             display: block;
