@@ -41,7 +41,7 @@ class RPS_UI extends LitElement {
     socket = io('/game')
     constructor(){
         super()
-        this.socket.on('update', (state) => {
+        this.socket.on('update', (state : UI_State) => {
             this.state = state;
         });
         this.addEventListener('rps', (ev) => {
