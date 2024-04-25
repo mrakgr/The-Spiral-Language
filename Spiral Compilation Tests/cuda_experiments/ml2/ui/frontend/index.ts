@@ -7,16 +7,24 @@ import {io} from 'socket.io-client'
 const assert_tag_is_never = (tag : never): never => { throw new Error("Invalid tag.")};
 const assert_type_in = <T>(x : T, in_ : T[]): T => in_.includes(x) ? x : (() => { throw Error("The element in not in the list.") })()
 
-type RPS_Actions = "Rock" | "Paper" | "Scissors"
+type RPS_Action = "Rock" | "Paper" | "Scissors"
 type RPS_Players = "Computer" | "Human"
 const rps_players : RPS_Players[] = ["Computer", "Human"]
 
 type RPS_Events = 
     | ['start_game', true]
     | ['player_changed', RPS_Players[]]
+    | ['action_selected', RPS_Action]
+
+type RPS_Game_State = 
+    | ["game_not_started", true]
+    | ["waiting_for_action_from_player_id", number]
+    | ["game_over", RPS_Action[]]
 
 type UI_State = {
     pl_type : RPS_Players[];
+    game_state : RPS_Game_State;
+    messages : string[];
 }
 
 // Creates a span with the specified gap in pixels.
@@ -24,16 +32,16 @@ const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></s
 
 @customElement('rps-ui')
 class RPS_UI extends LitElement {
-
     @property({type: Object}) state : UI_State = {
-        pl_type: ["Computer", "Human"]
+        pl_type: ["Computer", "Human"],
+        game_state: ["game_not_started", true],
+        messages: ["Waiting to start the game..."]
     };
 
     socket = io('/game')
     constructor(){
         super()
         this.socket.on('update', (state) => {
-            console.log(state);
             this.state = state;
         });
         this.addEventListener('rps', (ev) => {
@@ -77,9 +85,9 @@ class RPS_UI extends LitElement {
             <rps-menu .pl_type=${this.state.pl_type}></rps-menu>
             ${gap(10)}
             <div class="game_area">
-                <rps-game></rps-game>
+                <rps-game .state=${this.state.game_state}></rps-game>
                 ${gap(10)}
-                <rps-history></rps-history>
+                <rps-history .messages=${this.state.messages}></rps-history>
             </div>
         `
     }
@@ -91,67 +99,6 @@ class RPS_Element extends LitElement {
     }
 }
 
-type RPS_Game_State = 
-    | ["game_not_started", true]
-    | ["waiting_for_player", true]
-
-@customElement('rps-game')
-class RPS_Game extends RPS_Element {
-    @property({type: Array}) state : RPS_Game_State = ["waiting_for_player", true]
-
-    static styles = css`
-        :host {
-            display: flex;
-            flex-direction: column;
-            box-sizing: border-box;
-            background-color: white;
-            padding: 4px;
-            border: 3px solid;
-            border-radius: 5px;
-            font-size: 2em;
-            align-items: center;
-            justify-content: space-between
-        }
-
-        .actions {
-            flex-direction: row;
-        }
-
-        button {
-            font-size: inherit;
-        }
-    `
-
-    render_state(){
-        const [tag,arg] = this.state
-        switch (tag){
-            case "game_not_started": return html`
-                <div>
-                    Please start the game...
-                </div>
-            `
-            case "waiting_for_player": return html`
-                <div>
-                    This is here for centering to work.
-                </div>
-                <div>
-                    Game in progress...
-                </div>
-                <div class="actions">
-                    <button>Rock</button>
-                    <button>Paper</button>
-                    <button>Scissors</button>
-                </div>
-            `
-        }
-    }
-
-    render() {
-        return html`
-            ${this.render_state()}
-            `
-    }
-}
 @customElement('rps-menu')
 class RPS_Menu extends RPS_Element {
     static styles = css`
@@ -165,6 +112,12 @@ class RPS_Menu extends RPS_Element {
             border-radius: 5px;
             height: 100%;
             font-size: 2em;
+            align-items: center;
+        }
+
+        div {
+            display: flex;
+            flex-direction: column;
             align-items: center;
         }
 
@@ -245,5 +198,83 @@ class RPS_History extends RPS_Element {
                 <div>${x}</div>
             `)}
         `
+    }
+}
+
+
+@customElement('rps-game')
+class RPS_Game extends RPS_Element {
+    @property({type: Array}) state : RPS_Game_State = ["game_not_started", true]
+
+    on_action = (action : RPS_Action) => () => {
+        this.dispatch_rps_event(["action_selected", action])
+    }
+
+    static styles = css`
+        :host {
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            background-color: white;
+            padding: 4px;
+            border: 3px solid;
+            border-radius: 5px;
+            font-size: 2em;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .actions {
+            flex-direction: row;
+        }
+
+        button {
+            font-size: inherit;
+        }
+    `
+
+    render_state(){
+        const [tag,arg] = this.state
+        const f_true = html`
+            <div>
+                The opponent is pondering...
+            </div>
+        `
+        const f_false = html`
+            <div class="actions">
+                <button @click=${this.on_action("Rock")}>Rock</button>
+                <button @click=${this.on_action("Paper")}>Paper</button>
+                <button @click=${this.on_action("Scissors")}>Scissors</button>
+            </div>
+        `
+        const f = (c : boolean) => c ? f_true : f_false;
+        switch (tag){
+            case "game_not_started": return html`
+                <div>
+                    Please start the game...
+                </div>
+            `
+            case "waiting_for_action_from_player_id": return html`
+                ${f(arg === 0)}
+                <div>
+                    Game in progress...
+                </div>
+                ${f(arg === 1)}
+                `
+            case "game_over": return html`
+                <div>
+                    ${arg[0]}
+                </div>
+                <div>
+                    ${arg[1]}
+                </div>
+            `
+        }
+    }
+
+    render() {
+        return html`
+            ${this.render_state()}
+            `
     }
 }
