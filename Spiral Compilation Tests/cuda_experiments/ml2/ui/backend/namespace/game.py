@@ -64,7 +64,10 @@ class GameNamespace(Namespace):
             import random
             return random.choice(["Rock", "Paper", "Scissors"])
 
-        def game_step(action : RPS_Action | None):
+        def game_step(action : RPS_Action | None = None):
+            """
+            The game loop. The action passed into it should only be from the UI, all the other cases are None.
+            """
             match ui_state["game_state"]:
                 case ("game_not_started", _) | ("game_over", _):
                     pass
@@ -76,7 +79,7 @@ class GameNamespace(Namespace):
                             action = random_action()
                             ui_state["game_state"] = ("waiting_for_action_from_player_id", id+1)
                             game_state["past_actions"] = [*game_state["past_actions"], action]
-                            game_step(action)
+                            game_step()
                         case "Human":
                             match action:
                                 case None:
@@ -84,6 +87,7 @@ class GameNamespace(Namespace):
                                 case _:
                                     ui_state["game_state"] = ("waiting_for_action_from_player_id", id+1)
                                     game_state["past_actions"] = [*game_state["past_actions"], action]
+                                    game_step()
                         case t:
                             assert_never(t)
                 case ("waiting_for_action_from_player_id", _):
@@ -110,12 +114,12 @@ class GameNamespace(Namespace):
         match msg:
             case ["player_changed", pl_type]:
                 ui_state["pl_type"] = pl_type
-                game_step(None)
+                game_step()
             case ["start_game", _]:
                 ui_state["game_state"] = ("waiting_for_action_from_player_id", 0)
                 ui_state["messages"] = ["Rock-Paper-Scissors!"]
                 game_state["past_actions"] = []
-                game_step(None)
+                game_step()
             case ["action_selected", action]:
                 game_step(action)
             case t:

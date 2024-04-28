@@ -147,7 +147,7 @@ class RPS_Menu extends RPS_Element {
             </div>
             ${gap(10)}
             <div>
-                <label for="pl1">Player 1:</label>
+                <label for="pl1">Player 0:</label>
                 <select name="pl1" id="pl1" .value=${live(this.pl_type[0])} @change=${this.on_change(0)}>
                     <option value="Computer">Computer</option>
                     <option value="Human">Human</option>
@@ -155,7 +155,7 @@ class RPS_Menu extends RPS_Element {
             </div>
             ${gap(10)}
             <div>
-                <label for="pl2">Player 2:</label>
+                <label for="pl2">Player 1:</label>
                 <select name="pl2" id="pl2" .value=${live(this.pl_type[1])} @change=${this.on_change(1)}>
                     <option value="Computer">Computer</option>
                     <option value="Human">Human</option>
@@ -235,12 +235,12 @@ class RPS_Game extends RPS_Element {
 
     render_state(){
         const [tag,arg] = this.state
-        const f_true = html`
+        const f_false = html`
             <div>
                 The opponent is pondering...
             </div>
         `
-        const f_false = html`
+        const f_true = html`
             <div class="actions">
                 <button @click=${this.on_action("Rock")}>Rock</button>
                 <button @click=${this.on_action("Paper")}>Paper</button>
@@ -248,6 +248,7 @@ class RPS_Game extends RPS_Element {
             </div>
         `
         const f = (c : boolean) => c ? f_true : f_false;
+
         switch (tag){
             case "game_not_started": return html`
                 <div>
