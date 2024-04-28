@@ -38,25 +38,27 @@ def main_init() -> Main_State: return {
     "ui_state": ui_init(),
     "game_state": game_init()
 }
-user_state : dict[str, Main_State] = {}
 def assert_never(x : Never) -> Never: raise TypeError(f"Unexpected tag.\nGot: ${x}")
 
+
 class GameNamespace(Namespace):
+    user_state : dict[str, Main_State] = {}
+
     def sid(self) -> str: return request.sid # type: ignore
     def emit_update(self, data: UI_State): emit('update', data)
 
     def on_connect(self):
         print(f'Client connected: {self.sid()}')
         state = main_init()
-        user_state[self.sid()] = state
+        GameNamespace.user_state[self.sid()] = state
         self.emit_update(state["ui_state"])
 
     def on_disconnect(self):
-        user_state.pop(self.sid())
+        GameNamespace.user_state.pop(self.sid())
         print(f'Client disconnected: {self.sid()}')
 
     def on_update(self, msg : RPS_Events):
-        state = user_state[self.sid()]
+        state = GameNamespace.user_state[self.sid()]
         ui_state = state["ui_state"]
         game_state = state["game_state"]
 
@@ -91,7 +93,7 @@ class GameNamespace(Namespace):
                         case t:
                             assert_never(t)
                 case ("waiting_for_action_from_player_id", _):
-                    def get_msg(actions : list[RPS_Action]):
+                    def showdown_messages(actions : list[RPS_Action]):
                         match actions:
                             case ["Rock", "Rock"] | ["Paper", "Paper"] | ["Scissors", "Scissors"]:
                                 return [f"Both players show {actions[0]}!", "It's a tie!"]
@@ -106,7 +108,7 @@ class GameNamespace(Namespace):
                             
                     actions = game_state["past_actions"]
                     ui_state["game_state"] = ("game_over",actions)
-                    ui_state["messages"] = get_msg(actions)
+                    ui_state["messages"] = showdown_messages(actions)
                     game_state["past_actions"] = []
                 case t:
                     assert_never(t)
