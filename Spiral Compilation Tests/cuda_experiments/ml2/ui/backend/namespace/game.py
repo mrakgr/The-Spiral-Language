@@ -60,6 +60,10 @@ class GameNamespace(Namespace):
         ui_state = state["ui_state"]
         game_state = state["game_state"]
 
+        def random_action() -> RPS_Action:
+            import random
+            return random.choice(["Rock", "Paper", "Scissors"])
+
         def game_step(action : RPS_Action | None):
             match ui_state["game_state"]:
                 case ("game_not_started", _) | ("game_over", _):
@@ -69,9 +73,10 @@ class GameNamespace(Namespace):
                     match ui_state["pl_type"][id]:
                         case "Computer":
                             assert action == None, "The computer player should never be receiving an action."
+                            action = random_action()
                             ui_state["game_state"] = ("waiting_for_action_from_player_id", id+1)
-                            # TODO: select random action.
-                            game_step(None)
+                            game_state["past_actions"] = [*game_state["past_actions"], action]
+                            game_step(action)
                         case "Human":
                             match action:
                                 case None:
@@ -82,20 +87,23 @@ class GameNamespace(Namespace):
                         case t:
                             assert_never(t)
                 case ("waiting_for_action_from_player_id", _):
+                    def get_msg(actions : list[RPS_Action]):
+                        match actions:
+                            case ["Rock", "Rock"] | ["Paper", "Paper"] | ["Scissors", "Scissors"]:
+                                return [f"Both players show {actions[0]}!", "It's a tie!"]
+                            case _:
+                                msg = [f"Player 0 shows {actions[0]} and player 1 shows {actions[1]}!"]
+                                match actions:
+                                    case ["Rock", "Paper"] | ["Scissors", "Rock"] | ["Paper", "Scissors"]:
+                                        msg.append("Player 1 wins!")
+                                    case _:
+                                        msg.append("Player 0 wins!")
+                                return msg
+                            
                     actions = game_state["past_actions"]
                     ui_state["game_state"] = ("game_over",actions)
+                    ui_state["messages"] = get_msg(actions)
                     game_state["past_actions"] = []
-                    match actions:
-                        case ["Rock", "Rock"] | ["Paper", "Paper"] | ["Scissors", "Scissors"]:
-                            ui_state["messages"] = [f"Both players show {actions[0]}!", "It's a tie!"]
-                        case _:
-                            msg = [f"Player 0 shows {actions[0]} and player 1 shows {actions[1]}!"]
-                            match actions:
-                                case ["Rock", "Paper"] | ["Scissors", "Rock"] | ["Paper", "Scissors"]:
-                                    msg.append("Player 1 wins!")
-                                case _:
-                                    msg.append("Player 0 wins!")
-                            ui_state["messages"] = msg
                 case t:
                     assert_never(t)
 
