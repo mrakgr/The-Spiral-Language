@@ -6,7 +6,7 @@ def run_debug():
     """
     Runs the applicaation in debug mode with SocketIO support.
     """
-    socketio.run(app,debug=True)
+    socketio.run(app,debug=True) # type: ignore
     
 app.register_blueprint(main_page)
 socketio.on_namespace(GameNamespace('/game'))

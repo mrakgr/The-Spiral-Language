@@ -3,11 +3,6 @@ from typing import Any, Never, TypedDict, Literal
 from flask import request
 from flask_socketio import Namespace, emit # type: ignore
 
-        # type RPS_Events = 
-        #     | ['start_game', true]
-        #     | ['player_changed', RPS_Players[]]
-        #     | ['action_selected', RPS_Action]
-
 RPS_Players = Literal["Computer", "Human"]
 RPS_Action = Literal["Rock", "Paper", "Scissors"]
 RPS_Events = \
@@ -24,19 +19,24 @@ class UI_State(TypedDict):
     game_state : RPS_Game_State
     messages : list[str]
 
+class Game_State(TypedDict):
+    past_actions: list[RPS_Action]
+
 class Main_State(TypedDict):
     ui_state : UI_State
-    # game_state : RPS_Game_State
+    game_state : Game_State
 
 def ui_init() -> UI_State: return {
     "pl_type": ["Computer", "Human"],
     "game_state": ("game_not_started", True),
     "messages": ["Waiting to start the game..."],
 }
-# def game_init() -> RPS_Game_State: return []
+def game_init() -> Game_State: return {
+    "past_actions": []
+}
 def main_init() -> Main_State: return {
     "ui_state": ui_init(),
-    # "game_state": ()
+    "game_state": game_init()
 }
 user_state : dict[str, Main_State] = {}
 def assert_never(x : Never) -> Never: raise TypeError(f"Unexpected tag.\nGot: ${x}")
@@ -58,15 +58,58 @@ class GameNamespace(Namespace):
     def on_update(self, msg : RPS_Events):
         state = user_state[self.sid()]
         ui_state = state["ui_state"]
+        game_state = state["game_state"]
+
+        def game_step(action : RPS_Action | None):
+            match ui_state["game_state"]:
+                case ("game_not_started", _) | ("game_over", _):
+                    pass
+                case ("waiting_for_action_from_player_id", id) if id < 2:
+                    assert len(game_state["past_actions"]) == id, "The number of past actions must equal the player id."
+                    match ui_state["pl_type"][id]:
+                        case "Computer":
+                            assert action == None, "The computer player should never be receiving an action."
+                            ui_state["game_state"] = ("waiting_for_action_from_player_id", id+1)
+                            # TODO: select random action.
+                            game_step(None)
+                        case "Human":
+                            match action:
+                                case None:
+                                    pass # Wait for the action from the UI.
+                                case _:
+                                    ui_state["game_state"] = ("waiting_for_action_from_player_id", id+1)
+                                    game_state["past_actions"] = [*game_state["past_actions"], action]
+                        case t:
+                            assert_never(t)
+                case ("waiting_for_action_from_player_id", _):
+                    actions = game_state["past_actions"]
+                    ui_state["game_state"] = ("game_over",actions)
+                    game_state["past_actions"] = []
+                    match actions:
+                        case ["Rock", "Rock"] | ["Paper", "Paper"] | ["Scissors", "Scissors"]:
+                            ui_state["messages"] = [f"Both players show {actions[0]}!", "It's a tie!"]
+                        case _:
+                            msg = [f"Player 0 shows {actions[0]} and player 1 shows {actions[1]}!"]
+                            match actions:
+                                case ["Rock", "Paper"] | ["Scissors", "Rock"] | ["Paper", "Scissors"]:
+                                    msg.append("Player 1 wins!")
+                                case _:
+                                    msg.append("Player 0 wins!")
+                            ui_state["messages"] = msg
+                case t:
+                    assert_never(t)
 
         match msg:
             case ["player_changed", pl_type]:
                 ui_state["pl_type"] = pl_type
+                game_step(None)
             case ["start_game", _]:
                 ui_state["game_state"] = ("waiting_for_action_from_player_id", 0)
                 ui_state["messages"] = ["Rock-Paper-Scissors!"]
+                game_state["past_actions"] = []
+                game_step(None)
             case ["action_selected", action]:
-                print(f"Got action: {action}")
+                game_step(action)
             case t:
                 assert_never(t)
 
