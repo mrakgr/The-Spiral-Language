@@ -216,7 +216,7 @@ class RPS_Game extends RPS_Element {
             flex-direction: column;
             box-sizing: border-box;
             background-color: white;
-            padding: 4px;
+            padding: 80px;
             border: 3px solid;
             border-radius: 5px;
             font-size: 2em;
