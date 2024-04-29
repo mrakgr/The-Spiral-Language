@@ -63,7 +63,7 @@ class GameNamespace(Namespace):
         game_state = state["game_state"]
 
         def random_action() -> RPS_Action:
-            from ....game.rps.main import main
+            from game.rps.main import main
             funs = main()
             return funs.random_action()
         # def random_action() -> RPS_Action:

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "backend"
+name = "ui"
 version = "0.1.0"
 description = ""
 authors = ["mrakgr <mrakgr@gmail.com>"]
@@ -9,6 +9,7 @@ readme = "README.md"
 python = "^3.11"
 flask = "^3.0.3"
 flask-socketio = "^5.3.6"
+cupy-cuda12x = "^13.1.0"
 
 
 [build-system]
