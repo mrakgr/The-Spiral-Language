@@ -40,7 +40,6 @@ def main_init() -> Main_State: return {
 }
 def assert_never(x : Never) -> Never: raise TypeError(f"Unexpected tag.\nGot: ${x}")
 
-
 class GameNamespace(Namespace):
     user_state : dict[str, Main_State] = {}
 

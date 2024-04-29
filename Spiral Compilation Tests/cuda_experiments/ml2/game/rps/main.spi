@@ -1,12 +1,98 @@
 open corebase
-open corepython
 open corecuda
 
 union action = Rock | Paper | Scissors
+union player = Compuer | Human
+union event = 
+    | StartGame
+    | PlayerChanged : player * player
+    | ActionSelected : action
+union game_state =
+    | GameNotStarted
+    | WaitingForActionFromPlayerId : int
+    | GameOver : action * action
+union messages =
+    | ShowdownResult : action * action 
+    | WaitingToStart
+    | GameStarted
 
-// inl random_action() : string = 
-//     global "import random"
-//     $'random.choice(["Rock", "Paper", "Scissors"])'
+// inl showdown_messages (actions : action * action) =
+    // inl l : corepython.list string = create 0
+    // match actions with
+    // | Rock, Rock | Paper, Paper | Scissors, Scissors =>
+    //     $'!l.extend([f"Both players show {actions[0]}!!", "It\'s a tie!!"])'
+    //     ()
+
+type ui_state = {
+    pl_type : player * player
+    game_state : game_state
+    messages : messages
+    }
+
+type game_state = {
+    past_actions : list action
+    rng : ptr random.philox_state
+    }
+
+type state = {
+    ui_state : ui_state
+    game_state : game_state
+    }
+
+let rec game_step (action : option action) (state : state) : state =
+    inl {ui_state game_state} = state
+    inl random_action() : action =
+        inl actions : sam.sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
+        random.sample_discrete actions game_state.rng
+    match state.ui_state.game_state with
+    | GameNotStarted | GameOver => state
+    | WaitingForActionFromPlayerId id when id < 2 =>
+        assert (listm.length state.game_state.past_actions = id) "The number of past actions must equal the player id."
+        inl pl_type = if id = 0 then fst ui_state.pl_type else snd ui_state.pl_type
+        match pl_type with
+        | Compuer =>
+            assert (action = None) "The computer player should never be receiving an action."
+            inl action = random_action()
+            {state with
+                ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
+                game_state #= fun game_state => {game_state with past_actions #= fun l => action :: l}
+            } |> game_step None
+        | Human =>
+            match action with
+            | None => state
+            | Some action =>
+                {state with
+                    ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
+                    game_state #= fun game_state => {game_state with past_actions #= fun l => action :: l}
+                } |> game_step None
+    | WaitingForActionFromPlayerId id => // showdown
+        inl [a0;a1] = game_state.past_actions
+        {state with
+            ui_state #= fun ui_state => {ui_state with 
+                game_state = GameOver(a0,a1)
+                messages = ShowdownResult(a0,a1)
+                }
+            game_state #= fun game_state => {game_state with past_actions = []}
+            }
+
+inl event_loop (msg : event) (state : state) : state =
+    match msg with
+    | StartGame => 
+        {state with
+            game_state #= fun game_state => {game_state with
+                past_actions = []
+            }
+            ui_state #= fun ui_state => {ui_state with
+                game_state = WaitingForActionFromPlayerId 0
+                messages = GameStarted
+            }
+        } |> game_step None
+    | PlayerChanged pl_type =>
+        {state.ui_state with pl_type}
+        |> game_step None
+    | ActionSelected action =>
+        game_step (Some action) state
+
 inl random_action() : string = 
     open serializer
     inl offsets = calculate_offsets
@@ -30,4 +116,5 @@ inl random_action() : string =
     | Scissors => "Scissors"
 
 inl main() =
+    open corepython
     named_tuple "Functions" {random_action}
