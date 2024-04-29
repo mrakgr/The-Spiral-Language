@@ -17,5 +17,5 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["frontend"]
+  "include": ["ui/frontend"]
 }

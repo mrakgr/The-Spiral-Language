@@ -10,7 +10,7 @@
                 "watch"
             ],
             "options": {
-                "cwd": "${workspaceFolder}/cuda_experiments/ml2/ui"
+                "cwd": "${workspaceFolder}/cuda_experiments/ml2/"
             },
             "problemMatcher": [],
             "group": "build"
@@ -22,10 +22,10 @@
             "args": [
                 "run",
                 "python", 
-                "backend/main.py",
+                "ui/backend/main.py",
             ],
             "options": {
-                "cwd": "${workspaceFolder}/cuda_experiments/ml2/ui"
+                "cwd": "${workspaceFolder}/cuda_experiments/ml2/"
             },
             "problemMatcher": [],
             "group": "build"
