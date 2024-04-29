@@ -1,4 +1,4 @@
-from typing import Any, Never, TypedDict, Literal
+from typing import Any, Callable, Never, TypedDict, Literal
 
 from flask import request
 from flask_socketio import Namespace, emit # type: ignore
@@ -63,8 +63,12 @@ class GameNamespace(Namespace):
         game_state = state["game_state"]
 
         def random_action() -> RPS_Action:
-            import random
-            return random.choice(["Rock", "Paper", "Scissors"])
+            from ....game.rps.main import main
+            funs = main()
+            return funs.random_action()
+        # def random_action() -> RPS_Action:
+        #     import random
+        #     return random.choice(["Rock", "Paper", "Scissors"])
 
         def game_step(action : RPS_Action | None = None):
             """

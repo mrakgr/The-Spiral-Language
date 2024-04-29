@@ -1,0 +1,9 @@
+open corebase
+open corepython
+
+inl random_action() : string = 
+    global "import random"
+    $'random.choice(["Rock", "Paper", "Scissors"])'
+
+inl main() =
+    named_tuple "Functions" {random_action}

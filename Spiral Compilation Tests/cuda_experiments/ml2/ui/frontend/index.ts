@@ -11,12 +11,12 @@ type RPS_Action = "Rock" | "Paper" | "Scissors"
 type RPS_Players = "Computer" | "Human"
 const rps_players : RPS_Players[] = ["Computer", "Human"]
 
-type RPS_Events = 
+type RPS_Events =
     | ['start_game', true]
     | ['player_changed', RPS_Players[]]
     | ['action_selected', RPS_Action]
 
-type RPS_Game_State = 
+type RPS_Game_State =
     | ["game_not_started", true]
     | ["waiting_for_action_from_player_id", number]
     | ["game_over", RPS_Action[]]

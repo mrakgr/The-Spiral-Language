@@ -1,3 +1,5 @@
+// packages: |core
+
 modules:
     corebase/
         default-
@@ -26,6 +28,7 @@ modules:
         pickler
         
     corepython/
+        base- 
         
     corecuda/
         base-
@@ -68,4 +71,7 @@ modules:
             main
 
         leduc/
+            main
+
+        rps/
             main
