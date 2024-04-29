@@ -32,7 +32,7 @@ inl test2() = // host to gpu
             deserialize offsets ptr
             |> console.write_ln
 
-inl test3() = // host to gpu
+inl test3() = // gpu to host
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
     run' {shared_mem=0} fun () =>

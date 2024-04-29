@@ -1,9 +1,33 @@
 open corebase
 open corepython
+open corecuda
 
+union action = Rock | Paper | Scissors
+
+// inl random_action() : string = 
+//     global "import random"
+//     $'random.choice(["Rock", "Paper", "Scissors"])'
 inl random_action() : string = 
-    global "import random"
-    $'random.choice(["Rock", "Paper", "Scissors"])'
+    open serializer
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+
+    run fun () =>
+        open random
+        globals()
+        inl from = rangem.threads_in_grid().from
+        inl rng : _ philox_state = 
+            init {seed = $"clock64()"; subsequence=conv from; offset=0}
+        if from = 0 then
+            open sam
+            inl actions : sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
+            inl action = sample_discrete actions rng
+            serialize offsets ptr action
+
+    match deserialize offsets ptr with
+    | Rock => "Rock"
+    | Paper => "Paper"
+    | Scissors => "Scissors"
 
 inl main() =
     named_tuple "Functions" {random_action}

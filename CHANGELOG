@@ -1,3 +1,7 @@
+2.8.10 (4/28/2024)
+
+* Fixed the way the union tags were printed in the Cuda backend. They have to be unsigned values.
+
 2.8.9 (4/18/2024)
 
 * Fixed a bug where i8 types weren't being printed correctly on the Cuda side.

@@ -557,8 +557,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
                 // Tag
                 let num_bits = num_bits_needed_to_represent x.free_vars.Count
-                if num_bits > 8 then raise_codegen_error "Too many union cases! Cannot have a union case type with more than 8 bits."
-                line s_typ $"char tag : {num_bits};"
+                if num_bits > 32 then raise_codegen_error "Too many union cases! Cannot have a union case type with more than 2^32 - 1 possible tags."
+                line s_typ $"unsigned long tag : {num_bits};"
             line s_typ "};"
 
             map_iteri (fun tag k v -> 
