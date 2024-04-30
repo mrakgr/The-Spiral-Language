@@ -6,18 +6,24 @@ open loop
 nominal sa dim el = $"array<`el,@dim>"
 
 // Creates an empty array.
-inl create' forall dim el. : sa dim el = $"array<`el,@dim> v$"
+inl create' forall dim el. : sa dim el = 
+    assert ((0 : int) <= (real real_core.type_lit_to_lit `dim)) "The dimension of the array has to be positive."
+    $"array<`el,@dim> v$"
     
 instance create sa dim = fun dim =>
     assert ((real real_core.type_lit_to_lit `dim) = dim) "The type level dimension has to equal the value passed at runtime into create."
     create'
 
-// Indexes into an array.
-instance index sa dim = fun ar i => $"!ar.v[!i]"
-// Sets the value of an array at the specified index.
-instance set sa dim = fun ar i v => $"!ar.v[!i] = !v"
 // Returns the length of an array.
 instance length sa dim = fun ar => real real_core.type_lit_to_lit `dim : int
+// Indexes into an array.
+instance index sa dim = fun ar i => 
+    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    $"!ar.v[!i]"
+// Sets the value of an array at the specified index.
+instance set sa dim = fun ar i v => 
+    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    $"!ar.v[!i] = !v"
 
 open arraym
 
@@ -87,13 +93,5 @@ inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_oute
     loop (map id ar)
 
 open console
-inl sa_print forall dim el. array_limit (x : sa dim el) : () =
-    write "["
-    loop.for' {from=0; nearTo=min array_limit (length x)} (fun i =>
-        write (index x i)
-        if i + 1 < length x then write "; "
-        )
-    if length x > array_limit then write "; ..."
-    write "]"
 
-instance printable sa dim el = sa_print 100
+instance printable sa dim el = array_print 100

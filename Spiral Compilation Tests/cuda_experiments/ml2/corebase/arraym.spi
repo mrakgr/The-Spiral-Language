@@ -208,3 +208,16 @@ inl generic_comparable x1 x2 =
 
 instance equable array t = generic_equable
 instance comparable array t = generic_comparable
+
+open console
+
+// Prints the array to the console. Doesn't work on Cuda arrays they are pointers
+// and such they don't have their length known at runtime.
+inl array_print forall (array : * -> *){length; index} el. array_limit (x : array el) : () =
+    write "["
+    loop.for' {from=0; nearTo=min array_limit (length x)} (fun i =>
+        write (index x i)
+        if i + 1 < length x then write "; "
+        )
+    if length x > array_limit then write "; ..."
+    write "]"

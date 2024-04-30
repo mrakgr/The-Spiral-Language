@@ -14,8 +14,8 @@ modules:
         loop
         optionm
         monad
-        arraym
         console
+        arraym
         tensorm/
             utils*
             tensor_main-
@@ -33,6 +33,7 @@ modules:
     corecuda/
         base-
         sam
+        sa_listm
         rangem
         intrinsic
         random

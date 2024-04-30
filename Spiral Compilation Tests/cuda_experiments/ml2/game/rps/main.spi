@@ -11,26 +11,19 @@ union game_state =
     | GameNotStarted
     | WaitingForActionFromPlayerId : int
     | GameOver : action * action
-union messages =
+union message =
     | ShowdownResult : action * action 
     | WaitingToStart
     | GameStarted
 
-// inl showdown_messages (actions : action * action) =
-    // inl l : corepython.list string = create 0
-    // match actions with
-    // | Rock, Rock | Paper, Paper | Scissors, Scissors =>
-    //     $'!l.extend([f"Both players show {actions[0]}!!", "It\'s a tie!!"])'
-    //     ()
-
 type ui_state = {
     pl_type : player * player
     game_state : game_state
-    messages : messages
+    messages : message
     }
 
 type game_state = {
-    past_actions : list action
+    past_actions : sa_listm.sa_list 2 action
     rng : ptr random.philox_state
     }
 
@@ -44,10 +37,12 @@ let rec game_step (action : option action) (state : state) : state =
     inl random_action() : action =
         inl actions : sam.sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
         random.sample_discrete actions game_state.rng
+    inl push_action x (ar : sa_listm.sa_list _ action) = sa_listm.push ar x . ar
+    inl clear_actions (ar : sa_listm.sa_list _ action) = sa_listm.clear ar . ar
     match state.ui_state.game_state with
     | GameNotStarted | GameOver => state
     | WaitingForActionFromPlayerId id when id < 2 =>
-        assert (listm.length state.game_state.past_actions = id) "The number of past actions must equal the player id."
+        assert (length state.game_state.past_actions = id) "The number of past actions must equal the player id."
         inl pl_type = if id = 0 then fst ui_state.pl_type else snd ui_state.pl_type
         match pl_type with
         | Compuer =>
@@ -55,7 +50,7 @@ let rec game_step (action : option action) (state : state) : state =
             inl action = random_action()
             {state with
                 ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
-                game_state #= fun game_state => {game_state with past_actions #= fun l => action :: l}
+                game_state #= fun game_state => {game_state with past_actions #= push_action action}
             } |> game_step None
         | Human =>
             match action with
@@ -63,16 +58,16 @@ let rec game_step (action : option action) (state : state) : state =
             | Some action =>
                 {state with
                     ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
-                    game_state #= fun game_state => {game_state with past_actions #= fun l => action :: l}
+                    game_state #= fun game_state => {game_state with past_actions #= push_action action}
                 } |> game_step None
     | WaitingForActionFromPlayerId id => // showdown
-        inl [a0;a1] = game_state.past_actions
+        inl a0,a1 = open sa_listm in index game_state.past_actions 0, index game_state.past_actions 1
         {state with
             ui_state #= fun ui_state => {ui_state with 
                 game_state = GameOver(a0,a1)
                 messages = ShowdownResult(a0,a1)
                 }
-            game_state #= fun game_state => {game_state with past_actions = []}
+            game_state #= fun game_state => {game_state with past_actions #= clear_actions}
             }
 
 inl event_loop (msg : event) (state : state) : state =
@@ -80,7 +75,7 @@ inl event_loop (msg : event) (state : state) : state =
     | StartGame => 
         {state with
             game_state #= fun game_state => {game_state with
-                past_actions = []
+                past_actions = sa_listm.create'
             }
             ui_state #= fun ui_state => {ui_state with
                 game_state = WaitingForActionFromPlayerId 0
@@ -118,3 +113,4 @@ inl random_action() : string =
 inl main() =
     open corepython
     named_tuple "Functions" {random_action}
+
