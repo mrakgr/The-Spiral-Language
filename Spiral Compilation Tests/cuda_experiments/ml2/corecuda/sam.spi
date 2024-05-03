@@ -1,8 +1,7 @@
-// The array template module. Generic functions for array like structures.
 open corebase
-open loop
 
 // Statically sized array with a type literal for a dimension.
+// nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"list `el"})'"
 nominal sa dim el = $"array<`el,@dim>"
 
 // Creates an empty array.
@@ -32,6 +31,8 @@ instance comparable sa dim el = generic_comparable
 
 // Initializes array using the given function.
 inl init forall dim el. f : sa dim el = init (real real_core.type_lit_to_lit `dim) f
+
+open loop
 
 // The inclusive Hillis & Steele scan.
 inl scan_inclusive forall dim el. (f : el -> el -> el) (ar : sa dim el) =

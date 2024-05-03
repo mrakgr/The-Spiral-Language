@@ -90,7 +90,10 @@ type SpiralToken =
     | TokMacroOpen | TokMacroClose
     | TokMacroTermVar of string
     | TokMacroTypeVar of string
-    | TokMacroTypeLitVar of string
+    | TokMacroTypeLitVar of string    
+    | TokMacroTermExpression
+    | TokMacroTypeExpression
+    | TokMacroTypeLitExpression
 
 let token_groups = function
     | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) -> r
@@ -101,6 +104,9 @@ let token_groups = function
     | TokMacroTypeVar _ -> SemanticTokenLegend.type_variable
     | TokMacroTypeLitVar _ -> SemanticTokenLegend.type_variable
     | TokMacroTermVar _ -> SemanticTokenLegend.variable
+    | TokMacroTypeExpression -> SemanticTokenLegend.type_variable
+    | TokMacroTypeLitExpression -> SemanticTokenLegend.type_variable
+    | TokMacroTermExpression -> SemanticTokenLegend.variable
     | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
     | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
     | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
@@ -306,6 +312,15 @@ type MacroEnum =
     | MTerm
     | MType
     | MTypeLit
+
+let macro'' s =
+    let parseChar (c : char) = failwith "TODO"
+    let parseBetween (c : char) = failwith "TODO"
+    parseChar '$'
+    .>>. (parseBetween '"')
+    
+
+    
 
 let macro' s =
     let inline f from x = {from=from; nearTo=s.from}, x

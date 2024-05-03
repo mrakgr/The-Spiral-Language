@@ -13,6 +13,8 @@ open System.Collections.Generic
 
 type PythonBackendType = Cuda
 
+let backend_name = "Python"
+
 let lit = function
     | LitInt8 x -> sprintf "%i" x
     | LitInt16 x -> sprintf "%i" x
@@ -198,6 +200,10 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | UStack -> sprintf "US%i" (ustack a).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
+        | YMacro [Text "backend_switch "; Type (YRecord r)] ->
+            match Map.tryFind backend_name r with
+            | Some x -> tup_ty x
+            | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> "cp.ndarray"
@@ -274,10 +280,9 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 binds g_decr (indent s) ret b
                 )
         | TyBackendSwitch m ->
-            let backend = "Python"
-            match Map.tryFind backend m with
+            match Map.tryFind backend_name m with
             | Some b -> binds g_decr s ret b
-            | None -> raise_codegen_error $"Cannot find the backend \"{backend}\" in the TyBackendSwitch."
+            | None -> raise_codegen_error $"Cannot find the backend \"{backend_name}\" in the TyBackendSwitch."
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]

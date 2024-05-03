@@ -11,6 +11,8 @@ open System
 open System.Text
 open System.Collections.Generic
 
+let backend_name = "Cuda"
+
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 // The number of bits needed to represent an union type with an x number of cases.
 // Strictly speaking it should be x * 2 - 1, but we do it like this to give 1 bit of extra wiggle room for the 2,4,8,16 (pow of 2) cases
@@ -233,6 +235,10 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | UHeap -> sprintf "UH%i *" (uheap a).tag
         | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
         | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
+        | YMacro [Text "backend_switch "; Type (YRecord r)] ->
+            match Map.tryFind backend_name r with
+            | Some x -> tup_ty x
+            | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "%s *" (tup_ty a)
@@ -311,10 +317,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | TyJoinPoint(a,args) -> return' (jp (a, args))
         | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The C backend does not support nesting of other backends."
         | TyBackendSwitch m ->
-            let backend = "Cuda"
-            match Map.tryFind backend m with
+            match Map.tryFind backend_name m with
             | Some b -> binds s ret b
-            | None -> raise_codegen_error $"Cannot find the backend \"{backend}\" in the TyBackendSwitch."
+            | None -> raise_codegen_error $"Cannot find the backend \"{backend_name}\" in the TyBackendSwitch."
         | TyWhile(a,b) ->
             let cond =
                 match a with
