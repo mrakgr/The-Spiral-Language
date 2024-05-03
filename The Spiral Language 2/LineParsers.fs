@@ -58,6 +58,14 @@ let skip_string x (s : Tokenizer) =
     if String.Compare(s.text,s.from,x,0,x.Length) = 0 then inc' x.Length s; Ok()
     else error_char s.from x
 
+let anyOf (l : char list) (s : Tokenizer) =
+    let c = peek s
+    if Seq.contains c l then 
+        inc s; Ok(c)
+    else
+        let i = s.from
+        Error (List.map (fun c -> range_char i, string c) l)
+
 let chars_till_string close (s : Tokenizer) =
     assert (close <> "")
     let rec loop (b : StringBuilder) =
@@ -84,3 +92,5 @@ let number (s : Tokenizer) =
         error_char i "number"
 
 let number_fractional s = (number .>>. (opt (skip_char '.' >>. number))) s
+
+let between a b c (s : Tokenizer) = (a >>. c .>> b ) s

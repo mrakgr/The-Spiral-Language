@@ -41,6 +41,7 @@ type TokenKeyword =
 
 type ParenthesisState = Open | Close
 type Parenthesis = Round | Square | Curly
+type MacroEnum = MTerm | MType | MTypeLit
 
 type Literal = 
     | LitUInt8 of uint8
@@ -90,10 +91,8 @@ type SpiralToken =
     | TokMacroOpen | TokMacroClose
     | TokMacroTermVar of string
     | TokMacroTypeVar of string
-    | TokMacroTypeLitVar of string    
-    | TokMacroTermExpression
-    | TokMacroTypeExpression
-    | TokMacroTypeLitExpression
+    | TokMacroTypeLitVar of string
+    | TokMacroExpression of MacroEnum * ParenthesisState
 
 let token_groups = function
     | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) -> r
@@ -308,54 +307,44 @@ let string_quoted' s =
     | _ -> error_char s.from "\""
 let string_quoted s = (string_quoted' .>> spaces) s
 
-type MacroEnum =
-    | MTerm
-    | MType
-    | MTypeLit
+type Macro =
+    | Text of Range * string
+    | Expression of Range * string * MacroEnum
 
-let macro'' s =
-    let parseChar (c : char) = failwith "TODO"
-    let parseBetween (c : char) = failwith "TODO"
-    parseChar '$'
-    .>>. (parseBetween '"')
-    
+let inline range p s = 
+    let from = s.from
+    match p s with
+    | Ok x -> Ok({from=from; nearTo=s.from}, x)
+    | Error l -> Error l
 
-    
+let macro tokenize s =
+    let char_to_macro_expr = function
+        | '`' -> MType
+        | '!' -> MTerm
+        | '@' -> MTypeLit
+        | _ -> failwith "Compiler error: Unknown char in the tokenizer."
 
-let macro' s =
-    let inline f from x = {from=from; nearTo=s.from}, x
-    let close l = let f = f s.from in inc s; List.rev (f TokMacroClose :: l) |> Ok
-    let rec text close_char l =
-        let f = f s.from
-        let rec loop (str : StringBuilder) =
-            let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
-            let var b = 
-                let c = 
-                    match b with
-                    | MTerm -> '!'
-                    | MType -> '`'
-                    | MTypeLit -> '@'
-                    
-                if peek' s 1 = c then inc' 2 s; loop (str.Append(c))
-                else var close_char b (l ())
-            match peek s with
-            | x when x = eol -> error_char s.from "character or \""
-            | '`' -> var MType 
-            | '!' -> var MTerm
-            | '@' -> var MTypeLit
-            | '\\' -> special_char (l ()) (text close_char) s
-            | x when x = close_char -> close (l ())
-            | x -> inc s; loop (str.Append(x))
-        loop (StringBuilder())
-    and var close_char is_type l =
-        let f = f s.from
-        let text x _ = text close_char (f (match is_type with MType -> TokMacroTypeVar x | MTerm -> TokMacroTermVar x | MTypeLit -> TokMacroTypeLitVar x) :: l)
-        inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
-    match peek s, peek' s 1 with
-    | '$', '"' -> let f = f s.from in inc' 2 s; text '"' [f TokMacroOpen]
-    | '$', ''' -> let f = f s.from in inc' 2 s; text ''' [f TokMacroOpen]
-    | _ -> error_char s.from "$\""
-let macro s = (macro' .>> spaces) s
+    let parseVar s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
+    let parseText s = (range (many1SatisfyL (fun c -> c <> '"' && c <> '`' && c <> '!' && c <> '@') "macro text") |>> Text) s
+    let parseExpr s = 
+        let start = anyOf ['`'; '!'; '@']
+        let case_paren = between (skip_char '(') (skip_char ')') (many1SatisfyL ((<>) ')') "not )")
+        let case_var = parseVar
+        let body = start .>>. (case_paren <|> case_var)
+        (range body |>> fun (range,(start_char,body)) -> Expression(range, body,char_to_macro_expr start_char)) s 
+    let parseMacroInner s = (many (parseText <|> parseExpr) <|>% []) s
+    let parseMacro s = 
+        let body a b = between (skip_string a) (skip_char b) parseMacroInner
+        (body "$\"" '"' <|> body "$'" ''') s
+
+    match (parseMacro .>> spaces) s with
+    | Ok x -> 
+        x |> List.map (function
+            | Text(r,x) -> r, TokText x
+            | Expression(r,x,t) -> failwith "TODO"
+            )
+        |> Ok
+    | Error er -> Error er
 
 let brackets s =
     let from = s.from
@@ -368,18 +357,17 @@ let brackets s =
 let tab s = if peek s = '\t' then Error [range_char (index s), "Tabs are not allowed."] else Error []
 let eol s = if peek s = eol then Ok [] else Error [range_char (index s), "end of line"]
 
-let token s =
+let rec token s =
     let i = s.from
     let inline (+) a b = alt i a b
-    (string_quoted + macro + number + ((var + symbol + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
-
-type LineToken = Range * SpiralToken
-type LineComment = Range * string
-type LineTokenErrors = (Range * TokenizerError) list
-let tokenize text = 
+    (string_quoted + macro tokenize + number + ((var + symbol + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
+and tokenize text = 
     let mutable ar = PersistentVector.empty
     let er = match (spaces >>. many_iter (List.iter (fun x -> ar <- PersistentVector.conj x ar)) token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
     ar, er
+type LineToken = Range * SpiralToken
+type LineComment = Range * string
+type LineTokenErrors = (Range * TokenizerError) list
 
 let vscode_tokens ((a,b) : VSCRange) (lines : LineToken PersistentVector PersistentVector) =
     let in_range x = min lines.Length x
