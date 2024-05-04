@@ -16,18 +16,18 @@ instance thread_scope thread_scope_thread = fun _ => ()
 nominal counting_semaphore count scope = $'cuda::std::counting_semaphore<`scope, `count>'
 type binary_semaphore scope = counting_semaphore 1 scope
 
-inl create_counting_semaphore_in_thread forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"cuda::counting_semaphore<`scope,`count> v$(!i)"
-inl create_binary_semaphore_in_thread forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"cuda::binary_semaphore<`scope> v$(!i)"
-inl create_counting_semaphore_in_grid forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"static cuda::counting_semaphore<`scope,`count> v$(!i)"
-inl create_binary_semaphore_in_grid forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"static cuda::binary_semaphore<`scope> v$(!i)"
+inl create_counting_semaphore_in_thread forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"cuda::counting_semaphore<`scope,`count> \v(!i)"
+inl create_binary_semaphore_in_thread forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"cuda::binary_semaphore<`scope> \v(!i)"
+inl create_counting_semaphore_in_grid forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"static cuda::counting_semaphore<`scope,`count> \v(!i)"
+inl create_binary_semaphore_in_grid forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"static cuda::binary_semaphore<`scope> \v(!i)"
 inl create_counting_semaphore_in_block forall count. (i : int) : ref (counting_semaphore count thread_scope_block) = 
-    inl x = $"__shared__ cuda::counting_semaphore<`thread_scope_block,`count> v$"
+    inl x = $"__shared__ cuda::counting_semaphore<`thread_scope_block,`count> \v"
     __syncthreads()
     if cooperative_groups.thread_block_thread_rank() = 0 then $"new(&!x) cuda::counting_semaphore<`thread_scope_block,`count>(!i)"
     __syncthreads()
     x
 inl create_binary_semaphore_in_block (i : int) : ref (binary_semaphore thread_scope_block) = 
-    inl x = $"__shared__ cuda::binary_semaphore<`thread_scope_block> v$"
+    inl x = $"__shared__ cuda::binary_semaphore<`thread_scope_block> \v"
     __syncthreads()
     if cooperative_groups.thread_block_thread_rank() = 0 then $"new(&!x) cuda::binary_semaphore<`thread_scope_block>(!i)"
     __syncthreads()

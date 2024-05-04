@@ -11,9 +11,9 @@ nominal sa dim el = $"array<`el,@dim>"
 
 // Base reference type
 nominal ref t = $"`t &"
-inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+inl ref forall t. (x : t) : ref t = $"`t & \v = !x"
 // Doesn't actually dereference the reference. For using local scope only.
-inl (~#) forall t. (x : ref t) : t = $"`t & v$ = !x" 
+inl (~#) forall t. (x : ref t) : t = $"`t & \v = !x" 
 
 inl ref_index x i = index #x i
 inl ref_set x i v = set #x i v
@@ -21,14 +21,14 @@ inl ref_length x = length #x
 
 // Indexes into an array. Returns a reference to the element instead of the actual element.
 prototype index_ref ar el : ar el -> int -> ref el
-instance index_ref array = fun array i => $"`el & v$ = !array[!i]"
+instance index_ref array = fun array i => $"`el & \v = !array[!i]"
 
 // Base pointer type
 nominal ptr t = $'`t *'
-inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
+inl ptr forall t. (~x : t) : ptr t = $"`t * \v = &!x"
 // Sets the pointer to a specified value.
 inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
-inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+inl (~*) forall t. (x : ptr t) : t = $"`t \v = *!x"
 
 type run_config = {
     shared_mem : int

@@ -34,7 +34,7 @@ inl ptr_set forall t. (a : array_ptr t) (i : dim) (x : t) : () = $"!a[!i] = !x"
 
 inl local_ptr forall t. (block_size : dim) : array_ptr t = 
     assert (lit_is block_size) "The block size should be a compile time literal."
-    $"__dma_aligned `t v$[!block_size]"
+    $"__dma_aligned `t \v[!block_size]"
 
 inl mram_read forall t. (src : py_array t) (dst : array_ptr t) {from nearTo} =
     inl size : dim = nearTo - from

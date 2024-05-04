@@ -26,4 +26,4 @@ inl global (x : string) : () = !!!!Global(x)
 
 // Base reference type
 nominal ref t = $"`t &"
-inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+inl ref forall t. (x : t) : ref t = $"`t & \v = !x"

@@ -2,7 +2,7 @@
 
 inl main () = 
     inl a,b = join_backend UPMEM_C_Kernel 
-        inl x = $"int v$[1]" : $"int *"
+        inl x = $"int \v[1]" : $"int *"
         0i32
 
     a

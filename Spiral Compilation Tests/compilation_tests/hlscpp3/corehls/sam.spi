@@ -2,7 +2,7 @@
 open loop
 
 // Creates an empty array.
-inl create forall dim el. : sa dim el = $"array<@dim,`el> v$"
+inl create forall dim el. : sa dim el = $"array<@dim,`el> \v"
 // Indexes into an array.
 inl index forall dim el. (ar : sa dim el) (i : sa_dim) : el = $"!ar.v[!i]"
 // Sets the value of an array at the specified index.

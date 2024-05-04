@@ -2,7 +2,7 @@
 
 inl main () = 
     inl a,b = join_backend Cuda
-        inl x = $"int v$[1]" : $"int *"
+        inl x = $"int \v[1]" : $"int *"
         ()
 
     a

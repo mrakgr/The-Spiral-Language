@@ -43,8 +43,8 @@ open tensorm.cuda
 
 inl create_fragment forall use m n k layout t. : fragment use m n k layout t = real
     typecase use with
-    | accumulator => $"wmma::fragment<`use, @m, @n, @k, `t> v$" : fragment use m n k layout t
-    | _ => $"wmma::fragment<`use, @m, @n, @k, `t, `layout> v$" : fragment use m n k layout t
+    | accumulator => $"wmma::fragment<`use, @m, @n, @k, `t> \v" : fragment use m n k layout t
+    | _ => $"wmma::fragment<`use, @m, @n, @k, `t, `layout> \v" : fragment use m n k layout t
 inl create_fragment' forall use m n k t. is_transposed : fragment' use m n k t =
     if is_transposed then ColMajor create_fragment else RowMajor create_fragment
 

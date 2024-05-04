@@ -13,7 +13,7 @@ nominal array_ptr dim t = $"`t *"
 
 instance create array_ptr = fun block_size =>
     assert (lit_is block_size) "The block size should be a compile time literal."
-    $"__dma_aligned `el v$[!block_size]"
+    $"__dma_aligned `el \v[!block_size]"
 instance index array_ptr = fun a i => $"!a[!i]"
 instance set array_ptr = fun a i x => $"!a[!i] = !x"
 

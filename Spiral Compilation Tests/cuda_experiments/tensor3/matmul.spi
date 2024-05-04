@@ -87,7 +87,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile warp_size float {n
                 $"using precision = Precision<`float>"
                 inl tm ta : $"transpose_mode" = 
                     assert (lit_is ta) "The transpose modes should be literals."
-                    if ta then $"constexpr auto v$ = transpose_mode::transposed" else $"constexpr auto v$ = transpose_mode::non_transposed"
+                    if ta then $"constexpr auto \v = transpose_mode::transposed" else $"constexpr auto \v = transpose_mode::non_transposed"
                 inl tm_b, tm_a = tm ta, tm tb
                 $"using tm_desc = TransposeMode<!tm_a, !tm_b>"
                 $"using sm = SM<890>"

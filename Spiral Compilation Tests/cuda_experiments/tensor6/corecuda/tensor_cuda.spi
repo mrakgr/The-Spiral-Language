@@ -18,7 +18,7 @@ inl tensor_create_shared forall dim el. (dim : dim) : tensor dim el =
     inl stride, len = real calculate_stride_len dim
     assert_long_length len dim
     inl create_body forall t. : tensor_body dim t = tensor_body {
-        array = real $"__shared__ `t v$[!len]" : array t
+        array = real $"__shared__ `t \v[!len]" : array t
         offset = 0
         stride 
         }

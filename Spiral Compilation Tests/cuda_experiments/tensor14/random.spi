@@ -19,7 +19,7 @@ prototype skipahead_sequence s : {steps : u64} -> ptr s -> ()
 
 instance init' philox_state = fun {seed subsequence offset} s => $'curand_init(!seed,!subsequence,!offset,!s)'
 inl init forall s {init'}. args : ptr s =
-    inl s = ptr $"`s v$"
+    inl s = ptr $"`s \v"
     init' args s
     s
 

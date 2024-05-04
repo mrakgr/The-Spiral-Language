@@ -8,9 +8,9 @@ prototype tileable t : t -> ()
 instance tileable thread_block = fun _ => ()
 instance tileable thread_block_tile size parent = fun _ => ()
 
-inl create_grid() : ref grid_group = $"grid_group v$ = this_grid()" 
-inl create_block() : ref thread_block = $"thread_block v$ = this_thread_block()"
-inl create_thread_block_tile forall size parent {tileable}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
+inl create_grid() : ref grid_group = $"grid_group \v = this_grid()" 
+inl create_block() : ref thread_block = $"thread_block \v = this_thread_block()"
+inl create_thread_block_tile forall size parent {tileable}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> \v = tiled_partition<@size>(!x)"
 
 // Projects the given index to a high dimensional value.
 inl project_index forall dim. (dim : dim) (i : int) : dim = real

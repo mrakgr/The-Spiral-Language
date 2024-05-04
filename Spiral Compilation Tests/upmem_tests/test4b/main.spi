@@ -10,7 +10,7 @@ inl main () =
         global "#include <mram.h>"
         global "__mram_noinit uint8_t t[1024*1024*64];"
         // global "__mram_noinit uint8_t t1[1024*1024*64];"
-        inl q = $"__dma_aligned uint8_t v$[512]" : $"uint8_t *"
+        inl q = $"__dma_aligned uint8_t \v[512]" : $"uint8_t *"
         $"mram_read(t, !q, sizeof(!q))"
         0i32
     inl kernel_i, vars = f

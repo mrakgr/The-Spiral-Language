@@ -1,13 +1,13 @@
 // Folds over the range. Compiles to a while loop.
 inl forBy forall dim {number}. ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) (body : dim -> ()) =
-    inl i = $"`dim v$ = !from" : dim
+    inl i = $"`dim \v = !from" : dim
     loopw.while (fun _ => i < nearTo) fun _ =>
         body i
         $"!i += !by"
 
 // Folds over the range in a downwards direction. The `by` field should be positive. Compiles to a while loop.
 inl forDownBy forall dim {number}. ({nearFrom to by} : {nearFrom : dim; to : dim; by : dim}) (body : dim -> ()) =
-    inl i = $"`dim v$ = !nearFrom" : dim
+    inl i = $"`dim \v = !nearFrom" : dim
     loopw.while (fun _ => i >= to) fun _ =>
         body i
         $"!i -= !by"

@@ -2,7 +2,7 @@
 
 inl main () = 
     inl f (x : i32) = join_backend Cuda
-        inl _ = $"int v$[!x]" : $"int *"
+        inl _ = $"int \v[!x]" : $"int *"
         ()
 
     ignore (f 1)

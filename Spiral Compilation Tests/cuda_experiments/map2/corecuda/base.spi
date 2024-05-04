@@ -5,7 +5,7 @@ nominal sa dim el = $"array<`el,@dim>"
 
 // Base reference type
 nominal ref t = $"`t &"
-inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+inl ref forall t. (x : t) : ref t = $"`t & \v = !x"
 
 type dim3 = {x : int; y : int; z : int}
 

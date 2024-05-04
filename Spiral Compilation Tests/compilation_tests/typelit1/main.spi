@@ -3,5 +3,5 @@ nominal static_array dim el = $"array<@dim,`el>"
 inl main () : () = real
     inl _ =
         typecase 16 * (f32 * i32) with
-        | ~dim * ~el => $"array<@dim,`el> v$" : static_array dim el
+        | ~dim * ~el => $"array<@dim,`el> \v" : static_array dim el
     ()

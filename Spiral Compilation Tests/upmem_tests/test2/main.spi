@@ -2,7 +2,7 @@
 
 inl main () = 
     inl f (x : i32) = join_backend UPMEM_C_Kernel 
-        inl _ = $"int v$[!x]" : $"int *"
+        inl _ = $"int \v[!x]" : $"int *"
         x
 
     ignore (f 1)

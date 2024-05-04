@@ -37,21 +37,21 @@ instance tileable coalesced_group = fun _ => ()
 inl meta_group_size forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_size()"
 inl meta_group_rank forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_rank()"
 
-inl create_grid() : ref grid_group = $"auto v$ = cooperative_groups::this_grid()"
-inl create_block() : ref thread_block = $"auto v$ = cooperative_groups::this_thread_block()"
-inl create_thread() : ref thread = $"auto v$ = cooperative_groups::this_thread()"
-inl create_thread_block_tile forall parent{tileable} size. (x : ref parent) : ref (thread_block_tile parent size) = $"cooperative_groups::thread_block_tile<@size, `parent> v$ = cooperative_groups::tiled_partition<@size>(!x)"
+inl create_grid() : ref grid_group = $"auto \v = cooperative_groups::this_grid()"
+inl create_block() : ref thread_block = $"auto \v = cooperative_groups::this_thread_block()"
+inl create_thread() : ref thread = $"auto \v = cooperative_groups::this_thread()"
+inl create_thread_block_tile forall parent{tileable} size. (x : ref parent) : ref (thread_block_tile parent size) = $"cooperative_groups::thread_block_tile<@size, `parent> \v = cooperative_groups::tiled_partition<@size>(!x)"
 inl create_thread_group_from_thread_block (x : ref thread_block) (size : int) : ref thread_block_tile' =
     assert (lit_is size) "The size has to be a compile-time constant."
     assert (threads_per_block() % size = 0) "The block size has to be divisible by the thread group size."
-    if threads_per_block() = size then $"auto & v$ = !x"
-    else $"cooperative_groups::thread_block_tile<!size, `thread_block> v$ = cooperative_groups::tiled_partition<!size>(!x)"
+    if threads_per_block() = size then $"auto & \v = !x"
+    else $"cooperative_groups::thread_block_tile<!size, `thread_block> \v = cooperative_groups::tiled_partition<!size>(!x)"
 
 
 // These can only be created from tiles of size 32 or less.
-inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto v$ = cooperative_groups::labeled_partition(!x,!i)"
-inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = cooperative_groups::binary_partition(!x,!i)"
-inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = cooperative_groups::coalesced_threads()"
+inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto \v = cooperative_groups::labeled_partition(!x,!i)"
+inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto \v = cooperative_groups::binary_partition(!x,!i)"
+inl create_coalesced_threads() : ref coalesced_group = $"auto \v = cooperative_groups::coalesced_threads()"
 
 inl reduce_thread_block_tile' forall el. (tile : ref thread_block_tile') (f : el -> el -> el) (x : el) : el = 
     inl f (arg a), (arg b) = f a b 
@@ -90,7 +90,7 @@ open tensorm
 //         open tensorm.utils
 //         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
 //             typecase `from with _ ~el =>
-//             inl dim = $"constexr `int v$ = sizeof(`el) * !dim" : int
+//             inl dim = $"constexr `int \v = sizeof(`el) * !dim" : int
 //             $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
 //             $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim))" : ()
 //             ) from.bodies to.bodies

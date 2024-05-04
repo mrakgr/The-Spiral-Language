@@ -66,7 +66,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
             v10 = v9 < 2
             if v10:
                 del v10
-                v11 = i32 & v$ = v2
+                v11 = i32 & \v = v2
                 v12 = v11 == v9
                 del v11
                 v13 = v12 == False
@@ -107,7 +107,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                         del v21, v22, v23
                         v25 = v9 + 1
                         del v9
-                        v26 = i32 & v$ = v2
+                        v26 = i32 & \v = v2
                         v27 = 1 + v26
                         v2 = v27
                         del v27
@@ -122,7 +122,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                         del v28, v29
                         v31 = 0 <= v26
                         if v31:
-                            v32 = i32 & v$ = v2
+                            v32 = i32 & \v = v2
                             v33 = v26 < v32
                             del v32
                             v34 = v33
@@ -153,7 +153,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                                 del v0, v3
                                 v46 = v9 + 1
                                 del v9
-                                v47 = i32 & v$ = v2
+                                v47 = i32 & \v = v2
                                 v48 = 1 + v47
                                 v2 = v48
                                 del v48
@@ -168,7 +168,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                                 del v49, v50
                                 v52 = 0 <= v47
                                 if v52:
-                                    v53 = i32 & v$ = v2
+                                    v53 = i32 & \v = v2
                                     v54 = v47 < v53
                                     del v53
                                     v55 = v54
@@ -191,7 +191,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                                 return method1(v58, v1, v2, v59, v4, v5, v6)
             else:
                 del v0, v3, v4, v9, v10
-                v90 = i32 & v$ = v2
+                v90 = i32 & \v = v2
                 v91 = 0 < v90
                 del v90
                 v92 = v91 == False
@@ -203,7 +203,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                     pass
                 del v91, v92
                 v94 = v1.v[0]
-                v95 = i32 & v$ = v2
+                v95 = i32 & \v = v2
                 v96 = 1 < v95
                 del v95
                 v97 = v96 == False
@@ -215,7 +215,7 @@ def method1(v0 : US5, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
                     pass
                 del v96, v97
                 v99 = v1.v[1]
-                v100 = i32 & v$ = v2
+                v100 = i32 & \v = v2
                 del v100
                 v2 = 0
                 v101 = US3_1(v94, v99)
@@ -235,8 +235,8 @@ def method0(v0 : US1, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
             return method1(v21, v1, v2, v3, v4, v19, v20)
         case US1_2(): # StartGame
             del v0, v1, v2, v3, v4
-            v7 = array<US0,2> v$
-            v8 = i32 & v$ = 0
+            v7 = array<US0,2> \v
+            v8 = i32 & \v = 0
             v9 = US5_0()
             v10 = 0
             v11 = US3_2(v10)
@@ -244,8 +244,8 @@ def method0(v0 : US1, v1 : array<US0,2>, v2 : i32 &, v3 : US3, v4 : US4, v5 : US
             v12 = US4_0()
             return method1(v9, v7, v8, v11, v12, v5, v6)
 def main():
-    v0 = array<US0,2> v$
-    v1 = i32 & v$ = 0
+    v0 = array<US0,2> \v
+    v1 = i32 & \v = 0
     v2 = US1_2()
     v3 = US3_0()
     v4 = US4_2()

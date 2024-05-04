@@ -28,8 +28,8 @@ open tensorm.cuda
 
 inl create_fragment forall use m n k layout t. : fragment use m n k layout t = real
     typecase use with
-    | accumulator => $"wmma::fragment<`use, @m, @n, @k, `t> v$" : fragment use m n k layout t
-    | _ => $"wmma::fragment<`use, @m, @n, @k, `t, `layout> v$" : fragment use m n k layout t
+    | accumulator => $"wmma::fragment<`use, @m, @n, @k, `t> \v" : fragment use m n k layout t
+    | _ => $"wmma::fragment<`use, @m, @n, @k, `t, `layout> \v" : fragment use m n k layout t
 
 inl fragment_dim forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
     open real_core

@@ -31,15 +31,15 @@ instance tileable coalesced_group = fun _ => ()
 inl meta_group_size forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_size()"
 inl meta_group_rank forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_rank()"
 
-inl create_grid() : ref grid_group = $"auto v$ = this_grid()" 
-inl create_block() : ref thread_block = $"auto v$ = this_thread_block()"
-inl create_thread() : ref thread = $"auto v$ = this_thread()"
-inl create_thread_block_tile forall parent{tileable} size. (x : ref parent) : ref (thread_block_tile parent size) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
+inl create_grid() : ref grid_group = $"auto \v = this_grid()" 
+inl create_block() : ref thread_block = $"auto \v = this_thread_block()"
+inl create_thread() : ref thread = $"auto \v = this_thread()"
+inl create_thread_block_tile forall parent{tileable} size. (x : ref parent) : ref (thread_block_tile parent size) = $"thread_block_tile<@size, `parent> \v = tiled_partition<@size>(!x)"
 
 // I don't feel like fixing these right now, but they can only be created from tiles of size 32 or less.
-inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto v$ = labeled_partition(!x,!i)"
-inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = binary_partition(!x,!i)"
-inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = coalesced_threads()"
+inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto \v = labeled_partition(!x,!i)"
+inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto \v = binary_partition(!x,!i)"
+inl create_coalesced_threads() : ref coalesced_group = $"auto \v = coalesced_threads()"
 
 // Projects the given index to a high dimensional value.
 inl project_index forall dim. (dim : dim) (i : int) : dim = real

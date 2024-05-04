@@ -3,7 +3,7 @@ open corebase
 open loop
 
 // Creates an empty array.
-inl create forall dim el. : sa dim el = $"std::array<`el,@dim> v$"
+inl create forall dim el. : sa dim el = $"std::array<`el,@dim> \v"
 // Indexes into an array.
 inl index forall dim el. (ar : sa dim el) (i : int) : el = $"!ar[!i]"
 // Sets the value of an array at the specified index.

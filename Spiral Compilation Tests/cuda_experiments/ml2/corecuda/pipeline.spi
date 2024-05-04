@@ -3,7 +3,7 @@ open tensorm
 open thread_scope
 nominal pipeline scope = $'cuda::pipeline<`scope>'
 
-inl make_pipeline_thread() : ref (pipeline thread_scope_thread) = $"cuda::pipeline<cuda::thread_scope_thread> v$ = cuda::make_pipeline()"
+inl make_pipeline_thread() : ref (pipeline thread_scope_thread) = $"cuda::pipeline<cuda::thread_scope_thread> \v = cuda::make_pipeline()"
 
 inl producer_acquire forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.producer_acquire()"
 inl producer_commit forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.producer_commit()"
@@ -30,7 +30,7 @@ inl memcpy_async forall float. (pipe : ref (pipeline thread_scope_thread)) (to, 
         open struct
         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
             typecase `from with _ ~el =>
-            inl dim = $"constexpr `int v$ = sizeof(`el) * !dim" : int
+            inl dim = $"constexpr `int \v = sizeof(`el) * !dim" : int
             $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
             // inl p = {to_offset from_offset id=thread_index()} in semaphore.write_ln_device `(`(p)) p
             // __syncthreads()

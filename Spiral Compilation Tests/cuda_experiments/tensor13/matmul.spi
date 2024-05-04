@@ -101,7 +101,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
         inl pipe = pipeline.make_pipeline_thread()
 
         inl a_shared_tile, b_shared_tile, c_shared_tile = 
-            inl extern = $"extern __shared__ unsigned char v$[]"
+            inl extern = $"extern __shared__ unsigned char \v[]"
             inl (a, b), c = partitionm.from_partition_offsets (extern, memory.length) memory
             a |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.a}),
             b |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.b}),

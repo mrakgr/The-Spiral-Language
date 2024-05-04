@@ -1,5 +1,5 @@
-// Does the v$ macro work correctly in the C backend?
+// Does the \v macro work correctly in the C backend?
 
 inl main () =
-    inl x : i32 * i32 = $"`i32 v$, v$"
+    inl x : i32 * i32 = $"`i32 \v, \v"
     0i32

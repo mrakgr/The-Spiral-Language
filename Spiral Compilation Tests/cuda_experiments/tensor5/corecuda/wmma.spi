@@ -32,7 +32,7 @@ open tensor_cuda
 
 inl create_fragment forall use m n k layout t. : ref (fragment use m n k layout t) = real
     typecase fragment use m n k layout t with ~f => 
-    ref `f ($"`f v$" : fragment use m n k layout t)
+    ref `f ($"`f \v" : fragment use m n k layout t)
 
 inl fragment_dim forall use m n k layout t. (f : ref (fragment use m n k layout t)) : int * int = real
     open real_core

@@ -5,14 +5,14 @@ nominal uniform_int_distribution = $"std::uniform_int_distribution<`int>"
 nominal uniform_real_distribution = $"std::uniform_real_distribution<`float>"
 
 inl create_mt19937 () : ref mt19937 =
-    inl rd : random_device = $"`random_device v$"
-    ref $"`mt19937 v$(!rd())"
+    inl rd : random_device = $"`random_device \v"
+    ref $"`mt19937 \v(!rd())"
 
 inl generate_int (engine : ref mt19937) (dist : uniform_int_distribution) : int = $"!dist(!engine)"
 inl generate_float (engine : ref mt19937) (dist : uniform_real_distribution) : float = $"!dist(!engine)"
 
-inl create_uniform_int_dist {from=(from : int) to=(to : int)} : uniform_int_distribution = $"`uniform_int_distribution v$(!from, !to)"
-inl create_uniform_real_dist {from=(from : float) nearTo=(nearTo : float)} : uniform_real_distribution = $"`uniform_real_distribution v$(!from, !nearTo)"
+inl create_uniform_int_dist {from=(from : int) to=(to : int)} : uniform_int_distribution = $"`uniform_int_distribution \v(!from, !to)"
+inl create_uniform_real_dist {from=(from : float) nearTo=(nearTo : float)} : uniform_real_distribution = $"`uniform_real_distribution \v(!from, !nearTo)"
 
 // When is_exclusive is true samples from: (0,1)
 // Otherwise it samples from: [0,1)
