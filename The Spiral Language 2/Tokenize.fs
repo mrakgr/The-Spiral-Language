@@ -337,11 +337,11 @@ let rec token s =
     let i = s.from
     let inline (+) a b = alt i a b
     let individual_tokens = string_quoted + number + ((var + symbol + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x]) |>> fun x -> x, []
-    (individual_tokens + macro) s
-and tokenize text = 
+    (macro + individual_tokens) s
+and tokenize text =
     let mutable ar = PersistentVector.empty
     let mutable er = []
-    let tokens = 
+    let tokens =
         many_iter (fun (x : (Range * SpiralToken) list,er' : (Range * string) list) ->
             List.iter (fun x -> ar <- PersistentVector.conj x ar) x
             er <- List.append er' er
@@ -372,7 +372,7 @@ and macro s =
         | _ -> error_char s.from "\\"
         
     let p_var s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
-    let p_text s = (range (many1SatisfyL (fun c -> c <> '"' && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
+    let p_text closing_char s = (range (many1SatisfyL (fun c -> c <> closing_char && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
     let p_expr s = 
         let start = anyOf ['`'; '!'; '@']
         let case_paren = 
@@ -383,9 +383,9 @@ and macro s =
             |>> fun body (start_char, range) -> Var(range,body,char_to_macro_expr start_char)
         (range (start .>>. (case_paren <|> case_var))
         |>> fun (range, (start_char, f)) -> f (start_char, range)) s
-    let p_macro_inner s = (many (p_special_char <|> p_text <|> p_expr) <|>% []) s
+    let p_macro_inner closing_char s = (many (p_special_char <|> p_text closing_char <|> p_expr) <|>% []) s
     let p_macro s =
-        let body a b = range (between (skip_string a) (skip_char b) p_macro_inner)
+        let body a b = range (between (skip_string a) (skip_char b) (p_macro_inner b))
         (body "$\"" '"' <|> body "$'" ''') s
 
     match (p_macro .>> spaces) s with

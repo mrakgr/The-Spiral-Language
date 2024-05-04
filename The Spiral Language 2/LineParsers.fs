@@ -30,7 +30,7 @@ let peek (s : Tokenizer) = peek' s 0
 
 let inline many1Satisfy2L init body label (s : Tokenizer) = 
     let x = peek s
-    if init x then
+    if init x && x <> eol then
         inc s
         let rec loop (b : StringBuilder) = 
             let x = peek s

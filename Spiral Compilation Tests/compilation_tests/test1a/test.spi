@@ -1,0 +1,5 @@
+// Does it parse the macro?
+inl main ~() =
+    // $"assert !c, !msg" : ()
+    // $'assert(@msg && !c)' : ()
+    $'' : ()
