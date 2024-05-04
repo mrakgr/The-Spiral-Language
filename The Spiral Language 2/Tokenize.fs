@@ -72,6 +72,7 @@ type SemanticTokenLegend =
     | escaped_char = 10
     | unescaped_char = 11
     | number_suffix = 12
+    | escaped_var = 13
 
 type SpiralToken =
     | TokVar of string * SemanticTokenLegend
@@ -87,6 +88,7 @@ type SpiralToken =
     | TokStringOpen | TokStringClose
     | TokText of string
     | TokEscapedChar of char
+    | TokEscapedVar
     | TokUnescapedChar of char
     | TokMacroOpen | TokMacroClose
     | TokMacroTermVar of string
@@ -105,6 +107,7 @@ let token_groups = function
     | TokMacroTermVar _ -> SemanticTokenLegend.variable
     | TokMacroExpression _ -> SemanticTokenLegend.parenthesis
     | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
+    | TokEscapedVar -> SemanticTokenLegend.escaped_var
     | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
     | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
     | TokValueSuffix -> SemanticTokenLegend.number_suffix
@@ -308,6 +311,7 @@ let string_quoted s = (string_quoted' .>> spaces) s
 type private Macro =
     | Text of Range * string
     | EscapedChar of Range * char
+    | EscapedVar of Range
     | UnescapedChar of Range * char
     | Expression of Range * string * MacroEnum
     | Var of Range * string * MacroEnum
@@ -353,10 +357,14 @@ and macro s =
 
     let p_special_char s =
         match peek' s 0, peek' s 1 with
-        | '\\', ('n' | 'r' | 't' | 'b' | 'v' as c) -> 
+        | '\\', ('n' | 'r' | 't' | 'b' as c) -> 
             let r = range_char s.from
             inc' 2 s
             Ok(EscapedChar(r, c))
+        | '\\', ('v' as c) -> 
+            let r = range_char s.from
+            inc' 2 s
+            Ok(EscapedVar(r))
         | '\\', c -> 
             let r = range_char s.from
             inc' 2 s 
@@ -393,6 +401,7 @@ and macro s =
         x |> List.collect (function
             | Text(r,x) -> [r, TokText x]
             | EscapedChar(r,x) -> [r, TokEscapedChar x]
+            | EscapedVar(r) -> [r, TokEscapedVar]
             | UnescapedChar(r,x) -> [r, TokUnescapedChar x]
             | Var(r,x,MType) -> [r, TokMacroTypeVar x]
             | Var(r,x,MTypeLit) -> [r, TokMacroTypeLitVar x]
