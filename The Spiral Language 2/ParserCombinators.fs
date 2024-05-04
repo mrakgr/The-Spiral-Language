@@ -284,3 +284,5 @@ let inline choice ar d =
         else
             Error []
     loop 0
+
+let inline between a b c = a >>. c .>> b

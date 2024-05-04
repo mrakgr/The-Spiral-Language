@@ -1197,7 +1197,7 @@ and root_term d =
         //let case_rounds = 
         //    range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
         //    |>> fun (r,x) -> x r
-        let case_macro = 
+        let case_macro =
             let body = many ((read_text |>> RawMacroText) <|> read_macro_var <|> read_macro_expression)
             pipe3 skip_macro_open body skip_macro_close (fun a l b -> RawMacro(a +. b, l))
 

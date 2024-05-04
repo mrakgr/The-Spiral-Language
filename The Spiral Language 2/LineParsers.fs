@@ -92,5 +92,3 @@ let number (s : Tokenizer) =
         error_char i "number"
 
 let number_fractional s = (number .>>. (opt (skip_char '.' >>. number))) s
-
-let between a b c (s : Tokenizer) = (a >>. c .>> b ) s

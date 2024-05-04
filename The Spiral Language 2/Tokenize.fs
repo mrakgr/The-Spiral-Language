@@ -307,6 +307,8 @@ let string_quoted s = (string_quoted' .>> spaces) s
 
 type private Macro =
     | Text of Range * string
+    | EscapedChar of Range * char
+    | UnescapedChar of Range * char
     | Expression of Range * string * MacroEnum
     | Var of Range * string * MacroEnum
 
@@ -349,28 +351,49 @@ and macro s =
         | '@' -> MTypeLit
         | _ -> failwith "Compiler error: Unknown char in the tokenizer."
 
-    let parseVar s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
-    let parseText s = (range (many1SatisfyL (fun c -> c <> '"' && c <> '`' && c <> '!' && c <> '@') "macro text") |>> Text) s
-    let parseExpr s = 
+    let p_special_char s =
+        match peek' s 0, peek' s 1 with
+        | '\\', ('n' | 'r' | 't' | 'b' as c) -> 
+            let r = range_char s.from
+            inc' 2 s 
+            Ok(EscapedChar(r, c))
+        | '\\', c -> 
+            let r = range_char s.from
+            inc' 2 s 
+            Ok(UnescapedChar(r, c))
+        | _ -> error_char s.from "\\"
+        
+    let p_var s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
+    let p_text s = (range (many1SatisfyL (fun c -> c <> '"' && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
+    let p_expr s = 
         let start = anyOf ['`'; '!'; '@']
         let case_paren = 
             between (skip_char '(') (skip_char ')') (many1SatisfyL ((<>) ')') "not )") 
             |>> fun body (start_char, range) -> Expression(range,body,char_to_macro_expr start_char)
         let case_var =
-            parseVar
+            p_var
             |>> fun body (start_char, range) -> Var(range,body,char_to_macro_expr start_char)
         (range (start .>>. (case_paren <|> case_var))
         |>> fun (range, (start_char, f)) -> f (start_char, range)) s
-    let parseMacroInner s = (many (parseText <|> parseExpr) <|>% []) s
-    let parseMacro s =
-        let body a b = between (skip_string a) (skip_char b) parseMacroInner
+    let p_macro_inner s = (many (p_special_char <|> p_text <|> p_expr) <|>% []) s
+    let p_macro s =
+        let body a b = range (between (skip_string a) (skip_char b) p_macro_inner)
         (body "$\"" '"' <|> body "$'" ''') s
 
-    match (parseMacro .>> spaces) s with
-    | Ok x -> 
+    match (p_macro .>> spaces) s with
+    | Ok(r, x) -> 
+        let start = 
+            let r = {from=r.from; nearTo=r.from+2}
+            r, TokMacroOpen
+        let end_ = 
+            let r = {from=r.nearTo-1; nearTo=r.nearTo}
+            r, TokMacroClose
+    
         let mutable er = []
         x |> List.collect (function
             | Text(r,x) -> [r, TokText x]
+            | EscapedChar(r,x) -> [r, TokEscapedChar x]
+            | UnescapedChar(r,x) -> [r, TokUnescapedChar x]
             | Var(r,x,MType) -> [r, TokMacroTypeVar x]
             | Var(r,x,MTypeLit) -> [r, TokMacroTypeLitVar x]
             | Var(r,x,MTerm) -> [r, TokMacroTermVar x]
@@ -389,9 +412,8 @@ and macro s =
                 er <- List.append er' er
                 List.concat [[start]; List.ofSeq middle; [end_]]
             )
-        |> fun l -> Ok(l, er)
+        |> fun l -> Ok(List.concat [[start]; l; [end_]], er)
     | Error er -> Error er
-
 
 type LineToken = Range * SpiralToken
 type LineComment = Range * string
