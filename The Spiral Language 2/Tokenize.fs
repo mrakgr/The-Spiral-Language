@@ -103,9 +103,7 @@ let token_groups = function
     | TokMacroTypeVar _ -> SemanticTokenLegend.type_variable
     | TokMacroTypeLitVar _ -> SemanticTokenLegend.type_variable
     | TokMacroTermVar _ -> SemanticTokenLegend.variable
-    | TokMacroTypeExpression -> SemanticTokenLegend.type_variable
-    | TokMacroTypeLitExpression -> SemanticTokenLegend.type_variable
-    | TokMacroTermExpression -> SemanticTokenLegend.variable
+    | TokMacroExpression _ -> SemanticTokenLegend.parenthesis
     | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
     | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
     | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
@@ -307,44 +305,16 @@ let string_quoted' s =
     | _ -> error_char s.from "\""
 let string_quoted s = (string_quoted' .>> spaces) s
 
-type Macro =
+type private Macro =
     | Text of Range * string
     | Expression of Range * string * MacroEnum
+    | Var of Range * string * MacroEnum
 
 let inline range p s = 
     let from = s.from
     match p s with
     | Ok x -> Ok({from=from; nearTo=s.from}, x)
     | Error l -> Error l
-
-let macro tokenize s =
-    let char_to_macro_expr = function
-        | '`' -> MType
-        | '!' -> MTerm
-        | '@' -> MTypeLit
-        | _ -> failwith "Compiler error: Unknown char in the tokenizer."
-
-    let parseVar s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
-    let parseText s = (range (many1SatisfyL (fun c -> c <> '"' && c <> '`' && c <> '!' && c <> '@') "macro text") |>> Text) s
-    let parseExpr s = 
-        let start = anyOf ['`'; '!'; '@']
-        let case_paren = between (skip_char '(') (skip_char ')') (many1SatisfyL ((<>) ')') "not )")
-        let case_var = parseVar
-        let body = start .>>. (case_paren <|> case_var)
-        (range body |>> fun (range,(start_char,body)) -> Expression(range, body,char_to_macro_expr start_char)) s 
-    let parseMacroInner s = (many (parseText <|> parseExpr) <|>% []) s
-    let parseMacro s = 
-        let body a b = between (skip_string a) (skip_char b) parseMacroInner
-        (body "$\"" '"' <|> body "$'" ''') s
-
-    match (parseMacro .>> spaces) s with
-    | Ok x -> 
-        x |> List.map (function
-            | Text(r,x) -> r, TokText x
-            | Expression(r,x,t) -> failwith "TODO"
-            )
-        |> Ok
-    | Error er -> Error er
 
 let brackets s =
     let from = s.from
@@ -360,11 +330,69 @@ let eol s = if peek s = eol then Ok [] else Error [range_char (index s), "end of
 let rec token s =
     let i = s.from
     let inline (+) a b = alt i a b
-    (string_quoted + macro tokenize + number + ((var + symbol + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
+    let individual_tokens = string_quoted + number + ((var + symbol + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x]) |>> fun x -> x, []
+    (individual_tokens + macro) s
 and tokenize text = 
     let mutable ar = PersistentVector.empty
-    let er = match (spaces >>. many_iter (List.iter (fun x -> ar <- PersistentVector.conj x ar)) token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
+    let mutable er = []
+    let tokens = 
+        many_iter (fun (x : (Range * SpiralToken) list,er' : (Range * string) list) ->
+            List.iter (fun x -> ar <- PersistentVector.conj x ar) x
+            er <- List.append er' er
+            ) token
+    let er = match (spaces >>. tokens .>> (eol <|> tab)) {from=0; text=text} with Ok() -> er | Error er' -> List.append er' er
     ar, er
+and macro s =
+    let char_to_macro_expr = function
+        | '`' -> MType
+        | '!' -> MTerm
+        | '@' -> MTypeLit
+        | _ -> failwith "Compiler error: Unknown char in the tokenizer."
+
+    let parseVar s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
+    let parseText s = (range (many1SatisfyL (fun c -> c <> '"' && c <> '`' && c <> '!' && c <> '@') "macro text") |>> Text) s
+    let parseExpr s = 
+        let start = anyOf ['`'; '!'; '@']
+        let case_paren = 
+            between (skip_char '(') (skip_char ')') (many1SatisfyL ((<>) ')') "not )") 
+            |>> fun body (start_char, range) -> Expression(range,body,char_to_macro_expr start_char)
+        let case_var =
+            parseVar
+            |>> fun body (start_char, range) -> Var(range,body,char_to_macro_expr start_char)
+        (range (start .>>. (case_paren <|> case_var))
+        |>> fun (range, (start_char, f)) -> f (start_char, range)) s
+    let parseMacroInner s = (many (parseText <|> parseExpr) <|>% []) s
+    let parseMacro s =
+        let body a b = between (skip_string a) (skip_char b) parseMacroInner
+        (body "$\"" '"' <|> body "$'" ''') s
+
+    match (parseMacro .>> spaces) s with
+    | Ok x -> 
+        let mutable er = []
+        x |> List.collect (function
+            | Text(r,x) -> [r, TokText x]
+            | Var(r,x,MType) -> [r, TokMacroTypeVar x]
+            | Var(r,x,MTypeLit) -> [r, TokMacroTypeLitVar x]
+            | Var(r,x,MTerm) -> [r, TokMacroTermVar x]
+            | Expression(r,x,t) -> 
+                let start = 
+                    let r = {from=r.from; nearTo=r.from+2}
+                    r, TokMacroExpression(t,Open)
+                let end_ = 
+                    let r = {from=r.nearTo-1; nearTo=r.nearTo}
+                    r, TokMacroExpression(t,Close)
+                let middle,er' =
+                    let adjust_range (r : Range,x) = {from=r.from + (fst start).nearTo; nearTo=r.nearTo + (fst start).nearTo}, x
+                    let middle,er' = tokenize x
+                    PersistentVector.map adjust_range middle,
+                    List.map adjust_range er'
+                er <- List.append er' er
+                List.concat [[start]; List.ofSeq middle; [end_]]
+            )
+        |> fun l -> Ok(l, er)
+    | Error er -> Error er
+
+
 type LineToken = Range * SpiralToken
 type LineComment = Range * string
 type LineTokenErrors = (Range * TokenizerError) list

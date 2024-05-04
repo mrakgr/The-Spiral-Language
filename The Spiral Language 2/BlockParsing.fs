@@ -1193,7 +1193,13 @@ and root_term d =
                 Error [r, ListLiteralsNotAllowedInBottomUp]
 
         let case_string = read_string |>> fun (a, x, b) -> RawLit(a +. b,LitString x)
-        let case_macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_var)) skip_macro_close (fun a l b -> RawMacro(a +. b, l))
+
+        //let case_rounds = 
+        //    range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
+        //    |>> fun (r,x) -> x r
+        let case_macro = 
+            let body = many ((read_text |>> RawMacroText) <|> read_macro_var <|> read_macro_expression)
+            pipe3 skip_macro_open body skip_macro_close (fun a l b -> RawMacro(a +. b, l))
 
         let (+) = alt (index d)
 
