@@ -353,9 +353,9 @@ and macro s =
 
     let p_special_char s =
         match peek' s 0, peek' s 1 with
-        | '\\', ('n' | 'r' | 't' | 'b' as c) -> 
+        | '\\', ('n' | 'r' | 't' | 'b' | 'v' as c) -> 
             let r = range_char s.from
-            inc' 2 s 
+            inc' 2 s
             Ok(EscapedChar(r, c))
         | '\\', c -> 
             let r = range_char s.from

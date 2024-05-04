@@ -332,7 +332,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                     match a with
                     | TyMacro a ->
                         let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
-                        let q = m.Split("v$")
+                        let q = m.Split("\\v")
                         if q.Length = 1 then 
                             decl_vars |> line' s
                             return_local s d m 
@@ -343,7 +343,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                                 Array.iteri (fun i v -> w.Append(q.[i]).Append('v').Append(tag v) |> ignore) d
                                 w.Append(q.[d.Length]).Append(';').ToString() |> line s
                             else
-                                raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
+                                raise_codegen_error "The special \\v macro requires the same number of free vars in its binding as there are \\v in the code."
                     | _ ->
                         decl_vars |> line' s
                         op vars s (BindsLocal d) a

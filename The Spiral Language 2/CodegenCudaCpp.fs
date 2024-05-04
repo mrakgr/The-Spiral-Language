@@ -167,7 +167,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                             line s $"{m};"
                             false
                         else
-                            let q = m.Split("v$")
+                            let q = m.Split("\\v")
                             if q.Length = 1 then 
                                 decl_vars |> line' s
                                 return_local s d m 
@@ -180,7 +180,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                                     w.Append(q.[d.Length]).Append(';').ToString() |> line s
                                     true
                                 else
-                                    raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
+                                    raise_codegen_error "The special \\v macro requires the same number of free vars in its binding as there are \\v in the code."
                     | TyArrayLiteral(a,b') -> 
                         let inits = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
                         match d with

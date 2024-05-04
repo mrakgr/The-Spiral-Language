@@ -6,7 +6,7 @@ open corebase
 // nominal test = $"wer" 
 nominal sa dim el = `(
     typecase {Cuda : $"array<`el,@dim>"; Python : $"list `el"} with ~t =>
-    ``($"backend_switch `t")
+    ``($"backend_switch ``t")
     )
 
 // Creates an empty array.
