@@ -974,9 +974,9 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTMacro(r,l) -> 
             let f = function 
                 | RawMacroText(r,a) -> TMText a
-                | RawMacroTypeVar(r,a) -> TMType(f a)
-                | RawMacroTypeLitVar(r,a) -> TMLitType(f a)
-                | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
+                | RawMacroType(r,a) -> TMType(f a)
+                | RawMacroTypeLit(r,a) -> TMLitType(f a)
+                | RawMacroTerm _ -> failwith "Compiler error: Term vars should not appear on the type level."
             TMacro(p r,List.map f l)
         | RawTArray(r,a) -> TArray(f a)
         | RawTFilledNominal(r,a) -> TNominal a
@@ -1056,9 +1056,9 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
                 | RawMacroText(r,a) -> MText a
-                | RawMacroTermVar(r,a) -> MTerm(f a)
-                | RawMacroTypeVar(r,a) -> MType(ty env a)
-                | RawMacroTypeLitVar(r,a) -> MLitType(ty env a)
+                | RawMacroTerm(r,a) -> MTerm(f a)
+                | RawMacroType(r,a) -> MType(ty env a)
+                | RawMacroTypeLit(r,a) -> MLitType(ty env a)
                 )
             EMacro(p r,a,ty env b)
         | RawMissingBody _ -> failwith "Compiler error: The missing body cases should have been validated."
