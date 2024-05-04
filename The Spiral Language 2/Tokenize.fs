@@ -358,19 +358,19 @@ and macro s =
     let p_special_char s =
         match peek' s 0, peek' s 1 with
         | '\\', ('n' | 'r' | 't' | 'b' as c) -> 
-            let r = range_char s.from
+            let r = {from=s.from; nearTo=s.from+2}
             inc' 2 s
             Ok(EscapedChar(r, c))
         | '\\', ('v' as c) -> 
-            let r = range_char s.from
+            let r = {from=s.from; nearTo=s.from+2}
             inc' 2 s
             Ok(EscapedVar(r))
-        | '\\', c -> 
-            let r = range_char s.from
+        | '\\', c ->
+            let r = {from=s.from; nearTo=s.from+2}
             inc' 2 s 
             Ok(UnescapedChar(r, c))
         | _ -> error_char s.from "\\"
-        
+
     let p_var s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
     let p_text closing_char s = (range (many1SatisfyL (fun c -> c <> closing_char && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
     let p_expr s = 
