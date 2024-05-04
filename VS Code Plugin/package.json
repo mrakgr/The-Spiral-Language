@@ -138,6 +138,11 @@
 				"id": "number_suffix",
 				"superType": "keyword",
 				"description": "The suffix for a number."
+			},
+			{
+				"id": "escaped_var",
+				"superType": "keyword",
+				"description": "The escaped variable in a term macro."
 			}
 		]
 	},

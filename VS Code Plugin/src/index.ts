@@ -279,7 +279,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
-    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char','number_suffix']
+    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char','number_suffix','escaped_var']
     ctx.subscriptions.push(
         serverDisposables,
         errorsProject, errorsTokenization, errorsParse, errorsType,
