@@ -11,7 +11,7 @@ open System
 open System.Text
 open System.Collections.Generic
 
-let backend_name = "Cuda"
+let private backend_name = "Cuda"
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 // The number of bits needed to represent an union type with an x number of cases.

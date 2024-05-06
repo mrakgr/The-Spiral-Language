@@ -26,7 +26,7 @@
             - [Records](#records)
             - [Unions](#unions)
         - [Type Literals](#type-literals)
-            - [v$ operator in macros](#v-operator-in-macros)
+            - [\v operator in macros](#%5Cv-operator-in-macros)
         - [Prototypes](#prototypes)
         - [Existentials](#existentials)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
@@ -1259,14 +1259,14 @@ String, integers, floats and chars can all be type level literals. You can also 
 
 ```
 typecase 16 * (f32 * i32) with
-| ~dim * ~el => $"array<@dim,`el> v$" : static_array dim el
+| ~dim * ~el => $"array<@dim,`el> \v" : static_array dim el
 ```
 
 You can't do meaninful computation with them in the top down segment and they are intended to be used in the real segment instead. The top down segment's intent is to help you propagate them, and not much else.
 
-#### `v$` operator in macros
+#### `\v` operator in macros
 
-In the C/C++ backends, `v$` can be used to declare arrays without needing to return them.
+In the C/C++ backends, `\v` can be used to declare arrays without needing to return them.
 
 ```
 nominal static_array dim el = $"array<@dim,`el>"
@@ -1274,7 +1274,7 @@ nominal static_array dim el = $"array<@dim,`el>"
 inl main () : () = real
     inl _ =
         typecase 16 * (f32 * i32) with
-        | ~dim * ~el => $"array<@dim,`el> v$" : static_array dim el
+        | ~dim * ~el => $"array<@dim,`el> \v" : static_array dim el
     ()
 ```
 
@@ -1296,7 +1296,7 @@ void main(){
 }
 ```
 
-The issue is that the array syntax is so awkward in C that in order to declare arrays, we need to fold he tags into them. Only in the C/C++ backends does the `v$` have special meaning. You can use multiple of them in the same macro. It requires the same number of free vars in its bindings as there are `v$`s in the macro.
+The issue is that the array syntax is so awkward in C that in order to declare arrays, we need to fold he tags into them. Only in the C/C++ backends does the `\v` have special meaning. You can use multiple of them in the same macro. It requires the same number of free vars in its bindings as there are `\v`s in the macro.
 
 ### Prototypes
 

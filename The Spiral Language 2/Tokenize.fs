@@ -375,14 +375,14 @@ and macro s =
     let p_text closing_char s = (range (many1SatisfyL (fun c -> c <> closing_char && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
     let p_expr s = 
         let start = anyOf ['`'; '!'; '@']
-        let case_paren = 
+        let case_paren start_char = 
             between (skip_char '(') (skip_char ')') (many1SatisfyL ((<>) ')') "not )") 
-            |>> fun body (start_char, range) -> Expression(range,body,char_to_macro_expr start_char)
-        let case_var =
-            p_var
-            |>> fun body (start_char, range) -> Var(range,body,char_to_macro_expr start_char)
-        (range (start .>>. (case_paren <|> case_var))
-        |>> fun (range, (start_char, f)) -> f (start_char, range)) s
+            |>> fun (body) range -> Expression(range,body,char_to_macro_expr start_char)
+        let case_var start_char =
+            (skip_char start_char |>> fun () range -> UnescapedChar(range,start_char))
+            <|> (p_var |>> fun body range -> Var(range,body,char_to_macro_expr start_char))
+        (range (start >>= fun start_char -> (case_paren start_char <|> case_var start_char))
+        |>> fun (range, f) -> f range) s
     let p_macro_inner closing_char s = (many (p_special_char <|> p_text closing_char <|> p_expr) <|>% []) s
     let p_macro s =
         let body a b = range (between (skip_string a) (skip_char b) (p_macro_inner b))

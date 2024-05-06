@@ -12,7 +12,7 @@ struct US0 {
             char v0;
         } case1; // B
     } v;
-    char tag : 2;
+    unsigned long tag : 2;
 };
 __device__ US0 US0_0(long v0) { // A
     US0 x;
@@ -243,80 +243,70 @@ extern "C" __global__ void entry0(unsigned char * v0) {
                 const char * v114;
                 v114 = "C";
                 printf(v113,v114);
-                const char * v116;
-                v116 = "%s";
-                const char * v117;
-                v117 = "(";
-                printf(v116,v117);
-                const char * v119;
-                v119 = "%s";
-                const char * v120;
-                v120 = ")";
-                printf(v119,v120);
             }
         }
-        const char * v122;
-        v122 = "%s";
+        const char * v116;
+        v116 = "%s";
+        const char * v117;
+        v117 = ", ";
+        printf(v116,v117);
+        const char * v119;
+        v119 = "%c";
+        printf(v119,'{');
+        const char * v120;
+        v120 = "%s";
+        const char * v121;
+        v121 = "a";
+        printf(v120,v121);
         const char * v123;
-        v123 = ", ";
-        printf(v122,v123);
-        const char * v125;
-        v125 = "%c";
-        printf(v125,'{');
+        v123 = "%s";
+        const char * v124;
+        v124 = " = ";
+        printf(v123,v124);
         const char * v126;
         v126 = "%s";
         const char * v127;
-        v127 = "a";
+        v127 = "hello";
         printf(v126,v127);
         const char * v129;
         v129 = "%s";
         const char * v130;
-        v130 = " = ";
+        v130 = "; ";
         printf(v129,v130);
         const char * v132;
         v132 = "%s";
         const char * v133;
-        v133 = "hello";
+        v133 = "b";
         printf(v132,v133);
         const char * v135;
         v135 = "%s";
         const char * v136;
-        v136 = "; ";
+        v136 = " = ";
         printf(v135,v136);
         const char * v138;
-        v138 = "%s";
+        v138 = "%f";
+        printf(v138,v64);
         const char * v139;
-        v139 = "b";
-        printf(v138,v139);
-        const char * v141;
-        v141 = "%s";
+        v139 = "%s";
+        const char * v140;
+        v140 = "; ";
+        printf(v139,v140);
         const char * v142;
-        v142 = " = ";
-        printf(v141,v142);
-        const char * v144;
-        v144 = "%f";
-        printf(v144,v64);
+        v142 = "%s";
+        const char * v143;
+        v143 = "c";
+        printf(v142,v143);
         const char * v145;
         v145 = "%s";
         const char * v146;
-        v146 = "; ";
+        v146 = " = ";
         printf(v145,v146);
         const char * v148;
-        v148 = "%s";
+        v148 = "%f";
+        printf(v148,v68);
         const char * v149;
-        v149 = "c";
-        printf(v148,v149);
-        const char * v151;
-        v151 = "%s";
-        const char * v152;
-        v152 = " = ";
-        printf(v151,v152);
-        const char * v154;
-        v154 = "%f";
-        printf(v154,v68);
-        const char * v155;
-        v155 = "%c";
-        printf(v155,'}');
+        v149 = "%c";
+        printf(v149,'}');
         printf("\n");
         return ;
     } else {
@@ -459,46 +449,40 @@ def main():
             v94 = "C"
             print(v94, end="")
             del v94
-            v97 = "("
-            print(v97, end="")
-            del v97
-            v100 = ")"
-            print(v100, end="")
-            del v100
     del v39
-    v103 = ", "
-    print(v103, end="")
-    del v103
+    v97 = ", "
+    print(v97, end="")
+    del v97
     print('{', end="")
-    v107 = "a"
+    v101 = "a"
+    print(v101, end="")
+    del v101
+    v104 = " = "
+    print(v104, end="")
+    del v104
+    v107 = "hello"
     print(v107, end="")
     del v107
-    v110 = " = "
+    v110 = "; "
     print(v110, end="")
     del v110
-    v113 = "hello"
+    v113 = "b"
     print(v113, end="")
     del v113
-    v116 = "; "
+    v116 = " = "
     print(v116, end="")
     del v116
-    v119 = "b"
-    print(v119, end="")
-    del v119
-    v122 = " = "
-    print(v122, end="")
-    del v122
     print("{:.6f}".format(v43), end="")
     del v43
-    v126 = "; "
+    v120 = "; "
+    print(v120, end="")
+    del v120
+    v123 = "c"
+    print(v123, end="")
+    del v123
+    v126 = " = "
     print(v126, end="")
     del v126
-    v129 = "c"
-    print(v129, end="")
-    del v129
-    v132 = " = "
-    print(v132, end="")
-    del v132
     print("{:.6f}".format(v47), end="")
     del v47
     print('}', end="")

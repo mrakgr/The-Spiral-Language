@@ -9,12 +9,12 @@ struct Tuple2;
 struct US0 {
     union {
     } v;
-    char tag : 2;
+    unsigned long tag : 2;
 };
 struct US1 {
     union {
     } v;
-    char tag : 2;
+    unsigned long tag : 2;
 };
 struct Tuple0 {
     unsigned long v0;

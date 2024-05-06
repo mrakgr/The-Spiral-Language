@@ -34,7 +34,7 @@ let inline many1Satisfy2L init body label (s : Tokenizer) =
         inc s
         let rec loop (b : StringBuilder) = 
             let x = peek s
-            if body x then inc s; b.Append(x) |> loop
+            if body x && x <> eol then inc s; b.Append(x) |> loop
             else b.ToString()
         Ok(loop (StringBuilder().Append(x)))
     else

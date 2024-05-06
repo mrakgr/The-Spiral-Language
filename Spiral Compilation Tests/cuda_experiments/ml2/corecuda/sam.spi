@@ -6,7 +6,10 @@ nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"li
 // Creates an empty array.
 inl create' forall dim el. : sa dim el = 
     assert ((0 : int) <= (real real_core.type_lit_to_lit `dim)) "The dimension of the array has to be positive."
-    $"array<`el,@dim> \v"
+    backend_switch {
+        cuda = fun () => $"array<`el,@dim> \v"
+        python = fun () => $"[None] * !(real real_core.type_lit_to_lit `dim)" : sa dim el
+    }
     
 instance create sa dim = fun dim =>
     assert ((real real_core.type_lit_to_lit `dim) = dim) "The type level dimension has to equal the value passed at runtime into create."
@@ -17,11 +20,18 @@ instance length sa dim = fun ar => real real_core.type_lit_to_lit `dim : int
 // Indexes into an array.
 instance index sa dim = fun ar i => 
     assert (0 <= i && i < length ar) "The read index needs to be in range."
-    $"!ar.v[!i]"
+    backend_switch {
+        cuda = fun () => $"!ar.v[!i]"
+        python = fun () => $"!ar[!i]"
+    }
+    
 // Sets the value of an array at the specified index.
 instance set sa dim = fun ar i v => 
     assert (0 <= i && i < length ar) "The read index needs to be in range."
-    $"!ar.v[!i] = !v"
+    backend_switch {
+        cuda = fun () => $"!ar.v[!i] = !v"
+        python = fun () => $"!ar[!i] = !v"
+    }
 
 open arraym
 
@@ -95,3 +105,8 @@ inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_oute
 open console
 
 instance printable sa dim el = array_print 100
+
+inl main() = 
+    inl x : sa 10 int = create'
+    set x 0 234
+    index x 0

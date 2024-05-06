@@ -13,7 +13,7 @@ open System.Collections.Generic
 
 type PythonBackendType = Cuda
 
-let backend_name = "Python"
+let private backend_name = "Python"
 
 let lit = function
     | LitInt8 x -> sprintf "%i" x

@@ -26,11 +26,11 @@ instance length sa_list dim = fun x => #x.length
 // Indexes into an array.
 instance index sa_list dim = fun (sa_list {array length}) i => 
     assert (0 <= i && i < #length) "The read index needs to be in range."
-    $"!array.v[!i]"
+    index array i
 // Sets the value of an array at the specified index.
 instance set sa_list dim = fun (sa_list {array length}) i v =>
     assert (0 <= i && i < #length) "The set index needs to be in range."
-    $"!array.v[!i] = !v"
+    set array i v
 
 // Sets the array to the specified length. Returns the old one. Doesn't do any checking that the new length is in range.
 inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int -> int) =
