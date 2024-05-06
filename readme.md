@@ -680,7 +680,7 @@ This is the general theme of the move from v0.09 to v2 - the language has been r
 
 Here is an example of them.
 
-```
+```spiral
 inl main () = 
     inl ~x = "asd"
     $"// This is a comment"
@@ -699,7 +699,7 @@ Using ! it is possible to splice in the term variables, and ` can be used to do 
 
 Here is how it is possible to create .NET objects. For anyone browsing this doc, note that these examples are easier to read in the editor as it provides semantic highlighting.
 
-```
+```spiral
 type resize_array a = $"ResizeArray<`a>"
 inl resize_array_create forall a. : resize_array a = $"ResizeArray<`a>()"
 inl resize_array_add forall a. (x : resize_array a) (v : a) : () = $"!x.Add(!v)"
@@ -722,6 +722,7 @@ This is not as nice as having direct interop with .NET that F# gives you. If one
 The F# one is a bit less than 400 lines of code, and macros give us access to all the .NET libraries right away. The situation would be the same if Spiral were compiling to Cuda, Java, Python or anything else.
 
 New in v2.3.1: Macros can now be started with an apostrophe. For example: $'qwe' is the same as $"qwe".
+New in v2.9.0: Macros can now take in expressions instead of just variable names. $"`(cupy t)".
 
 ### Layout types
 
