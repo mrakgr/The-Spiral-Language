@@ -1,3 +1,10 @@
+2.9.0 (5/6/2024)
+
+* Changed to the tokenizer to allow the `(), !() and @() patterns in macros.
+* Changed the escaped variable v$ in macros to \v. Updated the docs and the examples to reflect that.
+* Added the semantic tokens so it should be more obvious that \v has special behavior.
+* `` !! and @@ also have semantic tokens now.
+
 2.8.10 (4/28/2024)
 
 * Fixed the way the union tags were printed in the Cuda backend. They have to be unsigned values.
