@@ -16,6 +16,8 @@ modules:
         monad
         console
         arraym
+        sam
+        sa_listm
         tensorm/
             utils*
             tensor_main-
@@ -32,8 +34,6 @@ modules:
         
     corecuda/
         base-
-        sam
-        sa_listm
         rangem
         intrinsic
         random

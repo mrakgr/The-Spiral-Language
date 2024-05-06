@@ -4,6 +4,20 @@ type ptr = array u8
 type size = u64
 type tag = i32
 
+// Calculates the padded size for a given element size. GPUs generally require a power of 2 up to 16.
+// Data structures that are misaligned and not padded appropriately will cause errors.
+inl align_array_modulo el_size =
+    if el_size <= 1 then 1
+    elif el_size <= 2 then 2
+    elif el_size <= 4 then 4
+    elif el_size <= 8 then 8
+    else 16
+
+// Aligns both the base and the element size, giving it the appropritate power of 2 padding.
+inl align_array base el_size =
+    inl m = align_array_modulo el_size
+    modup base m, modup el_size m
+
 inl calculate_offsets forall el. =
     inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
     inl align forall el. s = modup s (sizeof `el)
@@ -24,34 +38,51 @@ inl calculate_offsets forall el. =
                 inl s = align `el s
                 (exists [el] s), s + sizeof `el
             else
-                print_static `el // TODO: Put in string interpolation into the language.
-                error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+                typecase el with
+                | sam.sa ~dim ~el =>
+                    inl el_offsets, el_size = f `el 0
+                    inl s, el_size = align_array s el_size
+                    (exists [el] {base_offset=s el_offsets el_size}), s + type_lit_to_lit `dim * el_size
+                | sa_listm.sa_list ~dim ~el =>
+                    inl dim_offset, s = f `int s
+                    inl el_offsets, el_size = f `el 0
+                    inl s, el_size = align_array s el_size
+                    (exists [el] {base_offset=s dim_offset el_offsets el_size}), s + type_lit_to_lit `dim * el_size
+                | _ =>
+                    print_static `el // TODO: Put in string interpolation into the language.
+                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
             )
     f `el (conv `size 0)
 
-inl ptr_at_offset (ptr : ptr) (exists t. offset) = 
+inl ptr_at_offset (ptr : ptr) (exists t. offset) =
     backend_switch {
         cuda = fun () => $"(`t *)(!ptr+!offset)" : array t
-        python = fun () => typecase cupy_type t with ~ct => $"!ptr[!offset:].view(`ct)" : array t
+        python = fun () => $"!ptr[!offset:].view(`(cupy_type t))" : array t
     }
 
 nominal offsets t = `(calculate_offsets `t)
 inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
-    inl rec f offsets =
+    inl rec f ptr offsets =
         open struct
         iter2 (fun (exists el. offset) v =>
             if singleton_type_is `el then ()
             elif union_type_is `el then
                 inl { tag_offset union_fields } = offset
-                f tag_offset (union_tag v)
-                !!!!Unbox(v,fun k,v => f (union_fields k) v)
+                f ptr tag_offset (union_tag v)
+                !!!!Unbox(v,fun k,v => f ptr (union_fields k) v)
             elif prim_type_is `el then
                 set `array `el (ptr_at_offset ptr (exists [el] offset)) 0 v // We need to use `ptr_at_offset` instead of setting the array directly in order to cast it to the correct type.
             else
-                print_static `el // TODO: Put in string interpolation into the language.
-                error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+                typecase el with
+                | sam.sa ~dim ~el =>
+                    
+                    // inl el_offset, s = f `el s
+                    // (exists [el] el_offset), s + type_lit_to_lit `dim * sizeof `el
+                | _ =>
+                    print_static `el // TODO: Put in string interpolation into the language.
+                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
             ) offsets
-    f offsets v
+    f ptr offsets v
 
 inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el = 
     inl rec f offsets =
