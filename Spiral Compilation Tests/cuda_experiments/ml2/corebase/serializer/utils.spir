@@ -56,8 +56,8 @@ inl calculate_offsets forall el. =
 
 inl ptr_at_offset (ptr : ptr) (exists t. offset) =
     backend_switch {
-        cuda = fun () => $"(`t *)(!ptr+!offset)" : array t
-        python = fun () => $"!ptr[!offset:].view(`(cupy_type t))" : array t
+        Cuda = fun () => $"(`t *)(!ptr+!offset)" : array t
+        Python = fun () => $"!ptr[!offset:].view(`(cupy_type t))" : array t
     }
 
 nominal offsets t = `(calculate_offsets `t)
@@ -73,11 +73,14 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
             elif prim_type_is `el then
                 set `array `el (ptr_at_offset ptr (exists [el] offset)) 0 v // We need to use `ptr_at_offset` instead of setting the array directly in order to cast it to the correct type.
             else
+                inl serialize_sa () =
+                    inl {base_offset el_offsets el_size} = offset
+                    loop.for' {from=0; nearTo=length `el v} fun i =>
+                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
+                        f ptr el_offsets (index `el v i)
                 typecase el with
-                | sam.sa ~dim ~el =>
-                    
-                    // inl el_offset, s = f `el s
-                    // (exists [el] el_offset), s + type_lit_to_lit `dim * sizeof `el
+                | sam.sa _ _ => serialize_sa()
+                | sa_listm.sa_list _ _ => f ptr offset.dim_offset . serialize_sa()
                 | _ =>
                     print_static `el // TODO: Put in string interpolation into the language.
                     error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
@@ -101,7 +104,19 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
             elif prim_type_is `el then
                 index `array `el (ptr_at_offset ptr (exists [el] offset)) 0
             else
-                print_static `el // TODO: Put in string interpolation into the language.
-                error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+                typecase el with
+                | sam.sa ~dim ~el' =>
+                    inl ar = sam.create' `dim `el
+                    ()
+                | sa_listm.sa_list ~dim ~el' =>
+                    inl ar = sa_listm.create' `dim `el
+                    sa_listm.unsafe_set_length ar (f offset.dim_offset)
+
+
+
+                    ()
+                | _ =>
+                    print_static `el // TODO: Put in string interpolation into the language.
+                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
             ) offsets
     f offsets

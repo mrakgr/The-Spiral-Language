@@ -1,5 +1,6 @@
 open corebase
 open struct
+open refm
 
 inl grid_group_num_blocks() : int = $"cooperative_groups::grid_group::num_blocks()"
 inl grid_group_block_rank() : int = $"cooperative_groups::grid_group::block_rank()"

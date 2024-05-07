@@ -1,5 +1,3 @@
-open corebase
-
 // Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"list `el"})"
 
@@ -7,8 +5,8 @@ nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"li
 inl create' forall dim el. : sa dim el = 
     assert ((0 : int) <= (real real_core.type_lit_to_lit `dim)) "The dimension of the array has to be positive."
     backend_switch {
-        cuda = fun () => $"array<`el,@dim> \v"
-        python = fun () => $"[None] * !(real real_core.type_lit_to_lit `dim)" : sa dim el
+        Cuda = fun () => $"array<`el,@dim> \v"
+        Python = fun () => $"[None] * !(real real_core.type_lit_to_lit `dim)" : sa dim el
     }
     
 instance create sa dim = fun dim =>
@@ -21,16 +19,16 @@ instance length sa dim = fun ar => real real_core.type_lit_to_lit `dim : int
 instance index sa dim = fun ar i => 
     assert (0 <= i && i < length ar) "The read index needs to be in range."
     backend_switch {
-        cuda = fun () => $"!ar.v[!i]"
-        python = fun () => $"!ar[!i]"
+        Cuda = fun () => $"!ar.v[!i]"
+        Python = fun () => $"!ar[!i]"
     }
     
 // Sets the value of an array at the specified index.
 instance set sa dim = fun ar i v => 
     assert (0 <= i && i < length ar) "The read index needs to be in range."
     backend_switch {
-        cuda = fun () => $"!ar.v[!i] = !v"
-        python = fun () => $"!ar[!i] = !v"
+        Cuda = fun () => $"!ar.v[!i] = !v"
+        Python = fun () => $"!ar[!i] = !v"
     }
 
 open arraym

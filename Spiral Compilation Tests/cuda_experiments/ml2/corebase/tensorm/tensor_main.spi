@@ -30,8 +30,8 @@ inl assert_long_length forall dim. (len : int) (dim : dim) =
         open real_core
         iter (fun a => assert (0 < a) "All the dimensions of a tensor have to be positive.") dim
     backend_switch {
-        python = fun () => assert (len <= limit.max) "The tensors full length cannot be adequately represented by the default integer."
-        cuda = fun () => 
+        Python = fun () => assert (len <= limit.max) "The tensors full length cannot be adequately represented by the default integer."
+        Cuda = fun () => 
             inl safe_prod : u64 = real 
                 open real_core
                 foldBack (fun a s => conv `u64 a * s) dim 1u64

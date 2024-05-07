@@ -1,6 +1,6 @@
-// Resizable arrays based on the static ones. The dim in the type determines their max length.
-open corebase
+open refm
 
+// Resizable arrays based on the static ones. The dim in the type determines their max length.
 nominal sa_list dim el = {
     array : sam.sa dim el
     length : ref int

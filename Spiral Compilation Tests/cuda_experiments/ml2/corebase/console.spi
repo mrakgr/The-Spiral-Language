@@ -59,6 +59,6 @@ inl rec write forall t. (x : t) : () = real
 inl write_ln l = 
     write l
     backend_switch {
-        cuda = fun () => $'printf("\\n")' : ()
-        python = fun () => $"print()" : ()
+        Cuda = fun () => $'printf("\\n")' : ()
+        Python = fun () => $"print()" : ()
     }
