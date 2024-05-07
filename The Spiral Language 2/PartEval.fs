@@ -113,7 +113,6 @@ type TypedBind =
 and TypedOp = 
     | TyMacro of CodeMacro list
     | TyOp of Op * Data list
-    | TyBackendSwitch of Map<string, TypedBind []>
     | TyUnionBox of string * Data * Union
     | TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
     | TyIntSwitch of TyV * TypedBind [] [] * TypedBind []

@@ -8,7 +8,7 @@ union qwe =
 
 type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
 inl test1() = // gpu only
-    run' {shared_mem=0} fun () =>
+    run fun () =>
         if rangem.threads_in_grid().from = 0 then
             inl offsets = calculate_offsets
             inl ptr = create conv(offsets_size offsets)
@@ -35,7 +35,7 @@ inl test2() = // host to gpu
 inl test3() = // gpu to host
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
-    run' {shared_mem=0} fun () =>
+    run fun () =>
         if rangem.threads_in_grid().from = 0 then
             serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
             deserialize offsets ptr
@@ -44,4 +44,17 @@ inl test3() = // gpu to host
     deserialize offsets ptr
     |> console.write_ln
 
-inl main() = test3()
+type t = i8 * i8 * sa_listm.sa_list 14 int
+
+inl test4() =
+    // inl ar : sa_listm.sa_list 55 int = arraym.fromList [1;2;3]
+    // console.write_ln ar
+    run fun () =>
+        if rangem.threads_in_grid().from = 0 then
+            inl offsets = calculate_offsets
+            inl ptr = create conv(offsets_size offsets)
+            serialize offsets ptr (1, 2, arraym.fromList [1;2;3] : t)
+            // deserialize offsets ptr
+            // |> console.write_ln
+    ()
+inl main() = test4()

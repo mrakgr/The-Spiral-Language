@@ -7,15 +7,15 @@ type tag = i32
 // Calculates the padded size for a given element size. GPUs generally require a power of 2 up to 16.
 // Data structures that are misaligned and not padded appropriately will cause errors.
 inl align_array_modulo el_size =
-    if el_size <= 1 then 1
-    elif el_size <= 2 then 2
-    elif el_size <= 4 then 4
-    elif el_size <= 8 then 8
-    else 16
+    if el_size <= 1u64 then 1u64
+    elif el_size <= 2u64 then 2u64
+    elif el_size <= 4u64 then 4u64
+    elif el_size <= 8u64 then 8u64
+    else 16u64
 
 // Aligns both the base and the element size, giving it the appropritate power of 2 padding.
 inl align_array base el_size =
-    inl m = align_array_modulo el_size
+    inl m = conv `size (align_array_modulo el_size)
     modup base m, modup el_size m
 
 inl calculate_offsets forall el. =
@@ -39,15 +39,17 @@ inl calculate_offsets forall el. =
                 (exists [el] s), s + sizeof `el
             else
                 typecase el with
-                | sam.sa ~dim ~el =>
-                    inl el_offsets, el_size = f `el 0
+                | sam.sa ~dim ~el' =>
+                    inl el_offsets, el_size = f `el' (conv `size 0)
                     inl s, el_size = align_array s el_size
-                    (exists [el] {base_offset=s el_offsets el_size}), s + type_lit_to_lit `dim * el_size
-                | sa_listm.sa_list ~dim ~el =>
+                    inl dim = conv `size (type_lit_to_lit `dim)
+                    (exists [el] {base_offset=s; el_offsets el_size}), s + dim * el_size
+                | sa_listm.sa_list ~dim ~el' =>
                     inl dim_offset, s = f `int s
-                    inl el_offsets, el_size = f `el 0
+                    inl el_offsets, el_size = f `el' (conv `size 0)
                     inl s, el_size = align_array s el_size
-                    (exists [el] {base_offset=s dim_offset el_offsets el_size}), s + type_lit_to_lit `dim * el_size
+                    inl dim = conv `size (type_lit_to_lit `dim)
+                    (exists [el] {base_offset=s; dim_offset el_offsets el_size}), s + dim * el_size
                 | _ =>
                     print_static `el // TODO: Put in string interpolation into the language.
                     error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
@@ -65,6 +67,9 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
     inl rec f ptr offsets =
         open struct
         iter2 (fun (exists el. offset) v =>
+            // !!!!PrintStatic(`el)
+            !!!!PrintStatic(v)
+
             if singleton_type_is `el then ()
             elif union_type_is `el then
                 inl { tag_offset union_fields } = offset
@@ -73,14 +78,16 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
             elif prim_type_is `el then
                 set `array `el (ptr_at_offset ptr (exists [el] offset)) 0 v // We need to use `ptr_at_offset` instead of setting the array directly in order to cast it to the correct type.
             else
-                inl serialize_sa forall array el. () =
+                inl serialize_sa forall array el. =
                     inl {base_offset el_offsets el_size} = offset
                     loop.for' `int {from=0; nearTo=length `array `el v} fun i =>
-                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
+                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + conv `size i * el_size)
                         f ptr el_offsets (index `array `el v i)
                 typecase el with
-                | sam.sa ~dim ~el' => serialize_sa `(sam.sa dim) `el' ()
-                | sa_listm.sa_list ~dim ~el' => f ptr offset.dim_offset . serialize_sa `(sa_listm.sa_list dim) `el' ()
+                | sam.sa ~dim ~el' => serialize_sa `(sam.sa dim) `el'
+                | sa_listm.sa_list ~dim ~el' => 
+                    f ptr offset.dim_offset (length `(sa_listm.sa_list dim) `el v)
+                    serialize_sa `(sa_listm.sa_list dim) `el'
                 | _ =>
                     print_static `el // TODO: Put in string interpolation into the language.
                     error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
@@ -107,7 +114,7 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                 inl deserialize_sa forall array el. ar =
                     inl {base_offset el_offsets el_size} = offset
                     loop `int {from=0; nearTo=length `array `el ar} fun i =>
-                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
+                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + conv `size i * el_size)
                         set `array `el ar i (f ptr el_offsets)
                 typecase el with
                 | sam.sa ~dim ~el' => 

@@ -14,15 +14,24 @@ inl create' forall dim el. : sa_list dim el =
         length = ref 0
         }
     
+// Returns the length of an array.
+instance length sa_list dim = fun x => #x.length
+
+// Sets the array to the specified length. Returns the old one. Doesn't do any checking that the new length is in range.
+inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int -> int) =
+    inl len = length ar
+    ar.length <-# f len
+    len
+
 instance create sa_list dim = fun dim =>
-    assert ((real real_core.type_lit_to_lit `dim) = dim) "The type level dimension has to equal the value passed at runtime into create."
-    create'
+    assert ((real real_core.type_lit_to_lit `dim) >= dim) "The type level dimension has to equal the value passed at runtime into create."
+    inl ar = create'
+    inl _ = unsafe_set_length ar (const dim)
+    ar
 
 // Returns the maximum length of the array.
 inl max_length (ar : sa_list _ _) = length ar.array
     
-// Returns the length of an array.
-instance length sa_list dim = fun x => #x.length
 // Indexes into an array.
 instance index sa_list dim = fun (sa_list {array length}) i => 
     assert (0 <= i && i < #length) "The read index needs to be in range."
@@ -32,11 +41,6 @@ instance set sa_list dim = fun (sa_list {array length}) i v =>
     assert (0 <= i && i < #length) "The set index needs to be in range."
     set array i v
 
-// Sets the array to the specified length. Returns the old one. Doesn't do any checking that the new length is in range.
-inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int -> int) =
-    inl len = length ar
-    ar.length <-# f len
-    len
 
 // // Sets the array to the specified length. Returns the old one.
 // inl set_length forall dim el. (ar : sa_list dim el) (f : int -> int) =

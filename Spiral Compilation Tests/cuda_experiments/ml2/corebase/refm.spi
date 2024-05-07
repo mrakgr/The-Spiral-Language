@@ -2,8 +2,8 @@
 nominal ref t = $"backend_switch `({Python : $"list"; Cuda : $"`t &"})"
 inl ref forall t. (x : t) : ref t = 
     backend_switch {
-        Python = fun () => $"[None]"
-        Cuda = fun () => $"`t & \v = !x"
+        Python = fun () => $"[!x]"
+        Cuda = fun () => $"`t \v = !x"
     }
 // Doesn't actually dereference the reference. For using local scope only.
 inl (~#) forall t. (x : ref t) : t =
