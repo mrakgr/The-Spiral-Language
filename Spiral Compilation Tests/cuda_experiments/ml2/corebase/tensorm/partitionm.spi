@@ -67,11 +67,11 @@ inl tensor_from_offsets forall d el. (base : ptr) (offsets {dim offsets} : _ d e
             tensor_body `d `t {
                 array = 
                     real_core.backend_switch {
-                        python = fun () => 
+                        Python = fun () => 
                             inl s = !!!!SizeOf(`t) 
                             typecase cupy_type t with ~ct => 
                             $"!base[!i:!i+!s*!len].view(`ct)" : array t
-                        cuda = fun () => 
+                        Cuda = fun () => 
                             $"reinterpret_cast<`t *>(&!base[!i])" : array t
                         }
                 offset = 0

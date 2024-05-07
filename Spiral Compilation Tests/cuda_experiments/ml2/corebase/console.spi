@@ -13,8 +13,8 @@ inl rec write forall t. (x : t) : () = real
         open real_core
         inl p (a,b) = 
             backend_switch {
-                cuda = fun () => $"printf(!a,!b)" : ()
-                python = fun () => 
+                Cuda = fun () => $"printf(!a,!b)" : ()
+                Python = fun () => 
                     match b with
                     | (_ : f32) | (_ : f64) => $'print("{:.6f}".format(!b), end="")' : ()
                     | _ => $'print(!b, end="")' : ()

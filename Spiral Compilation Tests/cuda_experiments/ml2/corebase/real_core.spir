@@ -262,8 +262,8 @@ inl assert c msg =
         if lit_is c && lit_is msg then error_type msg
         else 
             backend_switch {
-                python = fun () => $"assert !c, !msg" : ()
-                cuda = fun () => 
+                Python = fun () => $"assert !c, !msg" : ()
+                Cuda = fun () => 
                     typecase `(lit_to_type_lit msg) with ~msg =>
                     $'assert(@msg && !c)' : ()
                 }

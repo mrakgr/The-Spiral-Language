@@ -131,8 +131,8 @@ inl apply_ptr forall dim el. (tensor {bodies dim} : tensor dim el) : tensor dim 
                 typecase `x with
                 | tensor_body dim ~el => tensor_body `dim `el {
                     array = backend_switch {
-                        python = fun () => $"!array[!offset:]" : array el
-                        cuda = fun () => $"!array+!offset" : array el
+                        Python = fun () => $"!array[!offset:]" : array el
+                        Cuda = fun () => $"!array+!offset" : array el
                         }
                     offset = 0
                     stride
