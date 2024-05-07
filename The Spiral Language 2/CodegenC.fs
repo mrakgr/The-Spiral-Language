@@ -74,7 +74,6 @@ let refc_used_vars backend (x : TypedBind []) =
         | TyLayoutIndexAll(i) | TyLayoutIndexByKey(i,_) -> Set.singleton i
         | TyApply(i,d) | TyLayoutHeapMutableSet(i,_,d) -> Set.singleton i + fv d
         | TyJoinPoint x -> jp x
-        | TyBackendSwitch m -> Map.tryFind backend m |> Option.map binds |> Option.defaultValue Set.empty
         | TyBackend(_,_,_) -> Set.empty
         | TyIf(cond,tr',fl') -> fv cond + binds tr' + binds fl'
         | TyUnionUnbox(vs,_,on_succs',on_fail') ->
@@ -141,7 +140,6 @@ let refc_prepass backend (new_vars : TyV Set) (increfed_vars : TyV Set) (x : Typ
         | TySizeOf _ | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyOp _ | TyFailwith _ | TyConv _ 
         | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyBackend _ -> ()
         | TyWhile(_,body) -> binds Set.empty Set.empty body
-        | TyBackendSwitch m -> Map.tryFind backend m |> Option.iter (binds Set.empty increfed_vars)
         | TyIf(_,tr',fl') -> binds Set.empty increfed_vars tr'; binds Set.empty increfed_vars fl'
         | TyUnionUnbox(_,_,on_succs',on_fail') ->
             Map.iter (fun _ (lets,body) -> 
@@ -490,12 +488,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackendSwitch m ->
-            let backend = "C"
-            match Map.tryFind backend m with
-            | Some b -> binds s ret b
-            | None -> raise_codegen_error $"Cannot find the backend \"{backend}\" in the TyBackendSwitch."
-        | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The C backend does not support nesting of other backends."
+        | TyBackend(_,_,r) -> raise_codegen_error_backend r "The C backend does not support nesting of other backends."
         | TyWhile(a,b) ->
             let cond =
                 match a with

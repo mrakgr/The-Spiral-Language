@@ -94,8 +94,8 @@ type RData =
 
 type Trace = Range list
 type JoinPointKey = 
-    | JPMethod of E * ConsedNode<RData [] * Ty []>
-    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty * Ty>
+    | JPMethod of (string ConsedNode * E) * ConsedNode<RData [] * Ty []>
+    | JPClosure of (string ConsedNode * E) * ConsedNode<RData [] * Ty [] * Ty * Ty>
     
 type JoinPointCall = JoinPointKey * TyV []
 
@@ -132,8 +132,7 @@ and TypedOp =
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
-    | TyBackend of E * ConsedNode<RData [] * Ty []> * backend: (Range * string)
-
+    | TyBackend of (string ConsedNode * E) * ConsedNode<RData [] * Ty []> * Range
 type UnionRewrite = UnionData of string * Data | UnionBlockers of string Set
 type LangEnv = {
     trace : Trace
@@ -145,11 +144,13 @@ type LangEnv = {
     env_global_term : Data []
     env_stack_type : Ty []
     env_stack_term : Data []
+    backend : string ConsedNode
     }
 
 type TopEnv = {
     prototypes_instances : Dictionary<GlobalId * GlobalId, E>
     nominals : Dictionary<GlobalId, Nominal>
+    backend : string
     }
 
 exception TypeError of Trace * string
@@ -466,8 +467,8 @@ let store_term (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length]
 let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
 
 type PartEvalResult = {
-    join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option * string option> * HashConsTable>
-    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
+    join_point_method : Dictionary<string ConsedNode * E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option * string option> * HashConsTable>
+    join_point_closure : Dictionary<string ConsedNode * E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
     ty_to_data : Ty -> Data
     nominal_apply : Ty -> Ty
     }
@@ -476,6 +477,7 @@ let peval (env : TopEnv) (x : E) =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
     let join_point_type = Dictionary(HashIdentity.Reference)
+    let backend_strings = HashConsTable()
 
     let rec ty_to_data s x =
         let f = ty_to_data s
@@ -524,6 +526,7 @@ let peval (env : TopEnv) (x : E) =
         env_global_term = gl_term
         env_stack_type = Array.zeroCreate<_> sz_ty
         env_stack_term = Array.zeroCreate<_> sz_term
+        backend = s.backend
         }
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty as args) =
         let join_point_key, call_args, ret_ty =
@@ -532,7 +535,7 @@ let peval (env : TopEnv) (x : E) =
                 match ty s annot with
                 | YFun(a,b) as x -> a,b,x
                 | annot -> raise_type_error s <| sprintf "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
-            let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (s.backend, body)
             let call_args, env_global_value = data_to_rdata s hc_table gl_term
             let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
 
@@ -547,7 +550,7 @@ let peval (env : TopEnv) (x : E) =
                 dict.[join_point_key] <- Some(domain_data, seq)
                 if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.\nGot: %s\nExpected: %s" (show_ty ty) (show_ty range)
             join_point_key, call_args, ret_ty
-        push_typedop s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
+        push_typedop s (TyJoinPoint(JPClosure((s.backend,body),join_point_key),call_args)) ret_ty, ret_ty
     and data_to_ty s x =
         let m = Dictionary(HashIdentity.Reference)
         let rec f x =
@@ -624,7 +627,7 @@ let peval (env : TopEnv) (x : E) =
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
 
-            let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (s.backend, body)
             let join_point_key = hc_table.Add(env_global_type)
             match dict.TryGetValue(join_point_key) with
             | true, Some ret_ty -> ret_ty
@@ -641,6 +644,7 @@ let peval (env : TopEnv) (x : E) =
                     env_global_term = env_global_term
                     env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                     env_stack_term = Array.zeroCreate<_> scope.term.stack_size
+                    backend = s.backend
                     }
                 let s = rename_global_term s
                 dict.[join_point_key] <- None
@@ -924,7 +928,7 @@ let peval (env : TopEnv) (x : E) =
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
 
-            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (s.backend, body)
             let call_args, env_global_value = data_to_rdata s hc_table env_global_term
             let join_point_key = hc_table.Add(env_global_value, env_global_type)
 
@@ -943,6 +947,10 @@ let peval (env : TopEnv) (x : E) =
                         env_global_term = env_global_term
                         env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                         env_stack_term = Array.zeroCreate<_> scope.term.stack_size
+                        backend = 
+                            match backend with
+                            | None -> s.backend
+                            | Some (_,backend) -> backend_strings.Add backend
                         }
                     let s = rename_global_term s
                     let annot = Option.map (ty s) annot
@@ -953,9 +961,9 @@ let peval (env : TopEnv) (x : E) =
                     ty
 
             match backend with
-            | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
-            | Some backend ->
-                let method_name = push_typedop_no_rewrite s (TyBackend(body,join_point_key,backend)) (YPrim Int32T)
+            | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod((s.backend,body),join_point_key),call_args)) ret_ty
+            | Some (range,backend) ->
+                let method_name = push_typedop_no_rewrite s (TyBackend((backend_strings.Add backend,body),join_point_key,range)) (YPrim Int32T)
                 let call_args = Array.foldBack (fun v s -> DPair(DV v,s)) call_args DB
                 DPair(method_name, call_args)
         | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit
@@ -1322,17 +1330,11 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,PragmaUnrollPop,[]) -> 
             push_op_no_rewrite' s PragmaUnrollPop [] YB
         | EOp(_,BackendSwitch,l) ->
-            let mutable ty = None
-            let m = (Map.empty, l) ||> List.fold (fun m -> function
-                | EPair(r,ELit(_,LitString backend),b) -> 
-                    let body,ty' = term_scope s b
-                    match ty with
-                    | Some ty -> if ty <> ty' then raise_type_error s $"The return type of backend {backend} does not match that of the rest.\nGot: {show_ty ty'}\nExpected: {show_ty ty}"
-                    | None -> ty <- Some ty'
-                    Map.add backend body m
-                | _ -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
-                )
-            push_typedop s (TyBackendSwitch m) ty.Value
+            let rec loop = function
+                | EPair(r,ELit(_,LitString backend),b) :: xs -> if backend = s.backend.node then term s b else loop xs
+                | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
+                | [] -> raise_type_error s $"Cannot find the backend {s.backend} in the backend switch op."
+            loop l
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'
             let b = term s b |> data_term_vars'
@@ -2282,6 +2284,7 @@ let peval (env : TopEnv) (x : E) =
         env_global_term = [||]
         env_stack_type = [||]
         env_stack_term = [||]
+        backend = backend_strings.Add env.backend
         }
     let ty_to_data x = ty_to_data {s with i = ref 0} x
     let nominal_apply x = nominal_apply {s with i = ref 0} x

@@ -214,12 +214,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s "else"
                 binds (indent s) fl
         | TyJoinPoint(a,args) -> simple (jp (a, args))
-        | TyBackendSwitch m ->
-            let backend = "Fsharp"
-            match Map.tryFind backend m with
-            | Some b -> binds s b
-            | None -> raise_codegen_error $"Cannot find the backend \"{backend}\" in the TyBackendSwitch."
-        | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The F# backend does not support nesting other backends."
+        | TyBackend(_,_,r) -> raise_codegen_error_backend r "The F# backend does not support nesting other backends."
         | TyWhile(a,b) ->
             complex <| fun s ->
             line s (sprintf "while %s do" (jp a))

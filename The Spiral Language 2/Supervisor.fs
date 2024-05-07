@@ -371,7 +371,7 @@ let supervisor_server (default_env : Startup.DefaultEnv) atten (errors : Supervi
                             let d = Dictionary()
                             env.nominals |> Map.iter (fun k v -> d.Add(k, t.Add {|v with id=k|}))
                             d
-                        try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
+                        try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals; backend=backend} main
                             match backend with
                             | "Fsharp" -> BuildOk [{|code = Codegen.Fsharp.codegen b a; file_extension = "fsx"|}]
                             | "C" -> BuildOk [{|code = Codegen.C.codegen b a; file_extension = "c"|}]

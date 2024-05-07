@@ -279,10 +279,6 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 line s "case _:"
                 binds g_decr (indent s) ret b
                 )
-        | TyBackendSwitch m ->
-            match Map.tryFind backend_name m with
-            | Some b -> binds g_decr s ret b
-            | None -> raise_codegen_error $"Cannot find the backend \"{backend_name}\" in the TyBackendSwitch."
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
@@ -447,7 +443,8 @@ let codegen' backend_type env x =
         let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
         let codegen = Cuda.CppDevice.codegen ars env
         let python_code =
-            codegen'' (fun (jp_body,key,(r',backend_name)) ->
+            codegen'' (fun (jp_body,key,r') ->
+                let backend_name = (fst jp_body).node
                 match backend_name with
                 | "Cuda" -> 
                     Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
