@@ -68,7 +68,7 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
         open struct
         iter2 (fun (exists el. offset) v =>
             // !!!!PrintStatic(`el)
-            !!!!PrintStatic(v)
+            // !!!!PrintStatic(v)
 
             if singleton_type_is `el then ()
             elif union_type_is `el then
@@ -123,7 +123,7 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                     ar
                 | sa_listm.sa_list ~dim ~el' =>
                     inl ar = sa_listm.create' `dim `el'
-                    sa_listm.unsafe_set_length `dim `el' ar (f offset.dim_offset)
+                    sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
                     deserialize_sa `(sa_listm.sa_list dim) `el' ar
                     ar
                 | _ =>

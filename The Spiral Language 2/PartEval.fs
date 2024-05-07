@@ -474,9 +474,9 @@ type PartEvalResult = {
     }
 
 let peval (env : TopEnv) (x : E) =
-    let join_point_method = Dictionary(HashIdentity.Reference)
-    let join_point_closure = Dictionary(HashIdentity.Reference)
-    let join_point_type = Dictionary(HashIdentity.Reference)
+    let join_point_method = Dictionary(HashIdentity.Structural)
+    let join_point_closure = Dictionary(HashIdentity.Structural)
+    let join_point_type = Dictionary(HashIdentity.Structural)
     let backend_strings = HashConsTable()
 
     let rec ty_to_data s x =
@@ -928,7 +928,8 @@ let peval (env : TopEnv) (x : E) =
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
 
-            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (s.backend, body)
+            let backend' = match backend with None -> s.backend | Some (_,backend) -> backend_strings.Add backend
+            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (backend', body)
             let call_args, env_global_value = data_to_rdata s hc_table env_global_term
             let join_point_key = hc_table.Add(env_global_value, env_global_type)
 
@@ -947,10 +948,7 @@ let peval (env : TopEnv) (x : E) =
                         env_global_term = env_global_term
                         env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                         env_stack_term = Array.zeroCreate<_> scope.term.stack_size
-                        backend = 
-                            match backend with
-                            | None -> s.backend
-                            | Some (_,backend) -> backend_strings.Add backend
+                        backend = backend'
                         }
                     let s = rename_global_term s
                     let annot = Option.map (ty s) annot
@@ -961,9 +959,9 @@ let peval (env : TopEnv) (x : E) =
                     ty
 
             match backend with
-            | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod((s.backend,body),join_point_key),call_args)) ret_ty
-            | Some (range,backend) ->
-                let method_name = push_typedop_no_rewrite s (TyBackend((backend_strings.Add backend,body),join_point_key,range)) (YPrim Int32T)
+            | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod((backend',body),join_point_key),call_args)) ret_ty
+            | Some (range,_) ->
+                let method_name = push_typedop_no_rewrite s (TyBackend((backend',body),join_point_key,range)) (YPrim Int32T)
                 let call_args = Array.foldBack (fun v s -> DPair(DV v,s)) call_args DB
                 DPair(method_name, call_args)
         | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit

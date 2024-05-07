@@ -54,7 +54,7 @@ inl test4() =
             inl offsets = calculate_offsets
             inl ptr = create conv(offsets_size offsets)
             serialize offsets ptr (1, 2, arraym.fromList [1;2;3] : t)
-            // deserialize offsets ptr
-            // |> console.write_ln
+            deserialize offsets ptr
+            |> console.write_ln
     ()
 inl main() = test4()

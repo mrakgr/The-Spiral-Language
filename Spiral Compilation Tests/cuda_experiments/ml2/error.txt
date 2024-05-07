@@ -1,3 +1,36 @@
+Error trace on line: 23, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
+        ^
+Error trace on line: 26, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    global "options = []"
+    ^
+Error trace on line: 27, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    global "options.append('--define-macro=NDEBUG')"
+    ^
+Error trace on line: 28, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    global "options.append('--diag-suppress=550,20012')"
+    ^
+Error trace on line: 29, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    global "options.append('--dopt=on')"
+    ^
+Error trace on line: 30, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    global "options.append('--restrict')"
+    ^
+Error trace on line: 41, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    match threads_per_block with
+    ^
+Error trace on line: 47, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    ^
+Error trace on line: 48, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+    inl kernel_i, vars = join_backend Cuda
+    ^
+Error trace on line: 50, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\base.spi.
+        f () : ()
+        ^
+Error trace on line: 52, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+    run fun () =>
+            ^
 Error trace on line: 53, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
         if rangem.threads_in_grid().from = 0 then
         ^
@@ -10,143 +43,110 @@ Error trace on line: 55, column: 13 in module: d:\Users\Marko\Source\Repos\The S
 Error trace on line: 56, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
             serialize offsets ptr (1, 2, arraym.fromList [1;2;3] : t)
             ^
-Error trace on line: 7, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\seriazer_main.spi.
-inl serialize forall el. (offsets : offsets el) (ptr : ptr) (v : el) : () = real serialize `el offsets ptr v
-                                                                                 ^
-Error trace on line: 66, column: 75 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
+Error trace on line: 57, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+            deserialize offsets ptr
+            ^
+Error trace on line: 10, column: 75 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\seriazer_main.spi.
+inl deserialize forall el. (offsets : offsets el) (ptr : ptr) : el = real deserialize `el offsets ptr
                                                                           ^
-Error trace on line: 67, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+Error trace on line: 97, column: 65 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el = 
+                                                                ^
+Error trace on line: 98, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
     inl rec f ptr offsets =
     ^
-Error trace on line: 95, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    f ptr offsets v
+Error trace on line: 133, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+    f ptr offsets
     ^
-Error trace on line: 126, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-    f (ar, v)
-    ^
-Error trace on line: 122, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+Error trace on line: 100, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+        map (fun (exists el. offset) =>
+        ^
+Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
     inl rec f = function
                 ^
-Error trace on line: 123, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-           ^
-Error trace on line: 123, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-                   ^
-Error trace on line: 123, column: 30 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-                             ^
-Error trace on line: 123, column: 42 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-                                         ^
-Error trace on line: 122, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-    inl rec f = function
-                ^
-Error trace on line: 123, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-           ^
-Error trace on line: 123, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-                   ^
-Error trace on line: 123, column: 30 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-                             ^
-Error trace on line: 123, column: 42 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-                                         ^
-Error trace on line: 122, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-    inl rec f = function
-                ^
-Error trace on line: 123, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | (a, b), (va,vb) => f (a, va) . f (b, vb)
-           ^
-Error trace on line: 124, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | {} & ar, {} & v => record_iter (fun {key value} => f (ar key, value)) v
+Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | a, b => f a, f b
           ^
-Error trace on line: 125, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | ar,v => set ar v
+Error trace on line: 55, column: 24 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | a, b => f a, f b
+                       ^
+Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | a, b => f a, f b
           ^
-Error trace on line: 125, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | ar,v => set ar v
+Error trace on line: 55, column: 24 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | a, b => f a, f b
+                       ^
+Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | a, b => f a, f b
+          ^
+Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | {} as ar => record_map (fun {value} => f value) ar
+          ^
+Error trace on line: 57, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | ar => index ar
+          ^
+Error trace on line: 57, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | ar => index ar
+                ^
+Error trace on line: 100, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+        map (fun (exists el. offset) =>
                   ^
-Error trace on line: 71, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            !!!!PrintStatic(v)
-                ^
-Error trace on line: 73, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            if singleton_type_is `el then ()
+Error trace on line: 101, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+            if singleton_type_is `el then
             ^
-Error trace on line: 74, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+Error trace on line: 105, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
             elif union_type_is `el then
             ^
-Error trace on line: 78, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+Error trace on line: 111, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
             elif prim_type_is `el then
             ^
-Error trace on line: 81, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl serialize_sa forall array el. =
+Error trace on line: 114, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+                inl deserialize_sa forall array el. ar =
                 ^
-Error trace on line: 86, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+Error trace on line: 119, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
                 typecase el with
                 ^
-Error trace on line: 89, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    f ptr offset.dim_offset (length `(sa_listm.sa_list dim) `el v)
+Error trace on line: 125, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+                    inl ar = sa_listm.create' `dim `el'
                     ^
-Error trace on line: 90, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    serialize_sa `(sa_listm.sa_list dim) `el'
+Error trace on line: 126, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+                    sa_listm.unsafe_set_length `dim `el' ar (f offset.dim_offset)
                     ^
-Error trace on line: 82, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    inl {base_offset el_offsets el_size} = offset
-                    ^
-Error trace on line: 82, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    inl {base_offset el_offsets el_size} = offset
-                        ^
-Error trace on line: 83, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    loop.for' `int {from=0; nearTo=length `array `el v} fun i =>
-                    ^
-Error trace on line: 32, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-inl for' r body = for r (fun i () => body i) ()
+Error trace on line: 22, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\sa_listm.spi.
+    inl len = length ar
+    ^
+Error trace on line: 23, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\sa_listm.spi.
+    ar.length <-# f len
+    ^
+Error trace on line: 23, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\sa_listm.spi.
+    ar.length <-# f len
                   ^
-Error trace on line: 30, column: 36 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-inl for {from nearTo} body state = forBy {from nearTo by=1} body state
-                                   ^
-Error trace on line: 24, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-    inl i, state = _dup (from, state)
-    ^
-Error trace on line: 24, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-    inl i, state = _dup (from, state)
+Error trace on line: 100, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+        map (fun (exists el. offset) =>
         ^
-Error trace on line: 25, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-    ^
-Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
-                                                                                 ^
-Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-                                      ^
-Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-                                            ^
-Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-                                                        ^
-Error trace on line: 32, column: 32 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-inl for' r body = for r (fun i () => body i) ()
-                               ^
-Error trace on line: 32, column: 38 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\loop.spi.
-inl for' r body = for r (fun i () => body i) ()
-                                     ^
-Error trace on line: 84, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
-                        ^
-Error trace on line: 84, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
-                                  ^
-Error trace on line: 84, column: 66 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
-                                                                 ^
-Error trace on line: 84, column: 80 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                        inl ptr = ptr_at_offset ptr (exists [u8] base_offset + i * el_size)
-                                                                               ^
-The two sides need to have the same numeric types.
-Got: i32 and u64.
+Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | a, b => f a, f b
+          ^
+Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | {} as ar => record_map (fun {value} => f value) ar
+          ^
+Error trace on line: 57, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | ar => index ar
+          ^
+Error trace on line: 57, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
+        | ar => index ar
+                ^
+Error trace on line: 100, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
+        map (fun (exists el. offset) =>
+                  ^
+Pattern miss.
+Got: i32
