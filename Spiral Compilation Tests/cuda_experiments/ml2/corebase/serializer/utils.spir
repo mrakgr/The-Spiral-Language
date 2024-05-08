@@ -113,7 +113,7 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
             else
                 inl deserialize_sa forall array el. ar =
                     inl {base_offset el_offsets el_size} = offset
-                    loop `int {from=0; nearTo=length `array `el ar} fun i =>
+                    loop.for' `int {from=0; nearTo=length `array `el ar} fun i =>
                         inl ptr = ptr_at_offset ptr (exists [u8] base_offset + conv `size i * el_size)
                         set `array `el ar i (f ptr el_offsets)
                 typecase el with
@@ -123,7 +123,7 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                     ar
                 | sa_listm.sa_list ~dim ~el' =>
                     inl ar = sa_listm.create' `dim `el'
-                    sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
+                    inl _ = sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
                     deserialize_sa `(sa_listm.sa_list dim) `el' ar
                     ar
                 | _ =>

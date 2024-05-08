@@ -1331,7 +1331,7 @@ let peval (env : TopEnv) (x : E) =
             let rec loop = function
                 | EPair(r,ELit(_,LitString backend),b) :: xs -> if backend = s.backend.node then term s b else loop xs
                 | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
-                | [] -> raise_type_error s $"Cannot find the backend {s.backend} in the backend switch op."
+                | [] -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
             loop l
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'

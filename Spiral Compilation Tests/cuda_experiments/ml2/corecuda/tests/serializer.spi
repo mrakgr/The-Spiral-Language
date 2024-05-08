@@ -46,9 +46,7 @@ inl test3() = // gpu to host
 
 type t = i8 * i8 * sa_listm.sa_list 14 int
 
-inl test4() =
-    // inl ar : sa_listm.sa_list 55 int = arraym.fromList [1;2;3]
-    // console.write_ln ar
+inl test4() = // gpu only
     run fun () =>
         if rangem.threads_in_grid().from = 0 then
             inl offsets = calculate_offsets
@@ -57,4 +55,12 @@ inl test4() =
             deserialize offsets ptr
             |> console.write_ln
     ()
-inl main() = test4()
+
+inl test5() = // gpu only
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+    serialize offsets ptr (1, 2, arraym.fromList [1;2;3] : t)
+    deserialize offsets ptr
+    |> console.write_ln
+
+inl main() = test5()
