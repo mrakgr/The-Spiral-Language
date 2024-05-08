@@ -42,10 +42,15 @@ inl test3() = // gpu to host
     deserialize offsets ptr
     |> console.write_ln
 
-type t = i16 * u64 * sa_listm.sa_list 14 (int * option u64)
+
+union tu =
+    | Q : i8 * u8 * option f32
+    | W : u16 * option f64
+
+type t = i16 * u64 * sa_listm.sa_list 14 (int * option u64 * option tu) * u16
 // type t = i8 * i8 * sam.sa 3 int
 
-inl data() : t = -2, 555555555, arraym.fromList [1,Some 23;2,Some 34;3,None]
+inl data() : t = -2, 555555555, arraym.fromList [1,Some 23, Some Q(5,55,Some 555);2,Some 34,Some W(2,Some 222.222);3,None,Some Q(88,80,Some 890.876)], 3412
 
 inl test4() = // gpu only
     run fun () =>
@@ -90,4 +95,4 @@ inl test7() = // gpu to host
     deserialize offsets ptr
     |> console.write_ln
 
-inl main() = test6()
+inl main() = test7()

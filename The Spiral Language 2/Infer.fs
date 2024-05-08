@@ -119,6 +119,7 @@ type TypeError =
     | InstanceVarShouldNotMatchAnyOfPrototypes
     | MissingBody
     | MacroIsMissingAnnotation
+    | BackendSwitchIsMissingAnnotation
     | ArrayIsMissingAnnotation
     | ExistsIsMissingAnnotation
     | ShadowedForall
@@ -291,6 +292,9 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm constraints (term, ty) e
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
+            
+        | RawAnnot(_,RawOp(_,BackendSwitch,l),b) -> List.iter (cterm constraints (term, ty)) l; ctype constraints term ty b
+        | RawOp(r,BackendSwitch,l) -> errors.Add(r,BackendSwitchIsMissingAnnotation); List.iter (cterm constraints (term, ty)) l
         | RawOp(_,_,l) -> List.iter (cterm constraints (term, ty)) l
         | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints (term, ty) x
         | RawExists(_,a,b) -> Option.iter (List.iter (ctype constraints term ty)) a; cterm constraints (term, ty) b
@@ -526,6 +530,7 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
+    | BackendSwitchIsMissingAnnotation -> "The backend switch is missing an annotation."
     | ExistsShouldntHaveMetavars a -> sprintf "The variables of the exists body shouldn't have metavariables left over in them.\nGot: [%s]"  (List.map f a |> String.concat ", ")
     | ExpectedExistentialInPattern a -> sprintf "The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | ExpectedExistentialInTerm a -> sprintf "The body of `expects` need to be explicitly annotated and with an existential type.\nGot: %s" (f a)

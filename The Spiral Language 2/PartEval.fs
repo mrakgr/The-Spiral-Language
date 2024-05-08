@@ -627,7 +627,7 @@ let peval (env : TopEnv) (x : E) =
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
 
-            let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (s.backend, body)
+            let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
             let join_point_key = hc_table.Add(env_global_type)
             match dict.TryGetValue(join_point_key) with
             | true, Some ret_ty -> ret_ty
@@ -1332,7 +1332,7 @@ let peval (env : TopEnv) (x : E) =
                 | EPair(r,ELit(_,LitString backend),b) :: xs -> if backend = s.backend.node then term s b else loop xs
                 | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
                 | [] -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
-            loop l
+            loop l |> dyn true s
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'
             let b = term s b |> data_term_vars'

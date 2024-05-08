@@ -58,7 +58,7 @@ inl calculate_offsets forall el. =
     offset, modup size (align_array_modulo size)
 
 inl ptr_at_offset (ptr : ptr) (exists t. offset) =
-    backend_switch {
+    backend_switch `(array t) {
         Cuda = fun () => $"(`t *)(!ptr+!offset)" : array t
         Python = fun () => $"!ptr[!offset:].view(`(cupy_type t))" : array t
     }

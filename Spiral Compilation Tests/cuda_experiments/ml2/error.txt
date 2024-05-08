@@ -1,103 +1,103 @@
-Error trace on line: 90, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
-inl main() = test7()
+Error trace on line: 93, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+inl main() = test6()
         ^
-Error trace on line: 90, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
-inl main() = test7()
+Error trace on line: 93, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+inl main() = test6()
              ^
-Error trace on line: 78, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
-inl test7() = // gpu to host
+Error trace on line: 67, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+inl test6() = // host to gpu
          ^
-Error trace on line: 79, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+Error trace on line: 68, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
     inl offsets = calculate_offsets
     ^
-Error trace on line: 79, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
-    inl offsets = calculate_offsets
-                  ^
-Error trace on line: 4, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\seriazer_main.spi.
-inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
-                                              ^
-Error trace on line: 4, column: 61 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\seriazer_main.spi.
-inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
-                                                            ^
-Error trace on line: 22, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
+Error trace on line: 69, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+    inl ptr = create conv(offsets_size offsets)
     ^
-Error trace on line: 23, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl align forall el. s = modup s (sizeof `el)
+Error trace on line: 70, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+    serialize offsets ptr data()
     ^
-Error trace on line: 57, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    f `el (conv `size 0)
+Error trace on line: 71, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corecuda\tests\serializer.spi.
+    deserialize offsets ptr
     ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 23, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl a,s = f `a s
-            ^
-Error trace on line: 23, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl a,s = f `a s
-                ^
-Error trace on line: 24, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl b,s = f `b s
-            ^
-Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl b,s = f `b s
-                      ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 23, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl a,s = f `a s
-            ^
-Error trace on line: 23, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl a,s = f `a s
-                ^
-Error trace on line: 24, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl b,s = f `b s
-            ^
-Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl b,s = f `b s
-                      ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 23, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl a,s = f `a s
-            ^
-Error trace on line: 23, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl a,s = f `a s
-                ^
-Error trace on line: 24, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl b,s = f `b s
-            ^
-Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            inl b,s = f `b s
-                      ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | _ => g `el s
+Error trace on line: 57, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\core.spi.
+inl (|>) a b = b a
                ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            if singleton_type_is `el then (exists [el] s), s
+Error trace on line: 60, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+    write l
+    ^
+Error trace on line: 57, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+    write x
+    ^
+Error trace on line: 14, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        inl p (a,b) = 
+        ^
+Error trace on line: 23, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
+        ^
+Error trace on line: 24, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+           ^
+Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                      ^
+Error trace on line: 24, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                                  ^
+Error trace on line: 24, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                                              ^
+Error trace on line: 25, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+           ^
+Error trace on line: 25, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+                      ^
+Error trace on line: 25, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+                                  ^
+Error trace on line: 25, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+                                              ^
+Error trace on line: 26, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : f32) | (x : f64) => p ("%f", x)
+           ^
+Error trace on line: 26, column: 24 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : f32) | (x : f64) => p ("%f", x)
+                       ^
+Error trace on line: 27, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : string) => p ("%s", x)
+           ^
+Error trace on line: 28, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : char) => p ("%c", x)
+           ^
+Error trace on line: 29, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : bool) => p ("%s", if x then "true" else "false")
+           ^
+Error trace on line: 30, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (a,b) => write a . write ", " . write b
+           ^
+Error trace on line: 30, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (a,b) => write a . write ", " . write b
+                   ^
+Error trace on line: 14, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        inl p (a,b) = 
+        ^
+Error trace on line: 23, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
+        ^
+Error trace on line: 24, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+           ^
+Error trace on line: 24, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                      ^
+Error trace on line: 24, column: 59 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                                                          ^
+Error trace on line: 14, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+        inl p (a,b) = 
+               ^
+Error trace on line: 15, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\console.spi.
+            backend_switch {
             ^
-Error trace on line: 28, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif union_type_is `el then
-            ^
-Error trace on line: 37, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif prim_type_is `el then
-            ^
-Error trace on line: 38, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl s = align `el s
-                ^
-Error trace on line: 38, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl s = align `el s
-                        ^
-Error trace on line: 23, column: 30 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl align forall el. s = modup s (sizeof `el)
-                             ^
-Error trace on line: 23, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl align forall el. s = modup s (sizeof `el)
-                                      ^
-`sizeof` is not supported in the Python back end.
+Cannot apply a forall with a term.

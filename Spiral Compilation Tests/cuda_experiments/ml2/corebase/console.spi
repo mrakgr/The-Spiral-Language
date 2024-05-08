@@ -12,7 +12,7 @@ inl rec write forall t. (x : t) : () = real
     inl rec write x = 
         open real_core
         inl p (a,b) = 
-            backend_switch {
+            backend_switch `(()) {
                 Cuda = fun () => $"printf(!a,!b)" : ()
                 Python = fun () => 
                     match b with
