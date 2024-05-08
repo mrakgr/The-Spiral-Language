@@ -54,7 +54,8 @@ inl calculate_offsets forall el. =
                     print_static `el // TODO: Put in string interpolation into the language.
                     error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
             )
-    f `el (conv `size 0)
+    inl offset,size = f `el (conv `size 0)
+    offset, modup size (align_array_modulo size)
 
 inl ptr_at_offset (ptr : ptr) (exists t. offset) =
     backend_switch {
@@ -67,9 +68,6 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
     inl rec f ptr offsets =
         open struct
         iter2 (fun (exists el. offset) v =>
-            // !!!!PrintStatic(`el)
-            // !!!!PrintStatic(v)
-
             if singleton_type_is `el then ()
             elif union_type_is `el then
                 inl { tag_offset union_fields } = offset
@@ -109,6 +107,7 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                     (fun k => forall v. => nominal_create `el (k, f ptr (union_fields k))) 
                     (fun _ => failwith `el "Invalid tag.")
             elif prim_type_is `el then
+                // console.write_ln `({offset : int}) {offset}
                 index `array `el (ptr_at_offset ptr (exists [el] offset)) 0
             else
                 inl deserialize_sa forall array el. ar =

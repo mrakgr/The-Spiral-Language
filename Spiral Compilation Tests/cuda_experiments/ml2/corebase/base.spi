@@ -47,16 +47,16 @@ nominal phantom t = ()
 nominal cupy_type t = `(
     typecase t with
     | i8 =>   ``($"cp.int8")
-    | u8 =>   ``($"cp.uint")
-    | bool => ``($"cp.int8")
     | i16 =>  ``($"cp.int16")
     | i32 =>  ``($"cp.int32")
     | i64 =>  ``($"cp.int64")
+    | u8 =>   ``($"cp.uint8")
     | u16 =>  ``($"cp.uint16")
     | u32 =>  ``($"cp.uint32")
     | u64 =>  ``($"cp.uint64")
     | f32 =>  ``($"cp.float32")
     | f64 =>  ``($"cp.float64")
+    | bool => ``($"cp.int8")
     )
 
 nominal arg x = x

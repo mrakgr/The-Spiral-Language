@@ -25,10 +25,8 @@ inl test2() = // host to gpu
     serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
     deserialize offsets ptr
     |> console.write_ln
-    // print()
-    run' {shared_mem=0} fun () =>
+    run fun () =>
         if rangem.threads_in_grid().from = 0 then
-            // print()
             deserialize offsets ptr
             |> console.write_ln
 
@@ -44,14 +42,17 @@ inl test3() = // gpu to host
     deserialize offsets ptr
     |> console.write_ln
 
-type t = i8 * i8 * sa_listm.sa_list 14 int
+type t = i16 * u64 * sa_listm.sa_list 14 (int * option u64)
+// type t = i8 * i8 * sam.sa 3 int
+
+inl data() : t = -2, 555555555, arraym.fromList [1,Some 23;2,Some 34;3,None]
 
 inl test4() = // gpu only
     run fun () =>
         if rangem.threads_in_grid().from = 0 then
             inl offsets = calculate_offsets
             inl ptr = create conv(offsets_size offsets)
-            serialize offsets ptr (1, 2, arraym.fromList [1;2;3] : t)
+            serialize offsets ptr data()
             deserialize offsets ptr
             |> console.write_ln
     ()
@@ -59,8 +60,34 @@ inl test4() = // gpu only
 inl test5() = // gpu only
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
-    serialize offsets ptr (1, 2, arraym.fromList [1;2;3] : t)
+    serialize offsets ptr data()
     deserialize offsets ptr
     |> console.write_ln
 
-inl main() = test5()
+inl test6() = // host to gpu
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+    serialize offsets ptr data()
+    deserialize offsets ptr
+    |> console.write_ln
+    run fun () =>
+        if rangem.threads_in_grid().from = 0 then
+            deserialize offsets ptr
+            |> console.write_ln
+
+inl test7() = // gpu to host
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+    inl print() =
+        loop.for' {from=0; nearTo=offsets_size offsets} fun i =>
+            index ptr (conv i) |> console.write_ln
+    run fun () =>
+        if rangem.threads_in_grid().from = 0 then
+            serialize offsets ptr data()
+            deserialize offsets ptr
+            |> console.write_ln
+
+    deserialize offsets ptr
+    |> console.write_ln
+
+inl main() = test6()
