@@ -134,6 +134,7 @@ def method4(v0 : object) -> US0:
         del v1
         if v7:
             del v7
+            assert isinstance(v2,i32), 'The object needs to be the right primitive type.' 
             v8 = v2
             del v2
             return US0_1(v8)
@@ -148,6 +149,7 @@ def method5(v0 : object) -> UH0:
     if v4:
         del v1, v4
         v5 = v2[0]
+        assert isinstance(v5,string), 'The object needs to be the right primitive type.' 
         v6 = v5
         del v5
         v7 = v2[1]
@@ -168,10 +170,12 @@ def method5(v0 : object) -> UH0:
 def method3(v0 : object) -> Tuple[i32, i32, US0, US0, i32, f32, f32, bool, bool, UH0]:
     v1 = v0[0]
     v2 = v1[0]
+    assert isinstance(v2,i32), 'The object needs to be the right primitive type.' 
     v3 = v2
     del v2
     v4 = v1[1]
     del v1
+    assert isinstance(v4,i32), 'The object needs to be the right primitive type.' 
     v5 = v4
     del v4
     v6 = v0[1]
@@ -188,22 +192,27 @@ def method3(v0 : object) -> Tuple[i32, i32, US0, US0, i32, f32, f32, bool, bool,
     v13 = "c"
     v14 = v6[v13]
     del v6, v13
+    assert isinstance(v14,i32), 'The object needs to be the right primitive type.' 
     v15 = v14
     del v14
     v16 = v0[2]
     v17 = v16[0]
     v18 = v17[0]
+    assert isinstance(v18,f32), 'The object needs to be the right primitive type.' 
     v19 = v18
     del v18
     v20 = v17[1]
     del v17
+    assert isinstance(v20,f32), 'The object needs to be the right primitive type.' 
     v21 = v20
     del v20
     v22 = v16[1]
+    assert isinstance(v22,bool), 'The object needs to be the right primitive type.' 
     v23 = v22
     del v22
     v24 = v16[2]
     del v16
+    assert isinstance(v24,bool), 'The object needs to be the right primitive type.' 
     v25 = v24
     del v24
     v26 = v0[3]
