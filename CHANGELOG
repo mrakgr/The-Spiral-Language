@@ -1,3 +1,10 @@
+2.10.0 (5/8/2024)
+
+Fundamental changes to how join points work. 
+
+* The backend switch now requires an annotation, which will break all the old examples, but the fix for that is easy.
+* The backend switch is now inlined, and is no longer evaluated in the code generators. All of their functionality has been moved to the partial evaluation phase.
+
 2.9.0 (5/6/2024)
 
 Various macro related changes and bugfixes.
