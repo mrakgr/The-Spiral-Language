@@ -1,0 +1,60 @@
+open corebase
+
+nominal json t = obj
+
+let deserialize forall t. (json x : json t) : t = real
+    open real_core
+    inl rec f forall t'. x : t' = 
+        typecase t' with
+        | () => ()
+        | ~a * ~b => f_tuple `t' 0 x
+        | {} => 
+            record_type_map (fun k => forall v. =>
+                f `v ($'!x[!(symbol_to_string k)]' : obj)
+                ) `t'
+        | _ =>
+            if union_type_is `t' then join
+                inl k,v = ($"!x[0]" : string), ($"!x[1]" : obj)
+                union_to_record `t' forall t'. =>
+                record_type_fold_back (fun key => forall value. next _ =>
+                    if symbol_to_string key = k then f `value (None `int) v
+                    else next ()
+                    ) `t' (fun _ => failwith "Cannot convert the Python object into a Spiral union type. Invalid string tag.") ()
+            else
+                $"!x" : t'
+    and inl f_tuple forall t'. (i : int) x : t' =
+        typecase t' with
+        | ~a * ~b => f `a ($"!x[!i]" : obj), f_tuple `b (i+1) x
+        | _ => f `t' ($"!x[!i]" : obj)
+    f x
+
+let serialize forall t. (x : t) : json t = json real
+    open real_core
+    inl rec f forall t'. (x : t') : obj = 
+        typecase t' with
+        | () => ()
+        | ~a * ~b => f_tuple `t' (python_listm.create' `obj) x
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> record
+        | _ =>
+            if union_type_is `t' then join
+                unbox x (fun (k,v) =>
+                    inl k = symbol_to_string k
+                    inl v = f `(`(v)) v
+                    $"[!k,!v]" : t'
+                    )
+            else
+                $"!x" : t'
+    and inl f_tuple forall t'. (l : python_listm.python_list obj) x : t' =
+        typecase t' with
+        | ~a * ~b => 
+            python_listm.push l (f `a (fst x))
+            f_tuple `b l (snd x)
+        | _ => 
+            python_listm.push l (f `t' x)
+            $"!l" : t'
+    f x
+
+inl test1() =
+    ()
+
+inl main() = test1()

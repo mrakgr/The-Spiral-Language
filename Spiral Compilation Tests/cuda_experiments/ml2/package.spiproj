@@ -31,7 +31,9 @@ modules:
         pickler
         
     corepython/
-        base- 
+        base-
+        python_listm
+        jsonm
         
     corecuda/
         base-
