@@ -13,48 +13,56 @@ let deserialize forall t. (json x : json t) : t = real
                 f `v ($'!x[!(symbol_to_string k)]' : obj)
                 ) `t'
         | _ =>
-            if union_type_is `t' then join
-                inl k,v = ($"!x[0]" : string), ($"!x[1]" : obj)
-                union_to_record `t' forall t'. =>
-                record_type_fold_back (fun key => forall value. next _ =>
-                    if symbol_to_string key = k then f `value (None `int) v
-                    else next ()
-                    ) `t' (fun _ => failwith "Cannot convert the Python object into a Spiral union type. Invalid string tag.") ()
+            if union_type_is `t' then 
+                inl body() =
+                    inl k,v = ($"!x[0]" : string), ($"!x[1]" : obj)
+                    union_to_record `t' forall r. =>
+                    record_type_fold_back (fun key => forall value. next _ =>
+                        if symbol_to_string key = k then nominal_create `t' (key, f `value v)
+                        else next ()
+                        ) `r (fun _ => failwith `t' "Cannot convert the Python object into a Spiral union type. Invalid string tag.") ()
+                (join body()) : t'
             else
                 $"!x" : t'
     and inl f_tuple forall t'. (i : int) x : t' =
         typecase t' with
         | ~a * ~b => f `a ($"!x[!i]" : obj), f_tuple `b (i+1) x
         | _ => f `t' ($"!x[!i]" : obj)
-    f x
+    f `t x
 
 let serialize forall t. (x : t) : json t = json real
     open real_core
     inl rec f forall t'. (x : t') : obj = 
         typecase t' with
-        | () => ()
+        | () => $"()" : obj
         | ~a * ~b => f_tuple `t' (python_listm.create' `obj) x
-        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> record
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
         | _ =>
-            if union_type_is `t' then join
-                unbox x (fun (k,v) =>
-                    inl k = symbol_to_string k
-                    inl v = f `(`(v)) v
-                    $"[!k,!v]" : t'
-                    )
+            if union_type_is `t' then 
+                inl body() =
+                    unbox x (fun (k,v) =>
+                        inl k = symbol_to_string k
+                        inl v = f `(`(v)) v
+                        $"[!k,!v]" : obj
+                        )
+                (join body()) : obj
             else
-                $"!x" : t'
-    and inl f_tuple forall t'. (l : python_listm.python_list obj) x : t' =
+                $"!x" : obj
+    and inl f_tuple forall t'. (l : python_listm.python_list obj) (x : t') : obj =
         typecase t' with
         | ~a * ~b => 
-            python_listm.push l (f `a (fst x))
+            python_listm.push `obj l (f `a (fst x))
             f_tuple `b l (snd x)
         | _ => 
-            python_listm.push l (f `t' x)
-            $"!l" : t'
-    f x
+            python_listm.push `obj l (f `t' x)
+            $"!l" : obj
+    f `t x
+
+type t = (int * int) * {a : option int; b : option int; c : int} * ((float * float) *  bool * bool) * list string
+inl data() : t = (1, 2), {a=Some 1; b=None; c=3},((55.34,66.23), true, false) , ["qwe"; "asd"]
 
 inl test1() =
-    ()
+    serialize data()
+    |> deserialize |> console.write_ln
 
 inl main() = test1()

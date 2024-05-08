@@ -48,7 +48,7 @@ inl rec write forall t. (x : t) : () = real
                         | () => ()
                         | _ => write "(" . write v . write ")"
                         )
-                if heap_union_is x && var_is x then (join body()) : bool 
+                if heap_union_is x && var_is x then (join body()) : () 
                 else body()
             elif nominal_is x && prototype_has `(`x) printable then printable `(`x) x
             // elif layout_is x then write *x // TODO: Deal with all the layout type cases.
