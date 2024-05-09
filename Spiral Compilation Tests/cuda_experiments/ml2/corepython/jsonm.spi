@@ -4,14 +4,21 @@ nominal json t = obj
 
 let deserialize forall t. (json x : json t) : t = real
     open real_core
-    inl rec f forall t'. x : t' = 
+    inl rec f forall t'. (x : obj) : t' = 
         typecase t' with
-        | () => ()
+        | () => $"assert !x == [], 'Expected an unit type.'" : ()
         | ~a * ~b => f_tuple `t' 0 x
         | {} => 
             record_type_map (fun k => forall v. =>
                 f `v ($'!x[!(symbol_to_string k)]' : obj)
                 ) `t'
+        | sa_listm.sa_list ~dim ~el =>
+            $"assert isinstance(!x,list), 'The object needs to be a Python list.'" : ()
+            inl len : int = $"len(!x)"
+            inl ar = create `(sa_listm.sa_list dim) `el len
+            loop.for' `int {from=0; nearTo=len} fun i =>
+                set `(sa_listm.sa_list dim) `el ar i (f `el ($"!x[!i]" : obj))
+            ar
         | _ =>
             if union_type_is `t' then 
                 inl body() =
@@ -42,9 +49,15 @@ let serialize forall t. (x : t) : json t = json real
     open real_core
     inl rec f forall t'. (x : t') : obj = 
         typecase t' with
-        | () => $"()" : obj
+        | () => $"[]" : obj
         | ~a * ~b => f_tuple `t' (python_listm.create' `obj) x
         | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
+        | sa_listm.sa_list ~dim ~el =>
+            inl ar : obj = $"[]"
+            loop.for' `int {from=0; nearTo=length `(sa_listm.sa_list dim) `el x} fun i =>
+                inl x = f `el (index `(sa_listm.sa_list dim) `el x i)
+                $"!ar.append(!x)" : ()
+            ar
         | _ =>
             if union_type_is `t' then 
                 inl body() =
@@ -66,8 +79,8 @@ let serialize forall t. (x : t) : json t = json real
             $"!l" : obj
     f `t x
 
-type t = (int * int) * {a : option int; b : option int; c : int} * ((float * float) *  bool * bool) * list string
-inl data() : t = (1, 2), {a=Some 1; b=None; c=3},((55.34,66.23), true, false) , ["qwe"; "asd"]
+type t = (int * int) * {a : option int; b : option int; c : int} * ((float * float) *  bool * bool) * list string * sa_listm.sa_list 16 (int * float)
+inl data() : t = (1, 2), {a=Some 1; b=None; c=3},((55.34,66.23), true, false), ["qwe"; "asd"], arraym.fromList [1,2;3,4;5,6]
 
 inl test1() =
     serialize data()
