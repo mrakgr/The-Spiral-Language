@@ -1,3 +1,7 @@
+2.10.2 (5/9/2024)
+
+* Restricted the use of BackendSwitch to the real segment.
+
 2.10.1 (5/9/2024)
 
 * Improved the tokenizer so it parses nested parens in macro expressions.

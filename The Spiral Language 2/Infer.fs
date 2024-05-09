@@ -90,6 +90,7 @@ type TypeError =
     | ExpectedSymbol' of T
     | ExpectedSymbolInRecordWith of T
     | RealFunctionInTopDown
+    | BackendSwitchInTopDownSegment
     | ModuleMustBeImmediatelyApplied
     | MissingRecordFieldsInPattern of T * string list
     | CasePatternNotFoundForType of GlobalId * string
@@ -558,6 +559,7 @@ let show_type_error (env : TopEnv) x =
     | ExpectedModule a -> sprintf "Expected a module.\nGot: %s" (f a)
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment. They can only be used in `real` expressions or .spir modules."
+    | BackendSwitchInTopDownSegment -> sprintf "BackendSwitch needs to be used in the real segment. It isn't allowed in the top down one."
     | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
     | CasePatternNotFoundForType(i,n) -> sprintf "%s does not have the %s case." (show_nominal env i) n
     | CasePatternNotFound n -> sprintf "Cannot find a function with the same name as the %s case in the environment." n
@@ -1046,6 +1048,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             f q a; f w b
         | RawSeq(_,a,b) -> f TyB a; f s b
         | RawReal(_,a) -> assert_bound_vars env a
+        | RawOp(r,BackendSwitch,_) -> errors.Add(r,BackendSwitchInTopDownSegment)
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
         | RawJoinPoint(r,None,a,_) -> annotations.Add(x,(r,s)); f s a
         | RawJoinPoint(r,Some _,a,_) -> 
