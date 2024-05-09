@@ -125,3 +125,4 @@ inl main() =
         }
     }
     event_loop StartGame s
+    |> console.write_ln

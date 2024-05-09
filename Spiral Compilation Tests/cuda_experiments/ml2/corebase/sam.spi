@@ -1,5 +1,5 @@
 // Statically sized array with a type literal for a dimension.
-nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"list `el"})"
+nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"list[`el]"})"
 
 // Creates an empty array.
 inl create' forall dim el. : sa dim el = 
