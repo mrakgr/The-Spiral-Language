@@ -73,7 +73,7 @@ let rec game_step (action : option action) (state : state) : state =
             game_state #= fun game_state => {game_state with past_actions #= clear_actions}
             }
 
-let event_loop (msg : event) (state : state) : state =
+let event_loop (msg, state : event * state) : state =
     match msg with
     | StartGame => 
         {state with
@@ -91,38 +91,42 @@ let event_loop (msg : event) (state : state) : state =
     | ActionSelected action =>
         game_step (Some action) state
 
-inl random_action() : string = 
-    open serializer
-    inl offsets = calculate_offsets
-    inl ptr = create conv(offsets_size offsets)
-
-    run fun () =>
-        open random
-        globals()
-        inl from = rangem.threads_in_grid().from
-        inl rng : _ philox_state = 
-            init {seed = $"clock64()"; subsequence=conv from; offset=0}
-        if from = 0 then
-            open sam
-            inl actions : sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
-            inl action = sample_discrete actions rng
-            serialize offsets ptr action
-
-    match deserialize offsets ptr with
-    | Rock => "Rock"
-    | Paper => "Paper"
-    | Scissors => "Scissors"
 
 inl main() =
-    inl s : state = {
-        ui_state = {
-            pl_type = Human, Computer
-            game_state = GameNotStarted
-            messages = WaitingToStart
-        }
-        game_state = {
-            past_actions = sa_listm.create'
-        }
-    }
-    event_loop StartGame s
-    |> console.write_ln
+    
+
+// inl random_action() : string = 
+//     open serializer
+//     inl offsets = calculate_offsets
+//     inl ptr = create conv(offsets_size offsets)
+
+//     run fun () =>
+//         open random
+//         globals()
+//         inl from = rangem.threads_in_grid().from
+//         inl rng : _ philox_state = 
+//             init {seed = $"clock64()"; subsequence=conv from; offset=0}
+//         if from = 0 then
+//             open sam
+//             inl actions : sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
+//             inl action = sample_discrete actions rng
+//             serialize offsets ptr action
+
+//     match deserialize offsets ptr with
+//     | Rock => "Rock"
+//     | Paper => "Paper"
+//     | Scissors => "Scissors"
+
+// inl main() =
+//     inl s : state = {
+//         ui_state = {
+//             pl_type = Human, Computer
+//             game_state = GameNotStarted
+//             messages = WaitingToStart
+//         }
+//         game_state = {
+//             past_actions = sa_listm.create'
+//         }
+//     }
+//     event_loop StartGame s
+//     |> console.write_ln
