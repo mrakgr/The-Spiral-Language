@@ -376,7 +376,11 @@ and macro s =
     let p_expr s = 
         let start = anyOf ['`'; '!'; '@']
         let case_paren start_char = 
-            between (skip_char '(') (skip_char ')') (many1SatisfyL ((<>) ')') "not )") 
+            let mutable c = 1 // number of open parens.
+            between (skip_char '(') (skip_char ')') (many1SatisfyL (fun x -> // Stops when the number of open parens is 0.
+                c <- c + (match x with '(' -> 1 | ')' -> -1 | _ -> 0)
+                c > 0
+                ) "not )") 
             |>> fun (body) range -> Expression(range,body,char_to_macro_expr start_char)
         let case_var start_char =
             (skip_char start_char |>> fun () range -> UnescapedChar(range,start_char))

@@ -23,8 +23,15 @@ let deserialize forall t. (json x : json t) : t = real
                         ) `r (fun _ => failwith `t' "Cannot convert the Python object into a Spiral union type. Invalid string tag.") ()
                 (join body()) : t'
             else
-                $"assert isinstance(!x,`t'), 'The object needs to be the right primitive type.' " : ()
-                $"!x" : t'
+                inl case_float () =
+                    $"assert isinstance(!x,(int,float)), 'The object needs to be an int or a float.'" : ()
+                    $"`t'(!x)" : t'
+                typecase t' with
+                | f32 => case_float()
+                | f64 => case_float()
+                | _ =>
+                    $"assert isinstance(!x,`t'), 'The object needs to be the right primitive type.'" : ()
+                    $"!x" : t'
     and inl f_tuple forall t'. (i : int) x : t' =
         typecase t' with
         | ~a * ~b => f `a ($"!x[!i]" : obj), f_tuple `b (i+1) x

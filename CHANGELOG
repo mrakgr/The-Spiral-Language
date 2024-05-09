@@ -1,3 +1,7 @@
+2.10.1 (5/9/2024)
+
+* Improved the tokenizer so it parses nested parens in macro expressions.
+
 2.10.0 (5/8/2024)
 
 Fundamental changes to how join points work. 
