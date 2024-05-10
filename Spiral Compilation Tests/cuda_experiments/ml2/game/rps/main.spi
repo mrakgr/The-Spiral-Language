@@ -92,7 +92,7 @@ let event_loop (msg, state : event * state) : state =
         game_step (Some action) state
 
 
-inl main() =
+// inl main() =
     
 
 // inl random_action() : string = 
@@ -117,16 +117,16 @@ inl main() =
 //     | Paper => "Paper"
 //     | Scissors => "Scissors"
 
-// inl main() =
-//     inl s : state = {
-//         ui_state = {
-//             pl_type = Human, Computer
-//             game_state = GameNotStarted
-//             messages = WaitingToStart
-//         }
-//         game_state = {
-//             past_actions = sa_listm.create'
-//         }
-//     }
-//     event_loop StartGame s
-//     |> console.write_ln
+inl main() =
+    inl s : state = {
+        ui_state = {
+            pl_type = Human, Computer
+            game_state = GameNotStarted
+            messages = WaitingToStart
+        }
+        game_state = {
+            past_actions = sa_listm.create'
+        }
+    }
+    event_loop (StartGame, s)
+    |> console.write_ln

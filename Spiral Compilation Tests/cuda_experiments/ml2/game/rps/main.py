@@ -240,19 +240,19 @@ def method1(v0 : US5, v1 : list[US1], v2 : list, v3 : US3, v4 : US4, v5 : US2, v
                 v108 = US4_1(v100, v105)
                 del v100, v105
                 return v1, v2, v107, v108, v5, v6
-def method0(v0 : US0, v1 : list[US1], v2 : list, v3 : US3, v4 : US4, v5 : US2, v6 : US2) -> Tuple[list[US1], list, US3, US4, US2, US2]:
-    match v0:
+def method0(v0 : list[US1], v1 : list, v2 : US3, v3 : US4, v4 : US2, v5 : US2, v6 : US0) -> Tuple[list[US1], list, US3, US4, US2, US2]:
+    match v6:
         case US0_0(v28): # ActionSelected
-            del v0
+            del v6
             v29 = US5_1(v28)
             del v28
-            return method1(v29, v1, v2, v3, v4, v5, v6)
+            return method1(v29, v0, v1, v2, v3, v4, v5)
         case US0_1(v19, v20): # PlayerChanged
-            del v0, v5, v6
+            del v4, v5, v6
             v21 = US5_0()
-            return method1(v21, v1, v2, v3, v4, v19, v20)
+            return method1(v21, v0, v1, v2, v3, v19, v20)
         case US0_2(): # StartGame
-            del v0, v1, v2, v3, v4
+            del v0, v1, v2, v3, v6
             v7 = [None] * 2
             v8 = [0]
             v9 = US5_0()
@@ -260,7 +260,7 @@ def method0(v0 : US0, v1 : list[US1], v2 : list, v3 : US3, v4 : US4, v5 : US2, v
             v11 = US3_2(v10)
             del v10
             v12 = US4_0()
-            return method1(v9, v7, v8, v11, v12, v5, v6)
+            return method1(v9, v7, v8, v11, v12, v4, v5)
 def method2(v0 : i32, v1 : i32) -> bool:
     v2 = v1 < v0
     del v0, v1
@@ -273,7 +273,7 @@ def main():
     v4 = US4_2()
     v5 = US2_1()
     v6 = US2_0()
-    v7, v8, v9, v10, v11, v12 = method0(v2, v0, v1, v3, v4, v5, v6)
+    v7, v8, v9, v10, v11, v12 = method0(v0, v1, v3, v4, v5, v6, v2)
     del v0, v1, v2, v3, v4, v5, v6
     print('{', end="")
     v13 = "game_state"
