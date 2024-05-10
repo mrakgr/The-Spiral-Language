@@ -223,6 +223,10 @@ inl union_to_record forall t. on_succ = !!!!UnionToRecord(`t,on_succ)
 // Strips the nominal wrapper from the value.
 inl nominal_strip x = !!!!NominalStrip(x)
 
+// Applies the nominal type, stripping the wrapper from the body at the type level.
+// Returns the extracted value in an existential.
+inl nominal_type_apply forall t. = !!!!NominalTypeApply(`t)
+
 // Strips the existential wrapper from the value.
 inl exists_strip x = !!!!ExistsStrip(x)
 

@@ -487,13 +487,13 @@ let peval (env : TopEnv) (x : E) =
         | YSymbol a -> DSymbol a
         | YRecord l -> DRecord(Map.map (fun _ -> f) l)
         | YExists | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
-        | YNominal _ | YApply _ as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
+        | YNominal _ | YApply _ as a -> DNominal(nominal_type_apply s a |> ty_to_data s, a)
         | YLit x -> DTLit x
         | YTypeFunction _ -> raise_type_error s "Cannot turn a type function into a runtime variable."
         | YMetavar _ -> raise_type_error s "Compiler error: Cannot turn a metavar into a runtime variable."
     and assert_ty_lit s = function 
         | YSymbol _ | YLit _ as x -> x
-        | YNominal _ | YApply _ as x -> nominal_apply s x |> assert_ty_lit s
+        | YNominal _ | YApply _ as x -> nominal_type_apply s x |> assert_ty_lit s
         | x -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty x)
     and push_typedop_no_rewrite d op ret_ty =
         let ret = ty_to_data d ret_ty
@@ -597,10 +597,10 @@ let peval (env : TopEnv) (x : E) =
         seq_apply s x, x_ty
     and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); cse=cse :: s.cse} x
     and term_scope s x = term_scope' s (Dictionary(HashIdentity.Structural)) x
-    and nominal_apply s x =
+    and nominal_type_apply s x =
         match x with
         | YApply(a,b) ->
-            match nominal_apply s a with
+            match nominal_type_apply s a with
             | YTypeFunction(body,gl_ty,sz_term,sz_ty) ->
                 let s =
                     {s with
@@ -866,7 +866,7 @@ let peval (env : TopEnv) (x : E) =
         let enominal (r,a,b) =
             let a = term s a
             let b = ty s b
-            match nominal_apply s b with
+            match nominal_type_apply s b with
             | YUnion h ->
                 match a with
                 | DPair(DSymbol k, v) ->
@@ -883,7 +883,7 @@ let peval (env : TopEnv) (x : E) =
 
         let ty_union s x = 
             let x = ty s x
-            match nominal_apply s x with
+            match nominal_type_apply s x with
             | YUnion x -> x
             | _ -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_ty x)
 
@@ -1202,7 +1202,7 @@ let peval (env : TopEnv) (x : E) =
             | a,a' -> raise_type_error s <| sprintf "Expected two union types.\nGot: %s\nAnd: %s" (show_data a) (show_data a')
         | EOp(r,UnionUntag,[EType(_,t);a;on_succ;on_fail]) ->
             let t = ty s t
-            match nominal_apply s t with
+            match nominal_type_apply s t with
             | YUnion h ->
                 let h = h.Item
                 let on_succ, on_fail = term s on_succ, term s on_fail
@@ -1395,7 +1395,7 @@ let peval (env : TopEnv) (x : E) =
             let rec loop = function
                 | YLit a -> DLit a
                 | YSymbol a -> DSymbol a
-                | YNominal _ | YApply _ as a -> loop (nominal_apply s a)
+                | YNominal _ | YApply _ as a -> loop (nominal_type_apply s a)
                 | a -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty a)
             loop (ty s a)
         | EOp(_,(TypeToVar | TypeToSymbol),[a]) -> raise_type_error s "Expected a type."
@@ -2136,14 +2136,14 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,UnionTypeIs,[EType(_,a)]) -> 
             match ty s a with
             | YNominal _ | YApply _ as a -> 
-                match nominal_apply s a with
+                match nominal_type_apply s a with
                 | YUnion _ -> DLit (LitBool true)
                 | _ -> DLit (LitBool false)
             | _ -> DLit (LitBool false)
         | EOp(_,HeapUnionTypeIs,[EType(_,a)]) ->
             match ty s a with
             | YNominal _ | YApply _ as a -> 
-                match nominal_apply s a with
+                match nominal_type_apply s a with
                 | YUnion x -> DLit (LitBool (match x.Item.layout with UHeap -> true | UStack -> false))
                 | _ -> DLit (LitBool false)
             | _ -> DLit (LitBool false)
@@ -2164,6 +2164,10 @@ let peval (env : TopEnv) (x : E) =
             | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> raise_type_error s "Cannot strip the nominal wrapper from an union."
             | DNominal(a,_) -> a
             | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_data a)
+        | EOp(_,NominalTypeApply,[EType(_,a)]) -> 
+            match ty s a with
+            | YNominal _ | YApply _ as a -> DExists([|nominal_type_apply s a|], DB)
+            | a -> raise_type_error s <| sprintf "Expected a nominal type.\nGot: %s" (show_ty a)
         | EOp(_,ExistsStrip,[a]) -> 
             match term s a with
             | DExists(_,a) -> a
@@ -2285,7 +2289,7 @@ let peval (env : TopEnv) (x : E) =
         backend = backend_strings.Add env.backend
         }
     let ty_to_data x = ty_to_data {s with i = ref 0} x
-    let nominal_apply x = nominal_apply {s with i = ref 0} x
+    let nominal_apply x = nominal_type_apply {s with i = ref 0} x
 
     match x with
     | EFun'(r,_,_,_,_) -> term_scope s (EApply(r,x,EB r)), {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data; nominal_apply=nominal_apply}

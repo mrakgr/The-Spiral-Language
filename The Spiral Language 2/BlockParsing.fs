@@ -59,6 +59,7 @@ type Op =
     // Nominal 
     | NominalCreate // In addition to regular nominals, it can also creates unions
     | NominalStrip
+    | NominalTypeApply
 
     // Union
     | Unbox

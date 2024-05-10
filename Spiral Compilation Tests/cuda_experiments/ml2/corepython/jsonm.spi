@@ -40,6 +40,9 @@ let deserialize forall t. (json x : json t) : t = real
                             failwith `t' "Error"
                             ) ()
                 (join body()) : t'
+            elif nominal_type_is `t' then
+                inl (exists t''. _) = nominal_type_apply `t'
+                nominal_create `t' (f `t'' x)
             else
                 inl case_float () =
                     $"assert isinstance(!x,(int,float)), f'The object needs to be an int or a float. Got: {!x}'" : ()
@@ -80,6 +83,9 @@ let serialize forall t. (x : t) : json t = json real
                         $"[!k,!v]" : obj
                         )
                 (join body()) : obj
+            elif nominal_type_is `t' then
+                inl (exists t''. _) = nominal_type_apply `t'
+                f `t'' (nominal_strip x)
             else
                 $"!x" : obj
     and inl f_tuple forall t'. (l : python_listm.python_list obj) (x : t') : obj =

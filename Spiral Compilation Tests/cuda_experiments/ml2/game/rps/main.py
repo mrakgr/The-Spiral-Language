@@ -632,19 +632,22 @@ __device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l
     }
 }
 __device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, array<US3,2l> v1, US4 v2, US5 v3, US2 v4, US2 v5, US0 v6){
+    array<US3,2l> v49; US4 v50; US5 v51; US2 v52; US2 v53;
     switch (v6.tag) {
         case 0: { // ActionSelected
             US1 v32 = v6.v.case0.v0;
             US3 v33;
             v33 = US3_1(v32);
-            return method_1(v0, v33, v1, v2, v3, v4, v5);
+            Tuple0 tmp2 = method_1(v0, v33, v1, v2, v3, v4, v5);
+            v49 = tmp2.v0; v50 = tmp2.v1; v51 = tmp2.v2; v52 = tmp2.v3; v53 = tmp2.v4;
             break;
         }
         case 1: { // PlayerChanged
             US2 v24 = v6.v.case1.v0; US2 v25 = v6.v.case1.v1;
             US3 v26;
             v26 = US3_0();
-            return method_1(v0, v26, v1, v2, v3, v24, v25);
+            Tuple0 tmp3 = method_1(v0, v26, v1, v2, v3, v24, v25);
+            v49 = tmp3.v0; v50 = tmp3.v1; v51 = tmp3.v2; v52 = tmp3.v3; v53 = tmp3.v4;
             break;
         }
         default: { // StartGame
@@ -681,9 +684,11 @@ __device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, array<US3,2l> v1, US
             v17 = US4_2(v16);
             US5 v18;
             v18 = US5_0();
-            return method_1(v0, v15, v7, v17, v18, v4, v5);
+            Tuple0 tmp4 = method_1(v0, v15, v7, v17, v18, v4, v5);
+            v49 = tmp4.v0; v50 = tmp4.v1; v51 = tmp4.v2; v52 = tmp4.v3; v53 = tmp4.v4;
         }
     }
+    return Tuple0(v49, v50, v51, v52, v53);
 }
 extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
     long v2;
@@ -1040,8 +1045,8 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
             }
         }
         array<US3,2l> v116; US4 v117; US5 v118; US2 v119; US2 v120;
-        Tuple0 tmp2 = method_0(v10, v37, v82, v103, v109, v115, v36);
-        v116 = tmp2.v0; v117 = tmp2.v1; v118 = tmp2.v2; v119 = tmp2.v3; v120 = tmp2.v4;
+        Tuple0 tmp5 = method_0(v10, v37, v82, v103, v109, v115, v36);
+        v116 = tmp5.v0; v117 = tmp5.v1; v118 = tmp5.v2; v119 = tmp5.v3; v120 = tmp5.v4;
         long v121;
         v121 = 0l;
         while (while_method_0(v121)){
@@ -1658,7 +1663,7 @@ def Closure2():
         v10 = US5_2()
         v11 = US2_0()
         v12 = US2_1()
-        return method12(v0, v9, v10, v11, v12)
+        return method18(v0, v9, v10, v11, v12)
     return inner
 def method2(v0 : object) -> US1:
     v1 = v0[0]
@@ -2110,16 +2115,13 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
 def method9(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2, v5 : US0) -> Tuple[list[US3], US4, US5, US2, US2]:
     match v5:
         case US0_0(v32): # ActionSelected
-            del v5
             v33 = US3_1(v32)
             del v32
-            return method10(v33, v0, v1, v2, v3, v4)
+            v49, v50, v51, v52, v53 = method10(v33, v0, v1, v2, v3, v4)
         case US0_1(v24, v25): # PlayerChanged
-            del v3, v4, v5
             v26 = US3_0()
-            return method10(v26, v0, v1, v2, v24, v25)
+            v49, v50, v51, v52, v53 = method10(v26, v0, v1, v2, v24, v25)
         case US0_2(): # StartGame
-            del v0, v1, v2, v5
             v6 = [None] * 2
             v7 = 0
             while method11(v7):
@@ -2148,7 +2150,9 @@ def method9(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2, v5 : US0) ->
             v17 = US4_2(v16)
             del v16
             v18 = US5_0()
-            return method10(v15, v6, v17, v18, v3, v4)
+            v49, v50, v51, v52, v53 = method10(v15, v6, v17, v18, v3, v4)
+    del v0, v1, v2, v3, v4, v5
+    return v49, v50, v51, v52, v53
 def method14(v0 : US1) -> object:
     match v0:
         case US1_0(): # Paper
@@ -2273,6 +2277,54 @@ def method17(v0 : US2) -> object:
             del v4, v5
             return v6
 def method12(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2) -> object:
+    v5 = []
+    v6 = 0
+    while method11(v6):
+        v8 = 0 <= v6
+        if v8:
+            v9 = v6 < 2
+            v10 = v9
+        else:
+            v10 = False
+        del v8
+        v11 = v10 == False
+        if v11:
+            v12 = "The read index needs to be in range."
+            assert v10, v12
+            del v12
+        else:
+            pass
+        del v10, v11
+        v13 = v0[v6]
+        v14 = method13(v13)
+        del v13
+        v5.append(v14)
+        del v14
+        v6 += 1 
+    del v0, v6
+    v15 = {'past_actions': v5}
+    del v5
+    v16 = method15(v1)
+    del v1
+    v17 = method16(v2)
+    del v2
+    v18 = []
+    v19 = method17(v3)
+    del v3
+    v18.append(v19)
+    del v19
+    v20 = method17(v4)
+    del v4
+    v18.append(v20)
+    del v20
+    v21 = v18
+    del v18
+    v22 = {'game_state': v16, 'messages': v17, 'pl_type': v21}
+    del v16, v17, v21
+    v23 = {'game_state': v15, 'ui_state': v22}
+    del v15, v22
+    return v23
+def method18(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2) -> object:
     v5 = []
     v6 = 0
     while method11(v6):
