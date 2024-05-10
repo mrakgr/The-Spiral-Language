@@ -1,3 +1,7 @@
+2.10.3 (5/10/2024)
+
+* Added the NominalTypeApply op into the language.
+
 2.10.2 (5/9/2024)
 
 * Restricted the use of BackendSwitch to the real segment.
