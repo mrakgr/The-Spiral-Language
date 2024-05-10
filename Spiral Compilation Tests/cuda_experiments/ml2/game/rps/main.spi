@@ -117,10 +117,9 @@ let event_loop (msg, state : event * state) : state =
 //     | Paper => "Paper"
 //     | Scissors => "Scissors"
 
-inl main() =
-    inl s : state = {
+inl init() : state = {
         ui_state = {
-            pl_type = Human, Computer
+            pl_type = Computer, Human
             game_state = GameNotStarted
             messages = WaitingToStart
         }
@@ -128,5 +127,13 @@ inl main() =
             past_actions = sa_listm.create'
         }
     }
-    event_loop (StartGame, s)
-    |> console.write_ln
+
+inl main() =
+    open corepython
+    named_tuple "RPS_Game" {
+        init = fun () => jsonm.serialize init()
+        event_loop = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+    }
+    // inl s : state = init()
+    // event_loop (StartGame, s)
+    // |> console.write_ln

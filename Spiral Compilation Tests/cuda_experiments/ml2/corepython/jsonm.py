@@ -189,16 +189,17 @@ def method5(v0 : object) -> US0:
     else:
         del v4
         v7 = "Some" == v1
-        del v1
         if v7:
-            del v7
+            del v1, v7
             assert isinstance(v2,i32), 'The object needs to be the right primitive type.'
             v8 = v2
             del v2
             return US0_1(v8)
         else:
             del v2, v7
-            raise Exception("Cannot convert the Python object into a Spiral union type. Invalid string tag.")
+            v10 = raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
+            del v1
+            return v10
 def method6(v0 : object) -> UH0:
     v1 = v0[0]
     v2 = v0[1]
@@ -218,15 +219,16 @@ def method6(v0 : object) -> UH0:
     else:
         del v4
         v11 = "Nil" == v1
-        del v1
         if v11:
-            del v11
+            del v1, v11
             assert v2 == [], 'Expected an unit type.'
             del v2
             return UH0_1()
         else:
             del v2, v11
-            raise Exception("Cannot convert the Python object into a Spiral union type. Invalid string tag.")
+            v13 = raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
+            del v1
+            return v13
 def method4(v0 : object) -> Tuple[i32, i32, US0, US0, i32, f32, f32, bool, bool, UH0, list[Tuple[i32, f32]], list]:
     v1 = v0[0]
     v2 = v1[0]
