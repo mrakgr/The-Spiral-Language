@@ -7,7 +7,7 @@ union event =
     | StartGame
     | PlayerChanged : player * player
     | ActionSelected : action
-union game_state =
+union ui_game_state =
     | GameNotStarted
     | WaitingForActionFromPlayerId : int
     | GameOver : action * action
@@ -18,13 +18,12 @@ union message =
 
 type ui_state = {
     pl_type : player * player
-    game_state : game_state
+    game_state : ui_game_state
     messages : message
     }
 
 type game_state = {
-    past_actions : sa_listm.sa_list 2 action
-    // rng : ptr random.philox_state
+    past_actions : sam.sa 2 (option action)
     }
 
 type state = {
@@ -32,20 +31,26 @@ type state = {
     game_state : game_state
     }
 
-let rec game_step (action : option action) (state : state) : state =
+union backend = 
+    | GPU : ptr random.philox_state
+    | CPU
+
+inl rec game_step backend ~(action : option action) ~(state : state) : state = join
+    inl game_step = game_step backend
     inl {ui_state game_state} = state
-    // inl random_action() : action =
-    //     inl actions : sam.sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
-    //     random.sample_discrete actions game_state.rng
     inl random_action() : action = 
-        global "import random"
-        $'random.choice([!Rock, !Paper, !Scissors])'
-    inl push_action x (ar : sa_listm.sa_list _ action) = sa_listm.push ar x . ar
-    inl clear_actions (ar : sa_listm.sa_list _ action) = sa_listm.clear ar . ar
+        match backend with
+        | GPU rng =>
+            inl actions : sam.sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
+            random.sample_discrete actions rng
+        | CPU =>
+            global "import random"
+            $'random.choice([!Rock, !Paper, !Scissors])'
+    inl update_action forall dim. i x : sam.sa dim (option action) -> sam.sa dim (option action) = arraym.mapi (fun i' x' => if i = i' then Some x else x')
+    inl clear_actions forall dim. : sam.sa dim (option action) = sam.init (fun i => None)
     match state.ui_state.game_state with
     | GameNotStarted | GameOver => state
     | WaitingForActionFromPlayerId id when id < 2 =>
-        assert (length state.game_state.past_actions = id) "The number of past actions must equal the player id."
         inl pl_type = if id = 0 then fst ui_state.pl_type else snd ui_state.pl_type
         match pl_type with
         | Computer =>
@@ -53,7 +58,7 @@ let rec game_step (action : option action) (state : state) : state =
             inl action = random_action()
             {state with
                 ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
-                game_state #= fun game_state => {game_state with past_actions #= push_action action}
+                game_state #= fun game_state => {game_state with past_actions #= update_action id action}
             } |> game_step None
         | Human =>
             match action with
@@ -61,61 +66,38 @@ let rec game_step (action : option action) (state : state) : state =
             | Some action =>
                 {state with
                     ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
-                    game_state #= fun game_state => {game_state with past_actions #= push_action action}
+                    game_state #= fun game_state => {game_state with past_actions #= update_action id action}
                 } |> game_step None
     | WaitingForActionFromPlayerId id => // showdown
-        inl a0,a1 = open sa_listm in index game_state.past_actions 0, index game_state.past_actions 1
-        {state with
-            ui_state #= fun ui_state => {ui_state with 
-                game_state = GameOver(a0,a1)
-                messages = ShowdownResult(a0,a1)
+        match (open sa_listm in index game_state.past_actions 0, index game_state.past_actions 1) with
+        | Some a0, Some a1 =>
+            {state with
+                ui_state #= fun ui_state => {ui_state with 
+                    game_state = GameOver(a0,a1)
+                    messages = ShowdownResult(a0,a1)
+                    }
+                game_state #= fun game_state => {game_state with past_actions = clear_actions}
                 }
-            game_state #= fun game_state => {game_state with past_actions #= clear_actions}
-            }
+        | _ =>
+            failwith "At showdown all the actions have to be selected."
 
-let event_loop (msg, state : event * state) : state =
+inl event_loop backend ~(msg, state : event * state) : state = join
     match msg with
     | StartGame => 
         {state with
             game_state #= fun game_state => {game_state with
-                past_actions = sa_listm.create'
+                past_actions = sam.init (const None)
             }
             ui_state #= fun ui_state => {ui_state with
                 game_state = WaitingForActionFromPlayerId 0
                 messages = GameStarted
             }
-        } |> game_step None
+        } |> game_step backend None
     | PlayerChanged pl_type =>
         {state.ui_state with pl_type}
-        |> game_step None
+        |> game_step backend None
     | ActionSelected action =>
-        game_step (Some action) state
-
-
-// inl main() =
-    
-
-// inl random_action() : string = 
-//     open serializer
-//     inl offsets = calculate_offsets
-//     inl ptr = create conv(offsets_size offsets)
-
-//     run fun () =>
-//         open random
-//         globals()
-//         inl from = rangem.threads_in_grid().from
-//         inl rng : _ philox_state = 
-//             init {seed = $"clock64()"; subsequence=conv from; offset=0}
-//         if from = 0 then
-//             open sam
-//             inl actions : sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
-//             inl action = sample_discrete actions rng
-//             serialize offsets ptr action
-
-//     match deserialize offsets ptr with
-//     | Rock => "Rock"
-//     | Paper => "Paper"
-//     | Scissors => "Scissors"
+        game_step backend (Some action) state
 
 inl init() : state = {
         ui_state = {
@@ -124,7 +106,7 @@ inl init() : state = {
             messages = WaitingToStart
         }
         game_state = {
-            past_actions = sa_listm.create'
+            past_actions = sam.init (const None)
         }
     }
 
@@ -132,8 +114,23 @@ inl main() =
     open corepython
     named_tuple "RPS_Game" {
         init = fun () => jsonm.serialize init()
-        event_loop = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+        event_loop_cpu = fun (msg, state) => event_loop CPU (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+        event_loop_gpu = fun (msg, state) =>
+            open serializer
+            inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
+            inl ptr_msg, ptr_state = create conv(offsets_size offsets_msg), create conv(offsets_size offsets_state)
+            inl msg, state = jsonm.deserialize msg, jsonm.deserialize state
+            serialize offsets_msg ptr_msg msg
+            serialize offsets_state ptr_state state
+
+            run fun () =>
+                open random
+                globals()
+                inl from = rangem.threads_in_grid().from
+                if from = 0 then
+                    inl rng : _ philox_state = init {seed = $"clock64()"; subsequence=conv from; offset=0}
+                    event_loop (GPU rng) (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
+                    |> serialize offsets_state ptr_state
+
+            jsonm.serialize (deserialize offsets_state ptr_state)
     }
-    // inl s : state = init()
-    // event_loop (StartGame, s)
-    // |> console.write_ln

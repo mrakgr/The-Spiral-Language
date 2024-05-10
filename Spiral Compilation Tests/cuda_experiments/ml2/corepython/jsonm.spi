@@ -5,6 +5,14 @@ nominal json t = obj
 let deserialize forall t. (json x : json t) : t = real
     open real_core
     inl rec f forall t'. (x : obj) : t' = 
+        inl deserialize_sa forall array el. =
+            $"assert isinstance(!x,list), f'The object needs to be a Python list. Got: {!x}'" : ()
+            inl len : int = $"len(!x)"
+            inl ar = create `array `el len
+            loop.for' `int {from=0; nearTo=len} fun i =>
+                set `array `el ar i (f `el ($"!x[!i]" : obj))
+            ar
+
         typecase t' with
         | () => $"assert !x == [], f'Expected an unit type. Got: {!x}'" : ()
         | ~a * ~b => f_tuple `t' 0 x
@@ -12,13 +20,12 @@ let deserialize forall t. (json x : json t) : t = real
             record_type_map (fun k => forall v. =>
                 f `v ($'!x[!(symbol_to_string k)]' : obj)
                 ) `t'
-        | sa_listm.sa_list ~dim ~el =>
-            $"assert isinstance(!x,list), f'The object needs to be a Python list. Got: {!x}'" : ()
+        | sam.sa ~dim ~el => deserialize_sa `(sam.sa dim) `el
+        | sa_listm.sa_list ~dim ~el => 
+            inl dim = type_lit_to_lit `dim
             inl len : int = $"len(!x)"
-            inl ar = create `(sa_listm.sa_list dim) `el len
-            loop.for' `int {from=0; nearTo=len} fun i =>
-                set `(sa_listm.sa_list dim) `el ar i (f `el ($"!x[!i]" : obj))
-            ar
+            $"assert (!dim == !len), 'The length of the original object has to equal the static array dimension.\\nExpected: !dim\\nGot: !len" : ()
+            deserialize_sa `(sa_listm.sa_list dim) `el
         | _ =>
             if union_type_is `t' then 
                 inl body() =
@@ -52,16 +59,18 @@ let deserialize forall t. (json x : json t) : t = real
 let serialize forall t. (x : t) : json t = json real
     open real_core
     inl rec f forall t'. (x : t') : obj = 
+        inl serialize_sa forall array el. =
+            inl ar : obj = $"[]"
+            loop.for' `int {from=0; nearTo=length `array `el x} fun i =>
+                inl x = f `el (index `array `el x i)
+                $"!ar.append(!x)" : ()
+            ar
         typecase t' with
         | () => $"[]" : obj
         | ~a * ~b => f_tuple `t' (python_listm.create' `obj) x
         | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
-        | sa_listm.sa_list ~dim ~el =>
-            inl ar : obj = $"[]"
-            loop.for' `int {from=0; nearTo=length `(sa_listm.sa_list dim) `el x} fun i =>
-                inl x = f `el (index `(sa_listm.sa_list dim) `el x i)
-                $"!ar.append(!x)" : ()
-            ar
+        | sam.sa ~dim ~el => serialize_sa `(sam.sa dim) `el
+        | sa_listm.sa_list ~dim ~el => serialize_sa `(sa_listm.sa_list dim) `el
         | _ =>
             if union_type_is `t' then 
                 inl body() =

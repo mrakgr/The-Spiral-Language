@@ -24,6 +24,6 @@ class GameNamespace(Namespace):
 
     def on_update(self, msg : Any):
         state = GameNamespace.user_state[self.sid()]
-        state = spiral_game.event_loop(msg,state)
+        state = spiral_game.event_loop_gpu(msg,state)
         GameNamespace.user_state[self.sid()] = state
         self.emit_update(state["ui_state"])
