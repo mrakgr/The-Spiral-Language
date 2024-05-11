@@ -1,0 +1,25 @@
+open utils
+
+// Calculates the data structure holding the offsets for the given type.
+inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
+
+// Serializes the argument into the byte array.
+inl serialize forall el. (offsets : offsets el) (ptr : ptr) (v : el) : () = real serialize `el offsets ptr v
+
+// Deserializes the argument from the byte array.
+inl deserialize forall el. (offsets : offsets el) (ptr : ptr) : el = real deserialize `el offsets ptr
+
+// Returns the total size of the type to be serialized in bytes.
+inl offsets_size forall t. (x : offsets t) : size = real inl (offsets (_,size)) = x in size
+
+union qwe =
+    | A : i32
+    | B : i8 * i8 * i32
+    | C
+
+type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
+inl main() = // host only
+    inl offsets = calculate_offsets
+    inl ptr = create conv(offsets_size offsets)
+    serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+    deserialize offsets ptr

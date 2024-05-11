@@ -1,0 +1,16 @@
+open corebase
+
+// Count the number of bits that are set to 1 in a 32-bit integer.
+inl popc_u32 (x : u32) : i32 = $"__popc(!x)"
+// Count the number of bits that are set to 1 in a 64-bit integer.
+inl popc_u64 (x : u64) : i32 = $"__popcll(!x)"
+
+// https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__INTRINSIC__INT.html#group__CUDA__MATH__INTRINSIC__INT_1g2fc8e909eb9a959dcc3262e54365bfc5
+
+// Get the ith set bit `offset` in the `mask` starting at position `base`.
+// When the `offset` is negative it will search in the opposite direction.
+// When the `offset` is 0, it will just check the value at the base position and return -1 otherwise.
+inl fns (mask : u32) (base : u32) (offset : i32) : u32 = $"__fns(!mask,!base,!offset)"
+
+// Device scope atomic addition.
+inl atomic_add forall el. (a : array el) (i : int) (v : el) = $"atomicAdd(!a+!i,!v)"

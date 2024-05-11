@@ -1,0 +1,51 @@
+open corebase
+open arraym
+open sam
+
+// This merge sort is intended for short arrays that can be evaluated in registers.
+inl merge_sort forall dim el. f (inp : sa dim el) : sa dim el =
+    inl ~inp = map id inp
+    
+    if length inp = 1 then map id inp else
+
+    inl ~out = create'
+    inl index switch i = if switch then index inp i else index out i
+    inl set switch i v = if switch then set out i v else set inp i v
+
+    loop.while (fun (_, by) => by < length inp) (fun (switch, by) => 
+        inl index = index switch
+        inl set = set switch
+
+        loop.while (fun from => from < length inp) (fun from =>
+            inl add_by i x = min (x + by * i) (length inp)
+            inl mid, nearTo = add_by 1 from, add_by 2 from
+
+            loop.while (fun (_,_,c) => c < nearTo) (fun (i,i',c) =>
+                inl x,i,i' =
+                    if i < mid && i' < nearTo then
+                        inl l,r = index i, index i'
+                        match f l r with
+                        | Gt => r, (i,i'+1)
+                        | _ => l, (i+1,i')
+                    elif i < mid then index i, (i+1, i')
+                    else index i', (i, i'+1)
+                set c x . (i, i', c+1)
+                ) (from,mid,from)
+            |> ignore
+            from + by * 2
+            ) 0
+        |> ignore
+        not switch, by * 2
+        ) (true, 1)
+    |> fun switch, _ => if not switch then out else inp
+
+inl main() =
+    run (fun () =>
+        inl x : sa 4 f32 = arraym.fromList [1;3;2;4]
+        inl x = merge_sort comp x
+        arraym.iter (fun x =>
+            $'printf("%f\\n", !x)'
+            ) x
+        ()
+        )
+    ()

@@ -1,0 +1,139 @@
+open real_core
+
+type ptr = array u8
+type size = u64
+type tag = i32
+
+// Calculates the padded size for a given element size. GPUs generally require a power of 2 up to 16.
+// Data structures that are misaligned and not padded appropriately will cause errors.
+inl align_array_modulo el_size =
+    if el_size <= 1u64 then 1u64
+    elif el_size <= 2u64 then 2u64
+    elif el_size <= 4u64 then 4u64
+    elif el_size <= 8u64 then 8u64
+    else 16u64
+
+// Aligns both the base and the element size, giving it the appropritate power of 2 padding.
+inl align_array base el_size =
+    inl m = conv `size (align_array_modulo el_size)
+    modup base m, modup el_size m
+
+inl calculate_offsets forall el. =
+    inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
+    inl align forall el. s = modup s (sizeof `el)
+    inl rec f forall el. =
+        open struct
+        infer_mapFold `el (forall el. s =>
+            typecase el with
+            | sam.sa ~dim ~el' =>
+                inl el_offsets, el_size = f `el' (conv `size 0)
+                inl s, el_size = align_array s el_size
+                inl dim = conv `size (type_lit_to_lit `dim)
+                (exists [el] {base_offset=s; el_offsets el_size}), s + dim * el_size
+            | sa_listm.sa_list ~dim ~el' =>
+                inl dim_offset, s = f `int s
+                inl el_offsets, el_size = f `el' (conv `size 0)
+                inl s, el_size = align_array s el_size
+                inl dim = conv `size (type_lit_to_lit `dim)
+                (exists [el] {base_offset=s; dim_offset el_offsets el_size}), s + dim * el_size
+            | _ =>
+                if singleton_type_is `el then (exists [el] s), s
+                elif union_type_is `el then
+                    inl tag_offset, s = f `tag s
+                    inl union_fields, s =
+                        union_to_record `el forall r. =>
+                        record_type_fold (fun (m,max_offset) key => forall value. =>
+                            inl value, new_offset = f `value s
+                            {m with $key=value}, max max_offset new_offset
+                            ) ({}, s) `r
+                    (exists [el] { tag_offset union_fields }), s
+                elif prim_type_is `el then
+                    inl s = align `el s
+                    (exists [el] s), s + sizeof `el
+                elif nominal_type_is `el then
+                    inl (exists el'. _) = nominal_type_apply `el
+                    inl offset, s = f `el' s
+                    (exists [el] offset), s
+                else
+                    !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
+                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+            )
+    inl offset,size = f `el (conv `size 0)
+    offset, modup size (align_array_modulo size)
+
+inl ptr_at_offset (ptr : ptr) (exists t. offset) =
+    backend_switch `(array t) {
+        Cuda = fun () => $"(`t *)(!ptr+!offset)" : array t
+        Python = fun () => $"!ptr[!offset:].view(`(cupy_type t))" : array t
+    }
+
+nominal offsets t = `(calculate_offsets `t)
+inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
+    inl rec f ptr offsets =
+        open struct
+        iter2 (fun (exists el. offset) v =>
+            inl serialize_sa forall array el. =
+                inl {base_offset el_offsets el_size} = offset
+                loop.for' `int {from=0; nearTo=length `array `el v} fun i =>
+                    inl ptr = ptr_at_offset ptr (exists [u8] base_offset + conv `size i * el_size)
+                    f ptr el_offsets (index `array `el v i)
+            typecase el with
+            | sam.sa ~dim ~el' => serialize_sa `(sam.sa dim) `el'
+            | sa_listm.sa_list ~dim ~el' => 
+                f ptr offset.dim_offset (length `(sa_listm.sa_list dim) `el v)
+                serialize_sa `(sa_listm.sa_list dim) `el'
+            | _ =>
+                if singleton_type_is `el then ()
+                elif union_type_is `el then
+                    inl { tag_offset union_fields } = offset
+                    f ptr tag_offset (union_tag v)
+                    !!!!Unbox(v,fun k,v => f ptr (union_fields k) v)
+                elif prim_type_is `el then
+                    set `array `el (ptr_at_offset ptr (exists [el] offset)) 0 v // We need to use `ptr_at_offset` instead of setting the array directly in order to cast it to the correct type.
+                elif nominal_type_is `el then
+                    f ptr offset (nominal_strip v)
+                else
+                    !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
+                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+            ) offsets
+    f ptr offsets v
+
+inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el = 
+    inl rec f ptr =
+        open struct
+        map (fun (exists el. offset) =>
+            inl deserialize_sa forall array el. ar =
+                inl {base_offset el_offsets el_size} = offset
+                loop.for' `int {from=0; nearTo=length `array `el ar} fun i =>
+                    inl ptr = ptr_at_offset ptr (exists [u8] base_offset + conv `size i * el_size)
+                    set `array `el ar i (f ptr el_offsets)
+            typecase el with
+            | sam.sa ~dim ~el' => 
+                inl ar = sam.create' `dim `el'
+                deserialize_sa `(sam.sa dim) `el' ar
+                ar
+            | sa_listm.sa_list ~dim ~el' =>
+                inl ar = sa_listm.create' `dim `el'
+                inl _ = sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
+                deserialize_sa `(sa_listm.sa_list dim) `el' ar
+                ar
+            | _ =>
+                if singleton_type_is `el then
+                    typecase el with
+                    | () => ()
+                    | _ => type_lit_to_lit `el
+                elif union_type_is `el then
+                    inl { tag_offset union_fields } = offset
+                    inl tag = f ptr tag_offset
+                    union_untag `el tag
+                        (fun k => forall v. => nominal_create `el (k, f ptr (union_fields k))) 
+                        (fun _ => failwith `el "Invalid tag.")
+                elif prim_type_is `el then
+                    index `array `el (ptr_at_offset ptr (exists [el] offset)) 0
+                elif nominal_type_is `el then
+                    nominal_create `el (f ptr offset)
+                else
+                    !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
+                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+            )
+    f ptr offsets

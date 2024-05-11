@@ -1,0 +1,14 @@
+// Python's list module.
+nominal python_list a = $"list"
+
+// Creates a python list.
+inl create' forall t. : python_list t = $"[]"
+
+// Concatenates an array of strings.
+inl join' (sep : string) (l : python_list string) : string = $"!sep.join(!l)"
+// Removes the element at the given index and returns it.
+inl pop forall el. (l : python_list el) (i : int) : el = $"!l.pop(!i)"
+// Appends to an array.
+inl push forall el. (l : python_list el) (x : el) : () = $"!l.append(!x)"
+// Cleards the array.
+inl clear forall el. (l : python_list el) : () = $"!l.clear()"

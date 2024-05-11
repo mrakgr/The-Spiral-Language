@@ -1,0 +1,194 @@
+// Pickler combinators for converting regular Spiral types to binary vectors of floating point values.
+
+type state = int * array float
+nominal pu a = {
+    pickle : a -> state -> ()
+    size : int
+    unpickle : state -> a * int
+    }
+
+inl unit() = pu {
+    size = 1
+    pickle = fun () (i,s) => set s i 1
+    unpickle = fun (i,s) => 
+        inl x = index s i
+        assert (x = 1 || x = 0) "Unpickling failure. The unit type should always be either be 1 or 0."
+        (), if x = 1 then 1 else 0
+    }
+
+// Serializes the unsigned integer as a one-hot vector. Require memory proportional to the given size.
+inl uint size : pu uint =
+    pu {size
+        pickle = fun x (i,s : state) =>
+            inl x = conv x
+            assert (x < size) "Pickle failure. Int value out of bounds."
+            set s (i + x) 1
+        unpickle = fun (from,s : state) =>
+            inl ~(from,nearTo) = from, from+size
+            join
+                inl case,c =
+                    loop.for {from nearTo} (fun i (case,c) =>
+                        inl x = index s i
+                        assert (x = 1 || x = 0) "Unpickling failure. The int type should always be either be 1 or 0."
+                        if x = 0 then case,c else i,c+1
+                        ) (0,0)
+                assert (c = 0 || c = 1) "Unpickling failure. Too many active indices in the one-hot vector."
+                conv(case - from), c
+        }
+
+// Serializes the integer as a one-hot vector. Require memory proportional to the given size.
+inl int size : pu int =
+    pu {size
+        pickle = fun x s => (uint size).pickle (conv x) s
+        unpickle = fun s => (uint size).unpickle s |> fun a,b => conv a, b
+    }
+
+// Serializes the unsigned integer as a dense binary vector. Require memory proportional to the given size.
+inl bin_uint size : pu uint =
+    pu {size
+        pickle = fun ~x ~(i,s : state) => join
+            inl x = x + 1
+            assert (x <> 0) "Pickle failure. The input is too large in the binary serializer."
+            loop.for {from=0; nearTo=size} (fun i' x =>
+                inl bit = x &&& 1
+                set s (i + i') conv(x &&& 1)
+                x >>> 1
+                ) x
+            |> fun x => assert (x = 0) "Picke failure. The remains of the input has to equal zero in the binary pickler."
+        unpickle = fun ~(from,s : state) => join
+            loop.forDown {to=0; nearFrom=size} (fun i' x =>
+                inl bit = index s (from + i')
+                assert (bit = 0 || bit = 1) "Unpickling failure. The int type must either be active or inactive."
+                (x <<< 1) ||| conv bit
+                ) 0
+            |> fun x => x - 1, if 0 < x then 1 else 0
+    }
+
+// Serializes the integer range as a dense binary vector. Require memory proportional to the ceiling base-2 logarithm of the given range.
+inl bin_int (range : {from : int; nearTo : int}) : pu int =
+    // Gets the minimal number of bits needed to represent a given integer.
+    inl ceil_log2 x = 
+        assert (lit_is x) "The input should be known at compile time."
+        inl rec loop i = if x <= (1 <<< i) - 1 then i else loop (i+1)
+        loop 0
+    inl size = ceil_log2 (range.nearTo - range.from + 1)
+    pu {size
+        pickle = fun x s => 
+            assert (range.from <= x && x < range.nearTo) "Pickle failure. The input is out of the bounds of the given range."
+            (bin_uint size).pickle conv(x - range.from) s
+        unpickle = fun s => 
+            inl a,b = (bin_uint size).unpickle s
+            (conv a + range.from), b
+    }
+
+inl array forall t. size (pu el : pu t) : pu (tensorm.tensor int t) =
+    open tensorm
+    inl unpickle (~from,s : state) : tensor int _ * _ =
+        inl tmp : tensor int _ = tensor_create size
+        inl is_empty = 
+            inl c = index s from
+            assert (c = 0 || c = 1) "Unpickle failure. The array emptiness flag should be 1 or 0."
+            c = 1
+        inl c' = 
+            inl from = from + 1
+            loop.for {from=0; nearTo=size} (fun i c =>
+                inl from = from + i * el.size
+                inl x, c' = el.unpickle (from,s)
+                if i = c then
+                    if c' = 1 then tensor_set i x tmp
+                    c + c'
+                else
+                    assert (c = 0) "Unpickle failure. Expected an inactive subsequence in the array unpickler."
+                    c
+                ) 0
+        if is_empty then
+            assert (c' = 0) "Unpickle failure. Empty arrays should not have active elements."
+        view (const {from=0; nearTo=c'}) tmp, min 1 ((if is_empty then 1 else 0) + c')
+    inl pickle x (i,s : state) =
+        assert (length x <= size) "Pickle failure. The given array is too large."
+        if length x = 0 then set s i 1 // Sets the array emptiness flag if its empty.
+        inl i = i + 1
+        loop.for' {from=0; nearTo=length x} fun idx => 
+            el.pickle (tensor_index idx x) (i + idx * el.size,s)
+
+    pu { pickle unpickle size = size * el.size + 1 }
+
+inl pair (pu a') (pu b') =
+    pu {size = a'.size + b'.size
+        pickle = fun (a,b) (i,s) => a'.pickle a (i,s) . b'.pickle b (i + a'.size, s)
+        unpickle = fun (i,s) => 
+            inl x,c' = a'.unpickle (i,s)
+            inl x',c'' = b'.unpickle (i + a'.size, s)
+            inl c = c' + c''
+            assert (c = 0 || c = 2) "Unpickling failure. Two sides of a pair should either all be active or inactive."
+            (x,x'), c / 2
+        }
+
+inl wrap {inp=a out=b} (pu p) =
+    pu {size = p.size
+        pickle = fun x state => p.pickle (a x) state
+        unpickle = fun state => inl x,c = p.unpickle state in b x,c
+        }
+
+inl alt forall t r. (l : r) : pu t = 
+    inl zero = 0 : int
+    inl one = 1 : int
+    inl _ = real // Typechecking.
+        open real_core
+        union_to_record `t forall r'. =>
+        assert (record_type_length `r' = record_type_length `r) "The number of keys in the record should be the same as in the union type."
+        record_type_iter (fun k => forall v. =>
+            record_type_try_find `r' k
+                (forall v'. => typecase v' * v with ~x * pu ~x => ())
+                (fun () => error_type "The record's keys must match those of the union.")
+            ) `r
+    inl offsets, size = real
+        open real_core
+        record_fold (fun {state=(m,s) key value} => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
+    inl unpickle (i,s : state) : t * int = real
+        open real_core
+        inl x = 
+            record_type_map (fun k => forall v. =>
+                inl (pu p) = l k 
+                inl x,c = p.unpickle (i + offsets k,s)
+                nominal_create `t (k,x), c
+                ) `r
+        inl case, c =
+            record_fold (fun {state key value} => 
+                match state with
+                | () => value
+                | (case,c) =>
+                    inl case', c' = value
+                    (if c' = one then case' else case), c + c'
+                ) () x
+        assert (c = 0 || c = 1) "Unpickling failure. Only a single case of an union type should be active at most."
+        case, c
+    inl pickle (m : t) (i,s : state) : () = real
+        open real_core
+        unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
+    pu {size pickle unpickle}
+    
+inl option forall t. (a : pu t) : pu (option t) = alt { Some = a; None = unit() }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { Ok = a; Error = b }
+inl (++) forall t y. (a : pu t) (b : pu y) : pu (choice2 t y) = alt { C1of2 = a; C2of2 = b }
+inl (**) forall t y. (a : pu t) (b : pu y) : pu (t * y) = pair a b
+
+inl size (pu p) = p.size
+
+nominal binary_array t = tensorm.tensor int float
+inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
+    open tensorm
+    inl ar = tensor_create p.size
+    loop.for' {from=0; nearTo=p.size} (fun i => tensor_set i 0 ar)
+    p.pickle x (0,ptr_at_current_offset ar)
+    binary_array ar
+
+inl deserialize forall t. (pu p : pu t) ~(binary_array x : binary_array t) : t =
+    open tensorm
+    inl x,c = p.unpickle (0,ptr_at_current_offset x)
+    assert (c = 1) "Invalid format detected during deserialization."
+    x
+
+open console
+instance printable binary_array t = fun (binary_array x) => console.write_ln x
+

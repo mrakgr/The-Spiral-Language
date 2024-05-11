@@ -1,0 +1,110 @@
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"backend_switch `({Cuda : $"array<`el,@dim>"; Python : $"list[`el]"})"
+
+// Creates an empty array.
+inl create' forall dim el. : sa dim el = 
+    assert ((0 : int) <= (real real_core.type_lit_to_lit `dim)) "The dimension of the array has to be positive."
+    backend_switch {
+        Cuda = fun () => $"array<`el,@dim> \v"
+        Python = fun () => $"[None] * !(real real_core.type_lit_to_lit `dim)" : sa dim el
+    }
+    
+instance create sa dim = fun dim =>
+    assert ((real real_core.type_lit_to_lit `dim) = dim) "The type level dimension has to equal the value passed at runtime into create."
+    create'
+
+// Returns the length of an array.
+instance length sa dim = fun ar => real real_core.type_lit_to_lit `dim : int
+// Indexes into an array.
+instance index sa dim = fun ar i => 
+    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    backend_switch {
+        Cuda = fun () => $"!ar.v[!i]"
+        Python = fun () => $"!ar[!i]"
+    }
+    
+// Sets the value of an array at the specified index.
+instance set sa dim = fun ar i v => 
+    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    backend_switch {
+        Cuda = fun () => $"!ar.v[!i] = !v"
+        Python = fun () => $"!ar[!i] = !v"
+    }
+
+open arraym
+
+instance equable sa dim el = generic_equable
+instance comparable sa dim el = generic_comparable
+
+// Initializes array using the given function.
+inl init forall dim el. f : sa dim el = init (real real_core.type_lit_to_lit `dim) f
+
+open loop
+
+// The inclusive Hillis & Steele scan.
+inl scan_inclusive forall dim el. (f : el -> el -> el) (ar : sa dim el) =
+    inl ar = map id ar
+    while (fun by => by < length ar) (fun by =>
+        forDown' {nearFrom=length ar; to=by} (fun i =>
+            set ar i (f (index ar (i-by)) (index ar i))
+            )
+        by * 2
+        ) 1 |> ignore
+    ar
+    
+// Reduces the array in a tree like fashion using the provided function.
+inl reduce forall dim_outer el. (f : el -> el -> el) (ar : sa dim_outer el) =
+    open type_arith
+
+    inl rec loop forall dim. (inp : sa dim el) : el =
+        if 1 < length inp then
+            inl out : sa (divup dim 2) el = create'
+            for' {from=0; nearTo=length out} (fun i =>
+                inl v =
+                    inl i = i*2
+                    if i+1 < length inp then f (index inp i) (index inp (i+1))
+                    else index inp i
+                set out i v
+                )
+            loop out
+        else index inp 0
+
+    loop ar
+
+// The exclusive Bleloch scan
+inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_outer el) =
+    open type_arith
+
+    inl rec loop forall dim. (inp : sa dim el) : sa dim el =
+        if 1 < length inp then
+            inl out : sa (divup dim 2) el = create'
+            for' {from=0; nearTo=length out} (fun i =>
+                inl v =
+                    inl i = i*2
+                    if i+1 < length inp then f (index inp i) (index inp (i+1))
+                    else index inp i
+                set out i v
+                )
+            inl out = loop out
+            for' {from=0; nearTo=length out} (fun i =>
+                inl s = index out i
+                inl i = i*2
+                if i+1 < length inp then
+                    set inp (i+1) (f (index inp i) s)
+                set inp i s
+                )
+            inp
+        else
+            set inp 0 s
+            inp
+
+    loop (map id ar)
+
+open console
+
+instance printable sa dim el = array_print 100
+
+inl main() = 
+    inl x : sa 10 int = create'
+    set x 0 234
+    index x 0

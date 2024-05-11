@@ -1,0 +1,139 @@
+open corebase
+open corecuda
+
+union action = Rock | Paper | Scissors
+union player = Computer | Human
+union event = 
+    | StartGame
+    | PlayerChanged : player * player
+    | ActionSelected : action
+union ui_game_state =
+    | GameNotStarted
+    | WaitingForActionFromPlayerId : int
+    | GameOver : action * action
+union message =
+    | ShowdownResult : action * action 
+    | WaitingToStart
+    | GameStarted
+
+type ui_state = {
+    pl_type : player * player
+    game_state : ui_game_state
+    messages : message
+    }
+
+type game_state = {
+    past_actions : sam.sa 2 (option action)
+    }
+
+type state = {
+    ui_state : ui_state
+    game_state : game_state
+    }
+
+nominal backend_state = state
+
+union backend = 
+    | GPU : ptr random.philox_state
+    | CPU
+
+inl rec game_step backend ~(action : option action) ~(state : state) : state = join
+    inl game_step = game_step backend
+    inl random_action() : action = 
+        match backend with
+        | GPU rng =>
+            inl actions : sam.sa 3 _ = arraym.fromList [Rock, 1; Paper, 1; Scissors, 1]
+            random.sample_discrete actions rng
+        | CPU =>
+            global "import random"
+            $'random.choice([!Rock, !Paper, !Scissors])'
+    inl update_action forall dim. i x : sam.sa dim (option action) -> sam.sa dim (option action) = arraym.mapi (fun i' x' => if i = i' then Some x else x')
+    inl clear_actions forall dim. : sam.sa dim (option action) = sam.init (fun i => None)
+    match state.ui_state.game_state with
+    | GameNotStarted | GameOver => state
+    | WaitingForActionFromPlayerId id when id < 2 =>
+        inl pl_type = if id = 0 then fst state.ui_state.pl_type else snd state.ui_state.pl_type
+        match pl_type with
+        | Computer =>
+            assert (action = None) "The computer player should never be receiving an action."
+            inl action = random_action()
+            {state with
+                ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
+                game_state #= fun game_state => {game_state with past_actions #= update_action id action}
+            } |> game_step None
+        | Human =>
+            match action with
+            | None => state
+            | Some action =>
+                {state with
+                    ui_state #= fun ui_state => {ui_state with game_state = WaitingForActionFromPlayerId(id+1)}
+                    game_state #= fun game_state => {game_state with past_actions #= update_action id action}
+                } |> game_step None
+    | WaitingForActionFromPlayerId id => // showdown
+        match (open sa_listm in index state.game_state.past_actions 0, index state.game_state.past_actions 1) with
+        | Some a0, Some a1 =>
+            {state with
+                ui_state #= fun ui_state => {ui_state with 
+                    game_state = GameOver(a0,a1)
+                    messages = ShowdownResult(a0,a1)
+                    }
+                game_state #= fun game_state => {game_state with past_actions = clear_actions}
+                }
+        | _ =>
+            failwith "At showdown all the actions have to be selected."
+
+inl event_loop backend ~(msg, state : event * backend_state) : backend_state = join
+    inl (backend_state state) = state
+    match msg with
+    | StartGame => 
+        {state with
+            game_state #= fun game_state => {game_state with
+                past_actions = sam.init (const None)
+            }
+            ui_state #= fun ui_state => {ui_state with
+                game_state = WaitingForActionFromPlayerId 0
+                messages = GameStarted
+            }
+        } |> game_step backend None
+    | PlayerChanged pl_type =>
+        {state.ui_state with pl_type}
+        |> game_step backend None
+    | ActionSelected action =>
+        game_step backend (Some action) state
+    |> backend_state
+
+inl init() : state = {
+        ui_state = {
+            pl_type = Computer, Human
+            game_state = GameNotStarted
+            messages = WaitingToStart
+        }
+        game_state = {
+            past_actions = sam.init (const None)
+        }
+    }
+
+inl main() =
+    open corepython
+    named_tuple "RPS_Game" {
+        init = fun () => jsonm.serialize init()
+        event_loop_cpu = fun (msg, state) => event_loop CPU (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+        event_loop_gpu = fun (msg, state) =>
+            open serializer
+            inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
+            inl ptr_msg, ptr_state = create conv(offsets_size offsets_msg), create conv(offsets_size offsets_state)
+            inl msg, state = jsonm.deserialize msg, jsonm.deserialize state
+            serialize offsets_msg ptr_msg msg
+            serialize offsets_state ptr_state state
+
+            run fun () =>
+                open random
+                globals()
+                inl from = rangem.threads_in_grid().from
+                if from = 0 then
+                    inl rng : _ philox_state = init {seed = $"clock64()"; subsequence=conv from; offset=0}
+                    event_loop (GPU rng) (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
+                    |> serialize offsets_state ptr_state
+
+            jsonm.serialize (deserialize offsets_state ptr_state)
+    }

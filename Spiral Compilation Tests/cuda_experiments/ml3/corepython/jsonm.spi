@@ -1,0 +1,108 @@
+open corebase
+
+nominal json t = obj
+
+let deserialize forall t. (json x : json t) : t = real
+    open real_core
+    inl rec f forall t'. (x : obj) : t' = 
+        inl deserialize_sa forall array el. =
+            $"assert isinstance(!x,list), f'The object needs to be a Python list. Got: {!x}'" : ()
+            inl len : int = $"len(!x)"
+            inl ar = create `array `el len
+            loop.for' `int {from=0; nearTo=len} fun i =>
+                set `array `el ar i (f `el ($"!x[!i]" : obj))
+            ar
+
+        typecase t' with
+        | () => $"assert !x == [], f'Expected an unit type. Got: {!x}'" : ()
+        | ~a * ~b => f_tuple `t' 0 x
+        | {} => 
+            record_type_map (fun k => forall v. =>
+                f `v ($'!x[!(symbol_to_string k)]' : obj)
+                ) `t'
+        | sam.sa ~dim ~el => deserialize_sa `(sam.sa dim) `el
+        | sa_listm.sa_list ~dim ~el => 
+            inl dim = type_lit_to_lit `dim
+            inl len : int = $"len(!x)"
+            $"assert (!dim == !len), 'The length of the original object has to equal the static array dimension.\\nExpected: !dim\\nGot: !len" : ()
+            deserialize_sa `(sa_listm.sa_list dim) `el
+        | _ =>
+            if union_type_is `t' then 
+                inl body() =
+                    inl k,v = ($"!x[0]" : string), ($"!x[1]" : obj)
+                    union_to_record `t' forall r. =>
+                    record_type_fold_back (fun key => forall value. next _ =>
+                        if symbol_to_string key = k then nominal_create `t' (key, f `value v)
+                        else next ()
+                        ) `r 
+                        (fun _ => 
+                            $'raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {!k}")' : ()
+                            failwith `t' "Error"
+                            ) ()
+                (join body()) : t'
+            elif nominal_type_is `t' then
+                inl (exists t''. _) = nominal_type_apply `t'
+                nominal_create `t' (f `t'' x)
+            else
+                inl case_float () =
+                    $"assert isinstance(!x,(int,float)), f'The object needs to be an int or a float. Got: {!x}'" : ()
+                    $"`t'(!x)" : t'
+                typecase t' with
+                | f32 => case_float()
+                | f64 => case_float()
+                | _ =>
+                    $"assert isinstance(!x,`t'), f'The object needs to be the right primitive type. Got: {!x}'" : ()
+                    $"!x" : t'
+    and inl f_tuple forall t'. (i : int) x : t' =
+        typecase t' with
+        | ~a * ~b => f `a ($"!x[!i]" : obj), f_tuple `b (i+1) x
+        | _ => f `t' ($"!x[!i]" : obj)
+    f `t x
+
+let serialize forall t. (x : t) : json t = json real
+    open real_core
+    inl rec f forall t'. (x : t') : obj = 
+        inl serialize_sa forall array el. =
+            inl ar : obj = $"[]"
+            loop.for' `int {from=0; nearTo=length `array `el x} fun i =>
+                inl x = f `el (index `array `el x i)
+                $"!ar.append(!x)" : ()
+            ar
+        typecase t' with
+        | () => $"[]" : obj
+        | ~a * ~b => f_tuple `t' (python_listm.create' `obj) x
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
+        | sam.sa ~dim ~el => serialize_sa `(sam.sa dim) `el
+        | sa_listm.sa_list ~dim ~el => serialize_sa `(sa_listm.sa_list dim) `el
+        | _ =>
+            if union_type_is `t' then 
+                inl body() =
+                    unbox x (fun (k,v) =>
+                        inl k = symbol_to_string k
+                        inl v = f `(`(v)) v
+                        $"[!k,!v]" : obj
+                        )
+                (join body()) : obj
+            elif nominal_type_is `t' then
+                inl (exists t''. _) = nominal_type_apply `t'
+                f `t'' (nominal_strip x)
+            else
+                $"!x" : obj
+    and inl f_tuple forall t'. (l : python_listm.python_list obj) (x : t') : obj =
+        typecase t' with
+        | ~a * ~b => 
+            python_listm.push `obj l (f `a (fst x))
+            f_tuple `b l (snd x)
+        | _ => 
+            python_listm.push `obj l (f `t' x)
+            $"!l" : obj
+    f `t x
+
+type t = (int * int) * {a : option int; b : option int; c : int} * ((float * float) *  bool * bool) * list string * sa_listm.sa_list 16 (int * float)
+inl data() : t = (1, 2), {a=Some 1; b=None; c=3},((55.34,66.23), true, false), ["qwe"; "asd"], arraym.fromList [1,2;3,4;5,6]
+
+inl test1() =
+    serialize data()
+    |> deserialize |> console.write_ln
+
+inl main() = test1()

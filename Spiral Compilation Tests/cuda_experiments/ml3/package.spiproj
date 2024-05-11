@@ -1,0 +1,81 @@
+// packages: |core
+
+modules:
+    corebase/
+        default-
+        base-
+        limit
+        real_core*
+        type_arith*
+        core-
+        refm
+        hashsetm 
+        struct* 
+        listm
+        loop
+        optionm
+        monad
+        console
+        arraym
+        sam
+        sa_listm
+        tensorm/
+            utils*
+            tensor_main-
+            printing
+            partitionm
+        serializer/
+            types-
+            utils*
+            seriazer_main-
+        pickler
+        
+    corepython/
+        base-
+        python_listm
+        jsonm
+        
+    corecuda/
+        base-
+        rangem
+        intrinsic
+        random
+        sortm
+        tensor_cuda
+        cupy
+        thread_scope
+        semaphore
+        pipeline
+        wmma
+        pragma 
+        cooperative_groups
+        tests/
+            serializer
+            pickler
+        
+    ml/
+        matmul
+        primitives
+        layers
+        backprop
+
+    game/
+        holdem/
+            cardm
+            deck/
+                type- 
+                deck_utils
+                public-
+                deck_test
+
+            hand_score
+            hand_scorer_old
+            hand_scorer
+
+            main
+
+        leduc/
+            main
+
+        rps/
+            main

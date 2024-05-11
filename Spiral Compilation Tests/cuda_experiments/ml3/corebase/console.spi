@@ -1,0 +1,64 @@
+inl prim x = real
+    match x with
+    | (x : i8) | (x : i16) | (x : i32) | (x : i64) => "%d", x
+    | (x : u8) | (x : u16) | (x : u32) | (x : u64) => "%u", x
+    | (x : f32) | (x : f64) => "%f", x
+    | (x : string) => "%s", x
+    | (x : char) => "%c", x
+
+prototype printable t : t -> ()
+
+inl rec write forall t. (x : t) : () = real
+    inl rec write x = 
+        open real_core
+        inl p (a,b) = 
+            backend_switch `(()) {
+                Cuda = fun () => $"printf(!a,!b)" : ()
+                Python = fun () => 
+                    match b with
+                    | (_ : f32) | (_ : f64) => $'print("{:.6f}".format(!b), end="")' : ()
+                    | _ => $'print(!b, end="")' : ()
+            }
+        
+        match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+        | (x : f32) | (x : f64) => p ("%f", x)
+        | (x : string) => p ("%s", x)
+        | (x : char) => p ("%c", x)
+        | (x : bool) => p ("%s", if x then "true" else "false")
+        | (a,b) => write a . write ", " . write b
+        | {} as x =>
+            write '{'
+            record_fold (fun {state=separator key value} => 
+                write separator
+                write (symbol_to_string key) . write " = " . write value
+                "; "
+                ) () x |> ignore
+            write '}'
+        | () => ()
+        | x when symbol_is x => write (symbol_to_string x)
+        | x => 
+            if union_is x then
+                inl body () = 
+                    if prototype_has `(`x) printable then printable `(`x) x
+                    else unbox x (fun (k,v) => 
+                        write k
+                        match v with
+                        | () => ()
+                        | _ => write "(" . write v . write ")"
+                        )
+                if heap_union_is x && var_is x then (join body()) : () 
+                else body()
+            elif nominal_is x && prototype_has `(`x) printable then printable `(`x) x
+            // elif layout_is x then write *x // TODO: Deal with all the layout type cases.
+            else error_type "Unsupported type."
+            
+    write x
+
+inl write_ln l = 
+    write l
+    backend_switch {
+        Cuda = fun () => $'printf("\\n")' : ()
+        Python = fun () => $"print()" : ()
+    }

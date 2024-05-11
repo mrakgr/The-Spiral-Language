@@ -1,0 +1,35 @@
+// Base reference type
+nominal ref t = $"backend_switch `({Python : $"list"; Cuda : $"`t &"})"
+inl ref forall t. (x : t) : ref t = 
+    backend_switch {
+        Python = fun () => $"[!x]"
+        Cuda = fun () => $"`t \v = !x"
+    }
+// Doesn't actually dereference the reference. For using local scope only.
+inl (~#) forall t. (x : ref t) : t =
+    backend_switch {
+        Python = fun () => $"!x[0]"
+        Cuda = fun () => $"`t & \v = !x"
+    }
+// Sets the reference.
+inl (<-#) forall t. (x : ref t) (v : t) : () = 
+    backend_switch {
+        Python = fun () => $"!x[0] = !v"
+        Cuda = fun () => $"!x = !v"
+    }
+
+// Indexes into an array-like structure inside a reference.
+inl ref_index x i = index #x i
+// Sets an array-like structure inside a reference to a specified value at the given index.
+inl ref_set x i v = set #x i v
+// Gets the length of an array-like structure inside a reference to a specified value at the given index.
+inl ref_length x = length #x
+
+// Indexes into an array. Returns a reference to the element instead of the actual element.
+prototype index_ref ar el : ar el -> int -> ref el
+instance index_ref array = fun array i =>
+    backend_switch {
+        Python = fun () => failwith "index_ref is not supported on the Python backend."
+        Cuda = fun () => $"`el & \v = !array[!i]"
+    }
+    
