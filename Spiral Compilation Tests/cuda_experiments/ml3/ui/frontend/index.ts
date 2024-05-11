@@ -6,7 +6,10 @@ import { customElement, property } from 'lit/decorators.js';
 class Games_UI extends LitElement {
     render() {
         return html`
-            <rps-ui></rps-ui>
+            <sl-button size="large" variant="danger">Click me</sl-button>
+            <sl-icon name="0-circle"></sl-icon>
+
+            <!-- <rps-ui></rps-ui> -->
         `
     }
 }

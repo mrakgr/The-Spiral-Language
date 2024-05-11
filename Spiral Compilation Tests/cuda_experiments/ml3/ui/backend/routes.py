@@ -1,3 +1,4 @@
+from os.path import join
 from flask import Blueprint, current_app
 
 main_page = Blueprint('main', __name__)
