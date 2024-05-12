@@ -1,3 +1,10 @@
+import '@shoelace-style/shoelace/dist/themes/light.css';
+import '@shoelace-style/shoelace/dist/components/button/button.js';
+import '@shoelace-style/shoelace/dist/components/icon/icon.js';
+import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
+
+setBasePath('/bundles/shoelace/');
+
 import "./rps"; // Needed to import the rps web components.
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -6,10 +13,7 @@ import { customElement, property } from 'lit/decorators.js';
 class Games_UI extends LitElement {
     render() {
         return html`
-            <sl-button size="large" variant="danger">Click me</sl-button>
-            <sl-icon name="0-circle"></sl-icon>
-
-            <!-- <rps-ui></rps-ui> -->
+            <rps-ui></rps-ui>
         `
     }
 }

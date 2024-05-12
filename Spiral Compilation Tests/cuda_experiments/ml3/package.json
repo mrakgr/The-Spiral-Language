@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "base": "tsc && esbuild ui/frontend/index.ts --bundle --outdir=ui/backend/static/bundles/",
+    "base": "tsc && pwsh copy_static_assets.ps1 && esbuild ui/frontend/index.ts --bundle --outdir=ui/backend/static/bundles/",
     "build": "npm run base -- --sourcemap",
     "watch": "npm run build -- --watch"
   },
