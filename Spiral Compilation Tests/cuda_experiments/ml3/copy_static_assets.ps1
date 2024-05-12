@@ -7,3 +7,5 @@ if (-not (Test-Path $destinationPath)) {
 
 # Also works and would be more roboust, but its Windows only.
 # Robocopy $sourcePath $destinationPath /mir
+
+# symlinks didn't work for me.
