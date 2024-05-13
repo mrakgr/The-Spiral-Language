@@ -1,48 +1,52 @@
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { live } from 'lit/directives/live.js';
-import { map } from 'lit/directives/map.js';
-import { io } from 'socket.io-client'
+
+// @customElement("leduc-ui")
+// class Leduc_UI extends LitElement {
+//     render() {
+//         return html`TODO`
+//     }
+// }
 
 const assert_tag_is_never = (tag : never): never => { throw new Error(`Invalid tag. Got: ${tag}`)};
 
-type RPS_Action = ["Rock",[]] | ["Paper",[]] | ["Scissors",[]]
-type RPS_Players = ["Computer",[]] | ["Human",[]]
-const rps_players : RPS_Players[] = [["Computer",[]], ["Human",[]]]
+type Action = ["Raise",[]] | ["Call",[]] | ["Fold",[]]
+type Players = ["Computer",[]] | ["Human",[]]
+const players : Players[] = [["Computer",[]], ["Human",[]]]
 
-type RPS_Events =
+type Events =
     | ['StartGame', []]
-    | ['PlayerChanged', RPS_Players[]]
-    | ['ActionSelected', RPS_Action]
+    | ['PlayerChanged', Players[]]
+    | ['ActionSelected', Action]
 
-type RPS_Game_State =
+type Game_State =
     | ["GameNotStarted", []]
     | ["WaitingForActionFromPlayerId", number]
-    | ["GameOver", RPS_Action[]]
+    | ["GameOver", Action[]]
     
 type Message =
-    | ["ShowdownResult", [RPS_Action, RPS_Action]]
+    | ["ShowdownResult", [Action, Action]]
     | ["WaitingToStart",[]]
     | ["GameStarted",[]]
 
 type UI_State = {
-    pl_type : RPS_Players[];
-    game_state : RPS_Game_State;
+    pl_type : Players[];
+    game_state : Game_State;
     messages : Message;
 }
 
 // Creates a span with the specified gap in pixels.
 const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></span>`
 
-@customElement('rps-ui')
+@customElement('leduc-ui')
 class RPS_UI extends LitElement {
     @property({type: Object}) state : UI_State = {
-        pl_type: rps_players,
+        pl_type: players,
         game_state: ["GameNotStarted", []],
         messages: ["WaitingToStart",[]]
     };
 
-    socket = io('/game')
+    socket = io('/leduc-game')
     constructor(){
         super()
         this.socket.on('update', (state : UI_State) => {
@@ -126,13 +130,13 @@ class RPS_Menu extends RPS_Element {
         }
     `
 
-    @property({type: Array}) pl_type : RPS_Players[] = rps_players;
+    @property({type: Array}) pl_type : RPS_Players[] = players;
     
     start_game = () => this.dispatch_rps_event(['StartGame', []])
     on_change = (pl_id : number) => (ev : any) => {
         const find_player = () => {
             const pl_name : string = ev.target.value
-            for (const pl of rps_players) {
+            for (const pl of players) {
                 if (pl[0] === pl_name) {
                     return pl;
                 }
