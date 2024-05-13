@@ -5,13 +5,15 @@ import { io } from 'socket.io-client'
 
 const assert_tag_is_never = (tag : never): never => { throw new Error(`Invalid tag. Got: ${tag}`)};
 
+type Option<t> = ["Some",t] | ["None",[]]
 type Card = ["King",[]] | ["Queen",[]] | ["Jack",[]]
+const card : Card[] = [["King",[]], ["Queen",[]], ["Jack",[]]]
 type Action = ["Raise",[]] | ["Call",[]] | ["Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
 const players : Players[] = [["Computer",[]], ["Human",[]]]
 type Table = {
     pot: [number, number]
-    community_card: Card,
+    community_card: Option<Card>,
     pl_cards: [Card, Card]
 }
 
@@ -94,7 +96,7 @@ class Leduc_UI extends LitElement {
             <leduc-menu .pl_type=${this.state.pl_type}></leduc-menu>
             ${gap(10)}
             <div class="game_area">
-                <leduc-game .state=${this.state.game_state}></leduc-game>
+                <leduc-game></leduc-game>
                 ${gap(10)}
                 <leduc-history></leduc-history>
             </div>
@@ -239,14 +241,65 @@ class Leduc_History extends GameElement {
     }
 }
 
+@customElement('leduc-pot')
+class Leduc_Pot extends LitElement {
+    @property({type: Number}) pot = 0;
+
+    static styles = css`
+        :host {
+            display: block;
+            border: 2px dashed black;
+            width: fit-content;
+            font-size: 2em;
+            padding: 5px;
+        }
+    ` 
+
+    render() {
+        return html`${this.pot}`
+    }
+}
+
+@customElement('leduc-card')
+class Leduc_Card extends LitElement {
+    @property({type: Array}) card : Option<Card> = ["Some", card[0]];
+    @property({type: Boolean}) card_visible = true;
+
+    static styles = css`
+        :host {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 4px solid black;
+            height: fit-content;
+            width: fit-content;
+            padding: 10px;
+            background-color: burlywood;
+            user-select: none;
+            text-align: center;
+            font-family: var(--sl-font-mono);
+            font-size: var(--sl-font-size-2x-large);
+        }
+
+        div {
+            white-space: pre;
+        }
+    `
+
+    render(){
+        return html`<div>${this.card_visible && this.card[0] === "Some" ? this.card[1][0][0] : " "}</div>`
+    }
+}
 
 @customElement('leduc-game')
 class Leduc_Game extends GameElement {
-    @property({type: Array}) state : Game_State = ["GameNotStarted", []]
-
-    on_action = (action : Action) => () => {
-        this.dispatch_game_event(["ActionSelected", action])
-    }
+    // @property({type: Array}) state : Game_State = ["GameNotStarted", []]
+    @property({type: Array}) state : Game_State = ["WaitingForActionFromPlayerId", [1, {
+        community_card: ["None",[]],
+        pl_cards: [card[0], card[1]],
+        pot: [4,3]
+    }]]
 
     static styles = css`
         :host {
@@ -254,50 +307,102 @@ class Leduc_Game extends GameElement {
             flex-direction: column;
             box-sizing: border-box;
             background-color: white;
-            padding: 80px;
+            padding: 20px;
             border: 3px solid;
             border-radius: 5px;
             align-items: center;
             justify-content: space-between
         }
-
-        .actions {
+        
+        .row {
+            display: flex;
             flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .flex-1 {
+            flex: 1;
+        }
+
+        .flex-pot {
+            display: flex;
+            flex: 1;
+            justify-content: flex-end;
+        }
+
+        .flex-card {
+            display: flex;
+            flex-basis: 200px;
+            justify-content: center;
+        }
+        
+        .flex-actions {
+            display: flex;
+            flex: 1;
+            flex-direction: row;
+            justify-content: flex-start;
         }
 
         button {
             font-size: inherit;
         }
-    `
+        `
+
+    on_action = (action : Action) => () => {
+        this.dispatch_game_event(["ActionSelected", action])
+    }
 
     render_state(){
         const [tag,arg] = this.state
-        const f_false = html`
-            <div>
-                The opponent is pondering...
+        const some = (x : Card) : Option<Card> => ["Some", x]
+        const f = (is_current : boolean, id : number, table : Table) => html`
+            <div class="row">
+                <div class="flex-pot">
+                    <leduc-pot .pot=${table.pot[id]}></leduc-pot>
+                </div>
+                <div class="flex-card">
+                    <leduc-card .card=${some(table.pl_cards[id])} ?card_visible=${true}></leduc-card>
+                </div>
+                ${
+                    is_current
+                    ? html`
+                        <div class="flex-actions">
+                            <sl-button @click=${this.on_action(["Raise",[]])}>Raise</sl-button>
+                            <sl-button @click=${this.on_action(["Call",[]])}>Call</sl-button>
+                            <sl-button @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
+                        </div>
+                        `
+                    : html`
+                        <div class="flex-1"></div>
+                    `
+                }
             </div>
         `
-        const f_true = html`
-            <div class="actions">
-                <sl-button @click=${this.on_action(["Raise",[]])}>Raise</sl-button>
-                <sl-button @click=${this.on_action(["Call",[]])}>Call</sl-button>
-                <sl-button @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
-            </div>
-        `
-        const f = (c : boolean) => c ? f_true : f_false;
-
+        
         switch (tag){
             case "GameNotStarted": return html`
                 <div>
                     Please start the game...
                 </div>
             `
-            case "WaitingForActionFromPlayerId": return html`
-
+            case "WaitingForActionFromPlayerId":{ 
+                const [id, table] = arg;
+                return html`
+                    ${f(id === 0, 0, table)}
+                    <div>
+                        <leduc-card .card=${table.community_card}></leduc-card>
+                    </div>
+                    ${f(id === 1, 1, table)}
+                    `
+                }
+            case "GameOver": {
+                const table = arg;
+                return html`
+                    The game is over...
                 `
-            case "GameOver": return html`
-
-            `
+            }
         }
     }
 

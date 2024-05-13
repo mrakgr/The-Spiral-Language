@@ -249,7 +249,7 @@ class RPS_Game extends RPS_Element {
             border: 3px solid;
             border-radius: 5px;
             align-items: center;
-            justify-content: space-between
+            justify-content: space-between;
         }
 
         .actions {
