@@ -1,49 +1,53 @@
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-
-// @customElement("leduc-ui")
-// class Leduc_UI extends LitElement {
-//     render() {
-//         return html`TODO`
-//     }
-// }
+import { map } from 'lit/directives/map.js';
+import { io } from 'socket.io-client'
 
 const assert_tag_is_never = (tag : never): never => { throw new Error(`Invalid tag. Got: ${tag}`)};
 
+type Card = ["King",[]] | ["Queen",[]] | ["Jack",[]]
 type Action = ["Raise",[]] | ["Call",[]] | ["Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
 const players : Players[] = [["Computer",[]], ["Human",[]]]
+type Table = {
+    pot: [number, number]
+    community_card: Card,
+    pl_cards: [Card, Card]
+}
 
-type Events =
+type Game_Events =
     | ['StartGame', []]
     | ['PlayerChanged', Players[]]
     | ['ActionSelected', Action]
 
 type Game_State =
     | ["GameNotStarted", []]
-    | ["WaitingForActionFromPlayerId", number]
-    | ["GameOver", Action[]]
+    | ["WaitingForActionFromPlayerId", [number, Table]]
+    | ["GameOver", Table]
     
-type Message =
-    | ["ShowdownResult", [Action, Action]]
-    | ["WaitingToStart",[]]
-    | ["GameStarted",[]]
+// type Message =
+//     | ["ShowdownResult", {
+//         community_card: Card | null,
+//         pl_cards: [Card, Card]
+//     }]
+//     | ["WaitingToStart",[]]
+//     | ["GameStarted",[]]
 
 type UI_State = {
     pl_type : Players[];
     game_state : Game_State;
-    messages : Message;
+    // messages : Message;
 }
 
 // Creates a span with the specified gap in pixels.
 const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></span>`
 
 @customElement('leduc-ui')
-class RPS_UI extends LitElement {
+class Leduc_UI extends LitElement {
     @property({type: Object}) state : UI_State = {
         pl_type: players,
         game_state: ["GameNotStarted", []],
-        messages: ["WaitingToStart",[]]
+        // messages: ["WaitingToStart",[]]
     };
 
     socket = io('/leduc-game')
@@ -52,9 +56,9 @@ class RPS_UI extends LitElement {
         this.socket.on('update', (state : UI_State) => {
             this.state = state;
         });
-        this.addEventListener('rps', (ev) => {
+        this.addEventListener('leduc', (ev) => {
             ev.stopPropagation();
-            this.socket.emit('update', (ev as CustomEvent<RPS_Events>).detail);
+            this.socket.emit('update', (ev as CustomEvent<Game_Events>).detail);
         })
     }
 
@@ -66,7 +70,7 @@ class RPS_UI extends LitElement {
             height: 100%;
         }
         
-        rps-menu {
+        leduc-menu {
             flex: 1;
         }
         
@@ -76,36 +80,36 @@ class RPS_UI extends LitElement {
             flex: 5;
         }
 
-        rps-game {
+        leduc-game {
             flex: 6;
         }
         
-        rps-history {
+        leduc-history {
             flex: 1;
         }
     `
 
     render(){
         return html`
-            <rps-menu .pl_type=${this.state.pl_type}></rps-menu>
+            <leduc-menu .pl_type=${this.state.pl_type}></leduc-menu>
             ${gap(10)}
             <div class="game_area">
-                <rps-game .state=${this.state.game_state}></rps-game>
+                <leduc-game .state=${this.state.game_state}></leduc-game>
                 ${gap(10)}
-                <rps-history .message=${this.state.messages}></rps-history>
+                <leduc-history></leduc-history>
             </div>
         `
     }
 }
 
-class RPS_Element extends LitElement {
-    dispatch_rps_event = (detail : RPS_Events) => {
-        this.dispatchEvent(new CustomEvent('rps', {bubbles: true, composed: true, detail}))
+class GameElement extends LitElement {
+    dispatch_game_event = (detail : Game_Events) => {
+        this.dispatchEvent(new CustomEvent('game', {bubbles: true, composed: true, detail}))
     }
 }
 
-@customElement('rps-menu')
-class RPS_Menu extends RPS_Element {
+@customElement('leduc-menu')
+class Leduc_Menu extends GameElement {
     static styles = css`
         :host {
             display: flex;
@@ -130,9 +134,9 @@ class RPS_Menu extends RPS_Element {
         }
     `
 
-    @property({type: Array}) pl_type : RPS_Players[] = players;
+    @property({type: Array}) pl_type : Players[] = players;
     
-    start_game = () => this.dispatch_rps_event(['StartGame', []])
+    start_game = () => this.dispatch_game_event(['StartGame', []])
     on_change = (pl_id : number) => (ev : any) => {
         const find_player = () => {
             const pl_name : string = ev.target.value
@@ -144,7 +148,7 @@ class RPS_Menu extends RPS_Element {
             throw Error("Cannot find the player.")
         }
         const pl_type = this.pl_type.map((x,i) => i !== pl_id ? x : find_player());
-        this.dispatch_rps_event(["PlayerChanged", pl_type])
+        this.dispatch_game_event(["PlayerChanged", pl_type])
     }
 
     render() {
@@ -172,8 +176,8 @@ class RPS_Menu extends RPS_Element {
     }
 }
 
-@customElement('rps-history')
-class RPS_History extends RPS_Element {
+@customElement('leduc-history')
+class Leduc_History extends GameElement {
     static styles = css`
         :host {
             display: flex;
@@ -192,43 +196,43 @@ class RPS_History extends RPS_Element {
         }
     `
 
-    @property({type: Array}) message : Message = ["GameStarted",[]]
+    @property({type: Array}) message = ["TODO"]
 
     protected updated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
         // Scroll the message window to the bottom on ever new message.
         this.scrollTo({top: this.scrollHeight});
     }
 
-    print_message = (x : Message) : string[] => {
-        const [tag,arg] = x
-        switch (tag) {
-            case 'ShowdownResult': {
-                if (arg[0][0] === arg[1][0]) {
-                    return [
-                        `Both players show ${arg[0][0]}!`,
-                        "It's a tie!"
-                    ]
-                } else {
-                    return [
-                        `Player 0 shows ${arg[0][0]} and player 1 shows ${arg[1][0]}!`,
-                        ((arg[0][0] === "Rock" && arg[1][0] === "Paper") 
-                        || (arg[0][0] === "Scissors" && arg[1][0] === "Rock") 
-                        || (arg[0][0] === "Paper" && arg[1][0] === "Scissors"))
-                        ? "Player 1 wins!"
-                        : "Player 0 wins!"
-                    ]
-                }
-            }
-            case 'WaitingToStart': return ["Waiting to start the game..."]
-            case 'GameStarted': return ["Rock-Paper-Scissors!"]
-            default : return assert_tag_is_never(tag)
-        }
-    }
+    // print_message = (x : Message) : string[] => {
+    //     const [tag,arg] = x
+    //     switch (tag) {
+    //         case 'ShowdownResult': {
+    //             if (arg[0][0] === arg[1][0]) {
+    //                 return [
+    //                     `Both players show ${arg[0][0]}!`,
+    //                     "It's a tie!"
+    //                 ]
+    //             } else {
+    //                 return [
+    //                     `Player 0 shows ${arg[0][0]} and player 1 shows ${arg[1][0]}!`,
+    //                     ((arg[0][0] === "Rock" && arg[1][0] === "Paper") 
+    //                     || (arg[0][0] === "Scissors" && arg[1][0] === "Rock") 
+    //                     || (arg[0][0] === "Paper" && arg[1][0] === "Scissors"))
+    //                     ? "Player 1 wins!"
+    //                     : "Player 0 wins!"
+    //                 ]
+    //             }
+    //         }
+    //         case 'WaitingToStart': return ["Waiting to start the game..."]
+    //         case 'GameStarted': return ["Rock-Paper-Scissors!"]
+    //         default : return assert_tag_is_never(tag)
+    //     }
+    // }
 
     
     render() {
         return html`
-            ${map(this.print_message(this.message), x => html`
+            ${map((this.message), x => html`
                 <div>${x}</div>
             `)}
         `
@@ -236,12 +240,12 @@ class RPS_History extends RPS_Element {
 }
 
 
-@customElement('rps-game')
-class RPS_Game extends RPS_Element {
-    @property({type: Array}) state : RPS_Game_State = ["GameNotStarted", []]
+@customElement('leduc-game')
+class Leduc_Game extends GameElement {
+    @property({type: Array}) state : Game_State = ["GameNotStarted", []]
 
-    on_action = (action : RPS_Action) => () => {
-        this.dispatch_rps_event(["ActionSelected", action])
+    on_action = (action : Action) => () => {
+        this.dispatch_game_event(["ActionSelected", action])
     }
 
     static styles = css`
@@ -275,9 +279,9 @@ class RPS_Game extends RPS_Element {
         `
         const f_true = html`
             <div class="actions">
-                <sl-button @click=${this.on_action(["Rock",[]])}>Rock</sl-button>
-                <sl-button @click=${this.on_action(["Paper",[]])}>Paper</sl-button>
-                <sl-button @click=${this.on_action(["Scissors",[]])}>Scissors</sl-button>
+                <sl-button @click=${this.on_action(["Raise",[]])}>Raise</sl-button>
+                <sl-button @click=${this.on_action(["Call",[]])}>Call</sl-button>
+                <sl-button @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
             </div>
         `
         const f = (c : boolean) => c ? f_true : f_false;
@@ -289,19 +293,10 @@ class RPS_Game extends RPS_Element {
                 </div>
             `
             case "WaitingForActionFromPlayerId": return html`
-                ${f(arg === 0)}
-                <div>
-                    Game in progress...
-                </div>
-                ${f(arg === 1)}
+
                 `
             case "GameOver": return html`
-                <div>
-                    ${arg[0]}
-                </div>
-                <div>
-                    ${arg[1]}
-                </div>
+
             `
         }
     }

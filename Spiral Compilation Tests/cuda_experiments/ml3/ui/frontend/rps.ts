@@ -1,6 +1,5 @@
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { live } from 'lit/directives/live.js';
 import { map } from 'lit/directives/map.js';
 import { io } from 'socket.io-client'
 
@@ -42,7 +41,7 @@ class RPS_UI extends LitElement {
         messages: ["WaitingToStart",[]]
     };
 
-    socket = io('/game')
+    socket = io('/rps_game')
     constructor(){
         super()
         this.socket.on('update', (state : UI_State) => {
