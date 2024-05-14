@@ -1,0 +1,81 @@
+open corebase
+
+union action = Raise | Call | Fold
+union card = King | Queen | Jack
+union player_type = Computer | Human
+union event = 
+    | StartGame
+    | PlayerChanged : player_type * player_type
+    | ActionSelected : action
+
+type table =
+    {
+        pot : sam.sa 2 int
+        community_card : option card
+        pl_card : sam.sa 2 card
+        raises_left : int
+        is_call_a_check : bool
+        player_turn : int
+    }
+
+union ui_game_state =
+    | GameNotStarted
+    | WaitingForActionFromPlayerId : int * table
+    | GameOver : table 
+
+let compare_hands (table : table) =
+    let tag = function King => 2 | Queen => 1 | Jack => 0 : int
+    match table.community_card with
+    | None => error_type "Expected the community card to be present in the table."
+    | Some community_card =>
+        let community_card = tag community_card
+        let a = tag (index table.pl_card 0), community_card
+        let b = tag (index table.pl_card 1), community_card
+        let order (a,b) = if a > b then a,b else b,a
+        let is_pair (a,b) = a = b
+        match is_pair a, is_pair b with
+        | true, true => comp (fst a) (fst b)
+        | true, false => gt()
+        | false, true => lt()
+        | _ => comp (order a) (order b)
+
+
+type leduc_game r =
+    {
+        chance_init : {player_turn : int} -> (card -> r) -> r
+        chance_community_card : (card -> r) -> r
+        action_round : table -> (action -> r) -> r
+        terminal_fold : table -> r
+        terminal_call : table -> r
+    }
+
+inl toggle (player_turn : int) : int = if player_turn = 0 then 1 else 0
+inl raiseBy (id : int) (amount : int) : sam.sa 2 int -> sam.sa 2 int = arraym.mapi (fun i pot => if i = id then pot + amount else pot)
+
+// Returns the max value of both pots in an static array.
+inl pot_call (pot : sam.sa 2 int) : sam.sa 2 int = sam.init (const (arraym.fold max 0 pot))
+
+let game forall r. (ret : leduc_game r) : r =
+    inl rec round (table : table) =
+        ret.action_round table fun action =>
+            match table.community_card with
+            | Some community_card => // round two
+                match action with
+                | Fold => ret.terminal_fold table
+                | Call when table.is_call_a_check => round {table with is_call_a_check=false; player_turn#=toggle}
+                | Call => ret.terminal_call {table with pot#=pot_call}
+                | Raise when table.raises_left > 0 => round {table with is_call_a_check=false; player_turn#=toggle; raises_left#=(-)1; pot#=raiseBy table.player_turn 4}
+                | Raise => failwith "Invalid action. The number of raises left is not positive."
+            | None => // round one
+                match action with
+                | Fold => ret.terminal_fold table
+                | Call when table.is_call_a_check => round {table with is_call_a_check=false; player_turn#=toggle}
+                | Call => 
+                    ret.chance_community_card fun card => 
+                    round {table with is_call_a_check=true; player_turn=0; raises_left=dyn 2; community_card=Some card; pot#=pot_call}
+                | Raise when table.raises_left > 0 => round {table with is_call_a_check=false; player_turn#=toggle; raises_left#=(-)1; pot#=raiseBy table.player_turn 2}
+                | Raise => failwith "Invalid action. The number of raises left is not positive."
+
+    ret.chance_init {player_turn=0} fun c0 =>
+    ret.chance_init {player_turn=1} fun c1 =>
+    round {is_call_a_check=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
