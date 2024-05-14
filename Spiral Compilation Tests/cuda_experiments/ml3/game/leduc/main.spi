@@ -1,11 +1,12 @@
 open corebase
+open corepython
 
 union action = Raise | Call | Fold
 union card = King | Queen | Jack
 union player_type = Computer | Human
 union event = 
     | StartGame
-    | PlayerChanged : player_type * player_type
+    | PlayerChanged : sam.sa 2 player_type
     | ActionSelected : action
 
 type table =
@@ -18,10 +19,38 @@ type table =
         player_turn : int
     }
 
+union rec node =
+    | Chance : card -> node
+    | Action : table * (action -> node)
+    | Terminal : table * float
+
 union ui_game_state =
     | GameNotStarted
-    | WaitingForActionFromPlayerId : int * table
+    | WaitingForActionFromPlayerId : table
     | GameOver : table 
+
+type game_state =
+    {
+        next : option (python_listm.python_list card * (action -> node))
+    }
+
+type state =
+    {
+        ui_state : {
+            ui_game_state : ui_game_state
+            pl_type : sam.sa 2 player_type
+            }
+        game_state : game_state
+    }
+
+inl init() = 
+    {
+        ui_state = {
+            ui_game_state = GameNotStarted
+            pl_type = arraym.fromList [Computer; Human]
+            }
+        game_state = {next = None}
+    }
 
 let compare_hands (table : table) =
     let tag = function King => 2 | Queen => 1 | Jack => 0 : int
@@ -79,3 +108,84 @@ let game forall r. (ret : leduc_game r) : r =
     ret.chance_init {player_turn=0} fun c0 =>
     ret.chance_init {player_turn=1} fun c1 =>
     round {is_call_a_check=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
+
+inl random_action (table : table) =
+    open corepython.python_listm
+    inl actions : python_list _ =  arraym.fromList [Call]
+    if table.is_call_a_check = false then push actions Fold
+    if table.raises_left > 0 then push actions Raise
+    shuffle actions
+    pop actions -1
+
+inl create_deck() =
+    open corepython
+    open corepython.python_listm
+    inl deck : python_list _ = arraym.fromList [King; King; Queen; Queen; Jack; Jack]
+    shuffle deck
+    deck
+
+inl pop_deck deck : card =
+    open corepython.python_listm
+    pop deck -1
+
+inl python_play () : leduc_game node =
+    {
+        chance_init = fun {player_turn} cont =>
+            Chance(cont)
+        chance_community_card = fun cont =>
+            Chance(cont)
+        action_round = fun table cont =>
+            Action(table,cont)
+        terminal_fold = fun table =>
+            inl reward_for_pl0 = index table.pot table.player_turn
+            Terminal (table, conv if table.player_turn = 0 then -reward_for_pl0 else reward_for_pl0)
+        terminal_call = fun table =>
+            inl reward_for_pl0 =
+                inl r = index table.pot table.player_turn
+                match compare_hands table with
+                | Gt => conv r | Eq => 0 | Lt => conv -r
+            Terminal(table,reward_for_pl0)
+    }
+
+inl game_loop (pl_type : sam.sa 2 player_type) deck = function
+    | Chance cont => cont (pop_deck deck)
+    | Action (table, cont) => 
+        match index pl_type table.player_turn with
+        | Human => Action (table, cont)
+        | Computer => cont (random_action table)
+    | Terminal (table, r) => Terminal (table,r)
+
+inl event_loop (msg, state : event * state) : state =
+    let rec action_loop deck next : state =
+        match next with
+        | Chance _ => failwith "Not expecting a chance node."
+        | Action(table, cont) =>
+            {state with
+                ui_state #= fun ui_state => 
+                    {ui_state with
+                        ui_game_state = WaitingForActionFromPlayerId(table)
+                    }
+                game_state =
+                    {next = Some (deck, fun action => cont action)}
+                }
+        | Terminal(table,r) =>
+            {state with
+                ui_state #= fun ui_state => 
+                    {ui_state with
+                        ui_game_state = GameOver(table)
+                    }
+                game_state =
+                    {next = None}
+                }
+    match msg with
+    | StartGame => 
+        inl deck = create_deck()
+        action_loop deck (game_loop state.ui_state.pl_type deck (game python_play()))
+    | PlayerChanged pl_type =>
+        {state with
+            ui_state #= fun ui_state => {ui_state with pl_type}
+            }
+    | ActionSelected action =>
+        match state.game_state.next with
+        | Some (deck, next) => action_loop deck (next action)
+        | None => state

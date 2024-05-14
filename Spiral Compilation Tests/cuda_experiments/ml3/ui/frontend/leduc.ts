@@ -14,7 +14,10 @@ const players : Players[] = [["Computer",[]], ["Human",[]]]
 type Table = {
     pot: [number, number]
     community_card: Option<Card>,
-    pl_cards: [Card, Card]
+    pl_cards: [Card, Card],
+    raises_left: number,
+    is_call_a_check: number,
+    player_turn: number
 }
 
 type Game_Events =

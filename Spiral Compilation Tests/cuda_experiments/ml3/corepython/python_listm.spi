@@ -1,3 +1,5 @@
+open corebase
+
 // Python's list module.
 nominal python_list a = $"list"
 
@@ -12,3 +14,13 @@ inl pop forall el. (l : python_list el) (i : int) : el = $"!l.pop(!i)"
 inl push forall el. (l : python_list el) (x : el) : () = $"!l.append(!x)"
 // Cleards the array.
 inl clear forall el. (l : python_list el) : () = $"!l.clear()"
+
+instance index python_list = fun ar i => $"!ar[!i]"
+instance set python_list = fun ar i v => $"!ar[!i] = !v"
+instance length python_list = fun ar => $"len(!ar)"
+instance create python_list = fun i => $"[None] * !i"
+
+// Does on in-place shuffle of the list.
+inl shuffle forall t. (deck : python_list t) : () =
+    global "import random"
+    $"random.shuffle(!deck)"
