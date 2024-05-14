@@ -47,7 +47,7 @@ class RPS_UI extends LitElement {
         this.socket.on('update', (state : UI_State) => {
             this.state = state;
         });
-        this.addEventListener('rps', (ev) => {
+        this.addEventListener('game', (ev) => {
             ev.stopPropagation();
             this.socket.emit('update', (ev as CustomEvent<RPS_Events>).detail);
         })
@@ -95,7 +95,7 @@ class RPS_UI extends LitElement {
 
 class RPS_Element extends LitElement {
     dispatch_rps_event = (detail : RPS_Events) => {
-        this.dispatchEvent(new CustomEvent('rps', {bubbles: true, composed: true, detail}))
+        this.dispatchEvent(new CustomEvent('game', {bubbles: true, composed: true, detail}))
     }
 }
 

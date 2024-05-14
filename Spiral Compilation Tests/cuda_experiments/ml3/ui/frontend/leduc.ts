@@ -58,7 +58,7 @@ class Leduc_UI extends LitElement {
         this.socket.on('update', (state : UI_State) => {
             this.state = state;
         });
-        this.addEventListener('leduc', (ev) => {
+        this.addEventListener('game', (ev) => {
             ev.stopPropagation();
             this.socket.emit('update', (ev as CustomEvent<Game_Events>).detail);
         })
@@ -357,13 +357,13 @@ class Leduc_Game extends GameElement {
     render_state(){
         const [tag,arg] = this.state
         const some = (x : Card) : Option<Card> => ["Some", x]
-        const f = (is_current : boolean, id : number, table : Table) => html`
+        const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => html`
             <div class="row">
                 <div class="flex-pot">
                     <leduc-pot .pot=${table.pot[id]}></leduc-pot>
                 </div>
                 <div class="flex-card">
-                    <leduc-card .card=${some(table.pl_cards[id])} ?card_visible=${true}></leduc-card>
+                    <leduc-card .card=${some(table.pl_cards[id])} ?card_visible=${card_visible}></leduc-card>
                 </div>
                 ${
                     is_current
@@ -389,18 +389,23 @@ class Leduc_Game extends GameElement {
             `
             case "WaitingForActionFromPlayerId":{ 
                 const [id, table] = arg;
+                const f_ = (c : number) => f(id === c, id === c, c, table)
                 return html`
-                    ${f(id === 0, 0, table)}
+                    ${f_(0)}
                     <div>
                         <leduc-card .card=${table.community_card}></leduc-card>
                     </div>
-                    ${f(id === 1, 1, table)}
+                    ${f_(1)}
                     `
                 }
             case "GameOver": {
                 const table = arg;
                 return html`
-                    The game is over...
+                    ${f(false, true, 0, table)}
+                    <div>
+                        <leduc-card .card=${table.community_card}></leduc-card>
+                    </div>
+                    ${f(false, true, 1, table)}
                 `
             }
         }
