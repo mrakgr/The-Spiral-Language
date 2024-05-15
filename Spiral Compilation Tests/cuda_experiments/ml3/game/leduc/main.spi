@@ -19,10 +19,16 @@ type table =
         player_turn : int
     }
 
+union message =
+    | PlayerGotCard : int * card
+    | CommunityCardIs : card
+    | PlayerAction : action
+    | Showdown : {winner_id : int; chips_won : int; cards_shown : sam.sa 2 card}
+
 union rec node =
-    | Chance : card -> node
-    | Action : table * (action -> node)
-    | Terminal : table * float
+    | Chance : (card -> node * message)
+    | Action : table * (action -> node * message)
+    | Terminal : table * float * message
 
 union ui_game_state =
     | GameNotStarted
@@ -136,20 +142,23 @@ inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
 inl python_play () : leduc_game node =
     {
         chance_init = fun {player_turn} cont =>
-            Chance(cont)
+            Chance(fun card => cont card, PlayerGotCard(player_turn, card))
         chance_community_card = fun cont =>
-            Chance(cont)
+            Chance(fun card => cont card, CommunityCardIs(card))
         action_round = fun table cont =>
-            Action(table,cont)
+            Action(table,fun action => cont action, PlayerAction action)
         terminal_fold = fun table =>
-            inl reward_for_pl0 = index table.pot table.player_turn
-            Terminal (table, conv if table.player_turn = 0 then -reward_for_pl0 else reward_for_pl0)
+            inl chips_won = index table.pot table.player_turn
+            inl pl0_reward = conv if table.player_turn = 0 then -chips_won else chips_won
+            Terminal (table, pl0_reward, Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn})
         terminal_call = fun table =>
-            inl reward_for_pl0 =
-                inl r = index table.pot table.player_turn
+            inl pl0_reward, chips_won, winner_id =
+                inl chips_won = index table.pot table.player_turn
                 match compare_hands table with
-                | Gt => conv r | Eq => 0 | Lt => conv -r
-            Terminal(table,reward_for_pl0)
+                | Gt => conv chips_won, chips_won, 0
+                | Eq => 0, 0, 0
+                | Lt => conv -chips_won, chips_won, 1 
+            Terminal(table,pl0_reward, Showdown{cards_shown=table.pl_card; chips_won winner_id})
     }
 
 inl rec game_loop human_action terminal (pl_type : sam.sa 2 player_type) deck x = 
