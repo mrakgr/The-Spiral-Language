@@ -14,9 +14,9 @@ const players : Players[] = [["Computer",[]], ["Human",[]]]
 type Table = {
     pot: [number, number]
     community_card: Option<Card>,
-    pl_cards: [Card, Card],
+    pl_card: [Card, Card],
     raises_left: number,
-    is_call_a_check: number,
+    is_button_s_first_move: boolean,
     player_turn: number
 }
 
@@ -27,20 +27,12 @@ type Game_Events =
 
 type Game_State =
     | ["GameNotStarted", []]
-    | ["WaitingForActionFromPlayerId", [number, Table]]
+    | ["WaitingForActionFromPlayerId", Table]
     | ["GameOver", Table]
     
-// type Message =
-//     | ["ShowdownResult", {
-//         community_card: Card | null,
-//         pl_cards: [Card, Card]
-//     }]
-//     | ["WaitingToStart",[]]
-//     | ["GameStarted",[]]
-
 type UI_State = {
     pl_type : Players[];
-    game_state : Game_State;
+    ui_game_state : Game_State;
     // messages : Message;
 }
 
@@ -51,18 +43,21 @@ const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></s
 class Leduc_UI extends LitElement {
     @property({type: Object}) state : UI_State = {
         pl_type: players,
-        game_state: ["GameNotStarted", []],
+        ui_game_state: ["GameNotStarted", []],
         // messages: ["WaitingToStart",[]]
     };
 
-    socket = io('/leduc-game')
+    socket = io('/leduc_game')
+
     constructor(){
         super()
         this.socket.on('update', (state : UI_State) => {
+            console.log(`Got state: ${JSON.stringify(state)}`);
             this.state = state;
         });
         this.addEventListener('game', (ev) => {
             ev.stopPropagation();
+            console.log(ev);
             this.socket.emit('update', (ev as CustomEvent<Game_Events>).detail);
         })
     }
@@ -99,7 +94,7 @@ class Leduc_UI extends LitElement {
             <leduc-menu .pl_type=${this.state.pl_type}></leduc-menu>
             ${gap(10)}
             <div class="game_area">
-                <leduc-game></leduc-game>
+                <leduc-game .state=${this.state.ui_game_state}></leduc-game>
                 ${gap(10)}
                 <leduc-history></leduc-history>
             </div>
@@ -297,12 +292,14 @@ class Leduc_Card extends LitElement {
 
 @customElement('leduc-game')
 class Leduc_Game extends GameElement {
-    // @property({type: Array}) state : Game_State = ["GameNotStarted", []]
-    @property({type: Array}) state : Game_State = ["WaitingForActionFromPlayerId", [1, {
+    @property({type: Array}) state : Game_State = ["WaitingForActionFromPlayerId", {
         community_card: ["None",[]],
-        pl_cards: [card[0], card[1]],
-        pot: [4,3]
-    }]]
+        pl_card: [card[0], card[1]],
+        pot: [4,3],
+        is_button_s_first_move: true,
+        player_turn: 0,
+        raises_left: 0
+    }]
 
     static styles = css`
         :host {
@@ -360,29 +357,36 @@ class Leduc_Game extends GameElement {
     render_state(){
         const [tag,arg] = this.state
         const some = (x : Card) : Option<Card> => ["Some", x]
-        const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => html`
-            <div class="row">
-                <div class="flex-pot">
-                    <leduc-pot .pot=${table.pot[id]}></leduc-pot>
-                </div>
-                <div class="flex-card">
-                    <leduc-card .card=${some(table.pl_cards[id])} ?card_visible=${card_visible}></leduc-card>
-                </div>
-                ${
-                    is_current
-                    ? html`
-                        <div class="flex-actions">
-                            <sl-button @click=${this.on_action(["Raise",[]])}>Raise</sl-button>
-                            <sl-button @click=${this.on_action(["Call",[]])}>Call</sl-button>
-                            <sl-button @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
-                        </div>
+        const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => {
+            console.log("---");
+            console.log(table);
+            console.log(card_visible);
+            console.log("---");
+            
+            
+            return html`
+                <div class="row">
+                    <div class="flex-pot">
+                        <leduc-pot .pot=${table.pot[id]}></leduc-pot>
+                    </div>
+                    <div class="flex-card">
+                        <leduc-card .card=${some(table.pl_card[id])} ?card_visible=${card_visible}></leduc-card>
+                    </div>
+                    ${
+                        is_current
+                        ? html`
+                            <div class="flex-actions">
+                                <sl-button ?disabled=${!(table.raises_left > 0)} @click=${this.on_action(["Raise",[]])}>Raise</sl-button>
+                                <sl-button @click=${this.on_action(["Call",[]])}>Call</sl-button>
+                                <sl-button ?disabled=${table.pot[0] === table.pot[1]} @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
+                            </div>
+                            `
+                        : html`
+                            <div class="flex-1"></div>
                         `
-                    : html`
-                        <div class="flex-1"></div>
-                    `
-                }
-            </div>
-        `
+                    }
+                </div>
+            `}
         
         switch (tag){
             case "GameNotStarted": return html`
@@ -391,8 +395,8 @@ class Leduc_Game extends GameElement {
                 </div>
             `
             case "WaitingForActionFromPlayerId":{ 
-                const [id, table] = arg;
-                const f_ = (c : number) => f(id === c, id === c, c, table)
+                const table = arg;
+                const f_ = (c : number) => f(table.player_turn === c, table.player_turn === c, c, table)
                 return html`
                     ${f_(0)}
                     <div>

@@ -13,7 +13,7 @@ class RPS_Namespace(Namespace):
     def emit_update(self, data: Any): emit('update', data)
 
     def on_connect(self):
-        print(f'Client connected: {self.sid()}')
+        print(f'Client connected to RPS game: {self.sid()}')
         state = spiral_game.init()
         RPS_Namespace.user_state[self.sid()] = state
         self.emit_update(state["ui_state"])

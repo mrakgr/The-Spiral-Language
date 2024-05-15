@@ -157,7 +157,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             r
 
     let cupy_ty x = env.ty_to_data x |> data_free_vars |> cupy_ty
-    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass "Python" Set.empty (Set args) x).g_decr s BindsTailEnd x
+    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
     and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
         let tup_destruct (a,b) =
@@ -275,10 +275,10 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 line s (sprintf "case %s: # %s" cases k)
                 binds g_decr (indent s) ret b
                 ) on_succs
-            on_fail |> Option.iter (fun b ->
-                line s "case _:"
-                binds g_decr (indent s) ret b
-                )
+            line s "case _:"
+            match on_fail with
+            | Some b -> binds g_decr (indent s) ret b
+            | None -> line (indent s) "raise Exception('Pattern matching miss.')"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
@@ -405,12 +405,18 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
-            let closure_args = x.free_vars |> Array.map (fun (L(i,t)) -> $"v{i} : {tyv t}") |> String.concat ", "
-            line s $"def Closure{x.tag}({closure_args}):"
+            let env_args = x.free_vars |> Array.map (fun (L(i,t)) -> $"env_v{i} : {tyv t}") |> String.concat ", "
+            line s $"def Closure{x.tag}({env_args}):"
             let s = indent s
             let inner_args = x.domain_args |> Array.map (fun (L(i,t)) -> $"v{i} : {tyv t}") |> String.concat ", "
             line s $"def inner({inner_args}) -> {tup_ty x.range}:"
-            binds_start x.free_vars (indent s) x.body
+            let _ =
+                let s = indent s
+                if x.free_vars.Length > 0 then 
+                    let nonlocal_args = x.free_vars |> Array.map (fun (L(i,t)) -> $"env_v{i}") |> String.concat ", "
+                    line s $"nonlocal {nonlocal_args}"
+                    x.free_vars |> Array.map (fun (L(i,t)) -> $"v{i} = env_v{i}") |> String.concat "; " |> line s
+                binds_start x.free_vars s x.body
             line s "return inner"
             )
 

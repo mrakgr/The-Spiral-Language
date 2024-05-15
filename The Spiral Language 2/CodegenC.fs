@@ -51,7 +51,7 @@ let varc_data call_data =
     v
 let varc_set x i = Set.fold (fun s v -> Map.add v i s) Map.empty x
 
-let refc_used_vars backend (x : TypedBind []) =
+let refc_used_vars (x : TypedBind []) =
     let g_bind : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let fv x = x |> data_free_vars |> Set
     let jp (x : JoinPointCall) = snd x |> Set
@@ -95,8 +95,8 @@ let refc_used_vars backend (x : TypedBind []) =
 
 type RefcVars = {g_incr : Dictionary<TypedBind,TyV Set>; g_decr : Dictionary<TypedBind,TyV Set>; g_op : Dictionary<TypedBind,Map<TyV, int>>; g_op_decr : Dictionary<TypedBind,TyV Set>}
 
-let refc_prepass backend (new_vars : TyV Set) (increfed_vars : TyV Set) (x : TypedBind []) =
-    let used_vars = refc_used_vars backend x
+let refc_prepass (new_vars : TyV Set) (increfed_vars : TyV Set) (x : TypedBind []) =
+    let used_vars = refc_used_vars x
     let g_incr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g_op : Dictionary<TypedBind, _> = Dictionary(HashIdentity.Reference)
@@ -299,8 +299,8 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
     let import' x = global' $"#include \"{x}\""
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
-
-    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (refc_prepass "C" Set.empty (Set args) x) s BindsTailEnd x
+    
+    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (refc_prepass Set.empty (Set args) x) s BindsTailEnd x
     and return_local s ret (x : string) = 
         match ret with
         | [||] -> line s $"{x};"

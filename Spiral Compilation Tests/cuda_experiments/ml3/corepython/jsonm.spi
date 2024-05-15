@@ -1,3 +1,8 @@
+// Module for serializing Python objects from JSON format into the Spiral one and vice versa.
+// They aren't intended for sending data across the wire, so they work on Python objects directly.
+// They are there so the static arrays and union types can be moved between the frontend and
+// the Spiral backend in Python.
+
 open corebase
 
 nominal json t = obj
@@ -24,8 +29,9 @@ let deserialize forall t. (json x : json t) : t = real
         | sa_listm.sa_list ~dim ~el => 
             inl dim = type_lit_to_lit `dim
             inl len : int = $"len(!x)"
-            $"assert (!dim == !len), 'The length of the original object has to equal the static array dimension.\\nExpected: !dim\\nGot: !len" : ()
+            $"assert (!dim >= !len), f'The length of the original object has to be greater than or equal to the static array dimension.\\nExpected: !dim\\nGot: {!len} '" : ()
             deserialize_sa `(sa_listm.sa_list dim) `el
+        | _ -> _ => $"!x" : t'
         | _ =>
             if union_type_is `t' then 
                 inl body() =
@@ -74,6 +80,7 @@ let serialize forall t. (x : t) : json t = json real
         | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
         | sam.sa ~dim ~el => serialize_sa `(sam.sa dim) `el
         | sa_listm.sa_list ~dim ~el => serialize_sa `(sa_listm.sa_list dim) `el
+        | _ -> _ => $"!x" : obj
         | _ =>
             if union_type_is `t' then 
                 inl body() =

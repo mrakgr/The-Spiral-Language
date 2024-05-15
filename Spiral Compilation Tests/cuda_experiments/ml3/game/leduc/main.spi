@@ -15,7 +15,7 @@ type table =
         community_card : option card
         pl_card : sam.sa 2 card
         raises_left : int
-        is_call_a_check : bool
+        is_button_s_first_move : bool
         player_turn : int
     }
 
@@ -31,7 +31,7 @@ union ui_game_state =
 
 type game_state =
     {
-        next : option (python_listm.python_list card * (action -> node))
+        next : option (sa_listm.sa_list 6 card * (action -> node))
     }
 
 type state =
@@ -43,7 +43,7 @@ type state =
         game_state : game_state
     }
 
-inl init() = 
+inl init() : state = 
     {
         ui_state = {
             ui_game_state = GameNotStarted
@@ -55,7 +55,10 @@ inl init() =
 let compare_hands (table : table) =
     let tag = function King => 2 | Queen => 1 | Jack => 0 : int
     match table.community_card with
-    | None => error_type "Expected the community card to be present in the table."
+    | None => 
+        // print_static table.community_card
+        // error_type "Expected the community card to be present in the table."
+        failwith "Expected the community card to be present in the table."
     | Some community_card =>
         let community_card = tag community_card
         let a = tag (index table.pl_card 0), community_card
@@ -86,47 +89,49 @@ inl pot_call (pot : sam.sa 2 int) : sam.sa 2 int = sam.init (const (arraym.fold 
 
 let game forall r. (ret : leduc_game r) : r =
     inl rec round (table : table) =
+        console.write_ln {table}
         ret.action_round table fun action =>
+            console.write_ln {action}
             match table.community_card with
             | Some community_card => // round two
                 match action with
                 | Fold => ret.terminal_fold table
-                | Call when table.is_call_a_check => round {table with is_call_a_check=false; player_turn#=toggle}
+                | Call when table.is_button_s_first_move => round {table with is_button_s_first_move=false; player_turn#=toggle}
                 | Call => ret.terminal_call {table with pot#=pot_call}
-                | Raise when table.raises_left > 0 => round {table with is_call_a_check=false; player_turn#=toggle; raises_left#=(-)1; pot#=raiseBy table.player_turn 4}
+                | Raise when table.raises_left > 0 => round {table with is_button_s_first_move=false; player_turn#=toggle; raises_left#=(+) -1; pot#=pot_call >> raiseBy table.player_turn 4}
                 | Raise => failwith "Invalid action. The number of raises left is not positive."
             | None => // round one
                 match action with
                 | Fold => ret.terminal_fold table
-                | Call when table.is_call_a_check => round {table with is_call_a_check=false; player_turn#=toggle}
+                | Call when table.is_button_s_first_move => round {table with is_button_s_first_move=false; player_turn#=toggle}
                 | Call => 
                     ret.chance_community_card fun card => 
-                    round {table with is_call_a_check=true; player_turn=0; raises_left=dyn 2; community_card=Some card; pot#=pot_call}
-                | Raise when table.raises_left > 0 => round {table with is_call_a_check=false; player_turn#=toggle; raises_left#=(-)1; pot#=raiseBy table.player_turn 2}
+                    round {table with is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=Some card; pot#=pot_call}
+                | Raise when table.raises_left > 0 => round {table with is_button_s_first_move=false; player_turn#=toggle; raises_left#=(+) -1; pot#=pot_call >> raiseBy table.player_turn 2}
                 | Raise => failwith "Invalid action. The number of raises left is not positive."
 
     ret.chance_init {player_turn=0} fun c0 =>
     ret.chance_init {player_turn=1} fun c1 =>
-    round {is_call_a_check=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
+    round {is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
 
 inl random_action (table : table) =
-    open corepython.python_listm
-    inl actions : python_list _ =  arraym.fromList [Call]
-    if table.is_call_a_check = false then push actions Fold
+    open sa_listm
+    inl actions : sa_list 3 _ =  arraym.fromList [Call]
+    if index table.pot 0 <> index table.pot 1 then push actions Fold
     if table.raises_left > 0 then push actions Raise
     shuffle actions
-    pop actions -1
+    pop actions
 
 inl create_deck() =
-    open corepython
-    open corepython.python_listm
-    inl deck : python_list _ = arraym.fromList [King; King; Queen; Queen; Jack; Jack]
+    open sa_listm
+    inl deck : sa_list 6 _ = arraym.fromList [King; King; Queen; Queen; Jack; Jack]
     shuffle deck
     deck
 
-inl pop_deck deck : card =
-    open corepython.python_listm
-    pop deck -1
+inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
+    open sa_listm
+    inl x = pop deck
+    x
 
 inl python_play () : leduc_game node =
     {
@@ -147,45 +152,54 @@ inl python_play () : leduc_game node =
             Terminal(table,reward_for_pl0)
     }
 
-inl game_loop (pl_type : sam.sa 2 player_type) deck = function
-    | Chance cont => cont (pop_deck deck)
+inl rec game_loop human_action terminal (pl_type : sam.sa 2 player_type) deck x = 
+    inl f = game_loop human_action terminal pl_type deck
+    match x with
+    | Chance cont => join f cont(pop_deck deck)
     | Action (table, cont) => 
         match index pl_type table.player_turn with
-        | Human => Action (table, cont)
-        | Computer => cont (random_action table)
-    | Terminal (table, r) => Terminal (table,r)
+        | Human => human_action(table, cont)
+        | Computer => join f cont(random_action table)
+    | Terminal (table, r) => terminal(table,r)
+
+let rec action_loop (state : state) deck next : state =
+    inl human_action table, cont =
+        {state with
+            ui_state #= fun ui_state => 
+                {ui_state with
+                    ui_game_state = WaitingForActionFromPlayerId(table)
+                }
+            game_state =
+                {next = Some (deck, fun action => cont action)}
+            }
+    inl terminal table,r =
+        {state with
+            ui_state #= fun ui_state => 
+                {ui_state with
+                    ui_game_state = GameOver(table)
+                }
+            game_state =
+                {next = None}
+            }
+    game_loop human_action terminal state.ui_state.pl_type deck next
 
 inl event_loop (msg, state : event * state) : state =
-    let rec action_loop deck next : state =
-        match next with
-        | Chance _ => failwith "Not expecting a chance node."
-        | Action(table, cont) =>
-            {state with
-                ui_state #= fun ui_state => 
-                    {ui_state with
-                        ui_game_state = WaitingForActionFromPlayerId(table)
-                    }
-                game_state =
-                    {next = Some (deck, fun action => cont action)}
-                }
-        | Terminal(table,r) =>
-            {state with
-                ui_state #= fun ui_state => 
-                    {ui_state with
-                        ui_game_state = GameOver(table)
-                    }
-                game_state =
-                    {next = None}
-                }
     match msg with
-    | StartGame => 
-        inl deck = create_deck()
-        action_loop deck (game_loop state.ui_state.pl_type deck (game python_play()))
+    | StartGame =>
+        console.write_ln "Starting the game."
+        action_loop init() create_deck() (game python_play())
     | PlayerChanged pl_type =>
         {state with
             ui_state #= fun ui_state => {ui_state with pl_type}
             }
     | ActionSelected action =>
         match state.game_state.next with
-        | Some (deck, next) => action_loop deck (next action)
+        | Some (deck, next) => action_loop state deck (next action) 
         | None => state
+
+inl main() =
+    open corepython
+    named_tuple "Leduc_Game" {
+        init = fun () => jsonm.serialize init()
+        event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+    }

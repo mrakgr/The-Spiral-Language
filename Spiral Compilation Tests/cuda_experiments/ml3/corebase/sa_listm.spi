@@ -50,17 +50,28 @@ instance set sa_list dim = fun (sa_list {array length}) i v =>
 
 inl push forall dim el. (ar : sa_list dim el) (x : el) =
     inl len = unsafe_set_length ar ((+) 1)
-    assert (len < max_length ar) "Cannot add beyond the maximum length of the static array."
     set ar len x
 
 inl pop forall dim el. (ar : sa_list dim el) : el =
-    inl len = unsafe_set_length ar ((+) -1)
-    assert (0 < len) "Cannot pop from an empty array."
-    index ar (length ar)
+    inl len = length ar - 1
+    inl x = index ar len
+    inl _ = unsafe_set_length ar (const len)
+    x
 
 inl clear forall dim el. (ar : sa_list dim el) : () =
     inl _ = unsafe_set_length ar (const 0)
     ()
+
+// Shuffles the array.
+inl shuffle forall dim el. (ar : sa_list dim el) : () =
+    backend_switch {
+        Cuda = fun _ => failwith "TODO"
+        Python = fun _ => 
+            global "import random"
+            inl x = $"!(ar.array)[:!(length ar)]" : $"object"
+            $"random.shuffle(!x)"
+            $"!(ar.array)[:!(length ar)] = !x"
+    }
 
 open arraym
 

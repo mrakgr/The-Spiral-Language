@@ -1,139 +1,138 @@
-Error trace on line: 116, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\game\rps\main.spi.
+Error trace on line: 195, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
 inl main() =
         ^
-Error trace on line: 118, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\game\rps\main.spi.
-    named_tuple "RPS_Game" {
+Error trace on line: 197, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
+    named_tuple "Leduc_Game" {
     ^
-Error trace on line: 121, column: 31 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\game\rps\main.spi.
-        event_loop_gpu = fun (msg, state) =>
+Error trace on line: 199, column: 31 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
+        event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
                               ^
-Error trace on line: 123, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\game\rps\main.spi.
-            inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
+Error trace on line: 199, column: 46 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
+        event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+                                             ^
+Error trace on line: 57, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\core.spi.
+inl (|>) a b = b a
+               ^
+Error trace on line: 68, column: 26 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+let serialize forall t. (x : t) : json t = json real
+                         ^
+Error trace on line: 68, column: 44 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+let serialize forall t. (x : t) : json t = json real
+                                           ^
+Error trace on line: 106, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    f `t x
+    ^
+Error trace on line: 70, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    inl rec f forall t'. (x : t') : obj = 
+                          ^
+Error trace on line: 71, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        inl serialize_sa forall array el. =
+        ^
+Error trace on line: 77, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        typecase t' with
+        ^
+Error trace on line: 80, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
+                ^
+Error trace on line: 80, column: 56 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
+                                                       ^
+Error trace on line: 70, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    inl rec f forall t'. (x : t') : obj = 
+                          ^
+Error trace on line: 71, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        inl serialize_sa forall array el. =
+        ^
+Error trace on line: 77, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        typecase t' with
+        ^
+Error trace on line: 80, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
+                ^
+Error trace on line: 80, column: 56 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        | {} => record_type_map (fun k => forall v. => f `v (x k)) `t' |> fun x => !!!!ToPythonRecord(x)
+                                                       ^
+Error trace on line: 70, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    inl rec f forall t'. (x : t') : obj = 
+                          ^
+Error trace on line: 71, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        inl serialize_sa forall array el. =
+        ^
+Error trace on line: 77, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        typecase t' with
+        ^
+Error trace on line: 85, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+            if union_type_is `t' then 
             ^
-Error trace on line: 123, column: 65 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\game\rps\main.spi.
-            inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
-                                                                ^
-Error trace on line: 4, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\seriazer_main.spi.
-inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
-                                              ^
-Error trace on line: 4, column: 61 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\seriazer_main.spi.
-inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
-                                                            ^
-Error trace on line: 22, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
-    ^
-Error trace on line: 23, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl align forall el. s = modup s (sizeof `el)
-    ^
-Error trace on line: 61, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl offset,size = f `el (conv `size 0)
-    ^
-Error trace on line: 61, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-    inl offset,size = f `el (conv `size 0)
+Error trace on line: 86, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                inl body() =
+                ^
+Error trace on line: 92, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                (join body()) : obj
                       ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            if singleton_type_is `el then (exists [el] s), s
-            ^
-Error trace on line: 28, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif union_type_is `el then
-            ^
-Error trace on line: 37, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif nominal_type_is `el then
-            ^
-Error trace on line: 38, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl (exists el'. _) = nominal_type_apply `el
-                ^
-Error trace on line: 38, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl (exists el'. _) = nominal_type_apply `el
-                     ^
-Error trace on line: 39, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl offset, s = f `el' s
-                ^
-Error trace on line: 39, column: 33 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl offset, s = f `el' s
-                                ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            record_type_fold (fun (m,state) key => forall value. => 
-            ^
-Error trace on line: 28, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-                inl value, state = f `value state
-                ^
-Error trace on line: 28, column: 36 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-                inl value, state = f `value state
-                                   ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-            record_type_fold (fun (m,state) key => forall value. => 
-            ^
-Error trace on line: 28, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-                inl value, state = f `value state
-                ^
-Error trace on line: 28, column: 36 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-                inl value, state = f `value state
-                                   ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            if singleton_type_is `el then (exists [el] s), s
-            ^
-Error trace on line: 28, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif union_type_is `el then
-            ^
-Error trace on line: 37, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif nominal_type_is `el then
-            ^
-Error trace on line: 38, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl (exists el'. _) = nominal_type_apply `el
-                ^
-Error trace on line: 38, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl (exists el'. _) = nominal_type_apply `el
-                     ^
-Error trace on line: 39, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl offset, s = f `el' s
-                ^
-Error trace on line: 39, column: 33 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                inl offset, s = f `el' s
-                                ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            if singleton_type_is `el then (exists [el] s), s
-            ^
-Error trace on line: 28, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif union_type_is `el then
-            ^
-Error trace on line: 37, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif nominal_type_is `el then
-            ^
-Error trace on line: 41, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-            elif prim_type_is `el then
-            ^
-Error trace on line: 45, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                typecase el with
-                ^
-Error trace on line: 58, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
+Error trace on line: 86, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                inl body() =
                         ^
-Error trace on line: 59, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml2\corebase\serializer\utils.spir.
-                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
+Error trace on line: 87, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                    unbox x (fun (k,v) =>
                     ^
-Unsupported type encountered during serialization. Check out the Spiral terminal for more info.
+Error trace on line: 240, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\real_core.spir.
+inl unbox x on_succ = !!!!Unbox(x,on_succ)
+                          ^
+Error trace on line: 87, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                    unbox x (fun (k,v) =>
+                                  ^
+Error trace on line: 88, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                        inl k = symbol_to_string k
+                        ^
+Error trace on line: 89, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                        inl v = f `(`(v)) v
+                        ^
+Error trace on line: 89, column: 33 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+                        inl v = f `(`(v)) v
+                                ^
+Error trace on line: 70, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    inl rec f forall t'. (x : t') : obj = 
+                          ^
+Error trace on line: 71, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        inl serialize_sa forall array el. =
+        ^
+Error trace on line: 77, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        typecase t' with
+        ^
+Error trace on line: 79, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        | ~a * ~b => f_tuple `t' (python_listm.create' `obj) x
+                     ^
+Error trace on line: 98, column: 68 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    and inl f_tuple forall t'. (l : python_listm.python_list obj) (x : t') : obj =
+                                                                   ^
+Error trace on line: 99, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        typecase t' with
+        ^
+Error trace on line: 101, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+            python_listm.push `obj l (f `a (fst x))
+            ^
+Error trace on line: 102, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+            f_tuple `b l (snd x)
+            ^
+Error trace on line: 98, column: 68 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    and inl f_tuple forall t'. (l : python_listm.python_list obj) (x : t') : obj =
+                                                                   ^
+Error trace on line: 99, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        typecase t' with
+        ^
+Error trace on line: 104, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+            python_listm.push `obj l (f `t' x)
+            ^
+Error trace on line: 104, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+            python_listm.push `obj l (f `t' x)
+                                      ^
+Error trace on line: 70, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+    inl rec f forall t'. (x : t') : obj = 
+                          ^
+Error trace on line: 71, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corepython\jsonm.spi.
+        inl serialize_sa forall array el. =
+        ^
+The body does not match the annotation.
+Got: action -> node
+Expected: object
