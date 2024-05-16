@@ -37,7 +37,11 @@ union ui_game_state =
 
 type game_state =
     {
-        next : option (sa_listm.sa_list 6 card * (action -> node))
+        next : option {
+            deck : sa_listm.sa_list 6 card
+            messages : sa_listm.sa_list 32 message
+            cont : action -> node
+        }
     }
 
 type state =
@@ -156,54 +160,65 @@ inl python_play () : leduc_game node =
                 inl chips_won = index table.pot table.player_turn
                 match compare_hands table with
                 | Gt => conv chips_won, chips_won, 0
-                | Eq => 0, 0, 0
+                | Eq => 0, 0, -1
                 | Lt => conv -chips_won, chips_won, 1 
             Terminal(table,pl0_reward, Showdown{cards_shown=table.pl_card; chips_won winner_id})
     }
+    
+nominal game_loop_state = 
+    {
+        messages : sa_listm.sa_list 32 message
+        human_action : table * (action -> node) -> state
+        terminal : table * f32 -> state
+        pl_type : sam.sa 2 player_type
+        deck : sa_listm.sa_list 6 card
+    }
 
-inl rec game_loop human_action terminal (pl_type : sam.sa 2 player_type) deck x = 
-    inl f = game_loop human_action terminal pl_type deck
-    match x with
-    | Chance cont => join f cont(pop_deck deck)
+inl rec game_loop (game_loop_state {messages human_action terminal pl_type deck} as state) = function
+    | Chance (cont) => join inl node,msg = cont(pop_deck deck) in sa_listm.push messages msg . game_loop state node : state
     | Action (table, cont) => 
         match index pl_type table.player_turn with
-        | Human => human_action(table, cont)
-        | Computer => join f cont(random_action table)
-    | Terminal (table, r) => terminal(table,r)
+        | Human => human_action(table, (fun action => inl node,msg = cont action in sa_listm.push messages msg . node))
+        | Computer => join inl node,msg = cont(random_action table) in sa_listm.push messages msg . game_loop state node
+    | Terminal (table, r, msg) => sa_listm.push messages msg . terminal(table,r)
 
-let rec action_loop (state : state) deck next : state =
-    inl human_action table, cont =
-        {state with
-            ui_state #= fun ui_state => 
-                {ui_state with
-                    ui_game_state = WaitingForActionFromPlayerId(table)
+let rec action_loop (state : state) deck messages next : state =
+    game_loop (game_loop_state {
+        human_action = fun table, cont =>
+            {state with
+                ui_state #= fun ui_state => 
+                    {ui_state with
+                        ui_game_state = WaitingForActionFromPlayerId(table)
+                    }
+                game_state =
+                    {next = Some {deck messages cont = fun action => cont action}}
                 }
-            game_state =
-                {next = Some (deck, fun action => cont action)}
-            }
-    inl terminal table,r =
-        {state with
-            ui_state #= fun ui_state => 
-                {ui_state with
-                    ui_game_state = GameOver(table)
+        terminal = fun table,r =>
+            {state with
+                ui_state #= fun ui_state => 
+                    {ui_state with
+                        ui_game_state = GameOver(table)
+                    }
+                game_state =
+                    {next = None}
                 }
-            game_state =
-                {next = None}
-            }
-    game_loop human_action terminal state.ui_state.pl_type deck next
+        pl_type = state.ui_state.pl_type 
+        messages
+        deck
+    }) next
 
 inl event_loop (msg, state : event * state) : state =
     match msg with
     | StartGame =>
         console.write_ln "Starting the game."
-        action_loop init() create_deck() (game python_play())
+        action_loop init() create_deck() sa_listm.create' (game python_play())
     | PlayerChanged pl_type =>
         {state with
             ui_state #= fun ui_state => {ui_state with pl_type}
             }
     | ActionSelected action =>
         match state.game_state.next with
-        | Some (deck, next) => action_loop state deck (next action) 
+        | Some {deck messages cont} => action_loop state deck messages (cont action) 
         | None => state
 
 inl main() =
