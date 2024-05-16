@@ -22,8 +22,11 @@ type table =
 union message =
     | PlayerGotCard : int * card
     | CommunityCardIs : card
-    | PlayerAction : action
+    | PlayerAction : int * action
     | Showdown : {winner_id : int; chips_won : int; cards_shown : sam.sa 2 card}
+
+type messages = sa_listm.sa_list 32 message
+type deck = sa_listm.sa_list 6 card
 
 union rec node =
     | Chance : (card -> node * message)
@@ -38,8 +41,7 @@ union ui_game_state =
 type game_state =
     {
         next : option {
-            deck : sa_listm.sa_list 6 card
-            messages : sa_listm.sa_list 32 message
+            deck : deck
             cont : action -> node
         }
     }
@@ -49,6 +51,7 @@ type state =
         ui_state : {
             ui_game_state : ui_game_state
             pl_type : sam.sa 2 player_type
+            messages : messages
             }
         game_state : game_state
     }
@@ -58,6 +61,7 @@ inl init() : state =
         ui_state = {
             ui_game_state = GameNotStarted
             pl_type = arraym.fromList [Computer; Human]
+            messages = sa_listm.create'
             }
         game_state = {next = None}
     }
@@ -150,7 +154,7 @@ inl python_play () : leduc_game node =
         chance_community_card = fun cont =>
             Chance(fun card => cont card, CommunityCardIs(card))
         action_round = fun table cont =>
-            Action(table,fun action => cont action, PlayerAction action)
+            Action(table,fun action => cont action, PlayerAction(table.player_turn, action))
         terminal_fold = fun table =>
             inl chips_won = index table.pot table.player_turn
             inl pl0_reward = conv if table.player_turn = 0 then -chips_won else chips_won
@@ -182,7 +186,7 @@ inl rec game_loop (game_loop_state {messages human_action terminal pl_type deck}
         | Computer => join inl node,msg = cont(random_action table) in sa_listm.push messages msg . game_loop state node
     | Terminal (table, r, msg) => sa_listm.push messages msg . terminal(table,r)
 
-let rec action_loop (state : state) deck messages next : state =
+let rec action_loop (state : state) deck next : state =
     game_loop (game_loop_state {
         human_action = fun table, cont =>
             {state with
@@ -191,7 +195,7 @@ let rec action_loop (state : state) deck messages next : state =
                         ui_game_state = WaitingForActionFromPlayerId(table)
                     }
                 game_state =
-                    {next = Some {deck messages cont = fun action => cont action}}
+                    {next = Some {deck cont = fun action => cont action}}
                 }
         terminal = fun table,r =>
             {state with
@@ -203,7 +207,7 @@ let rec action_loop (state : state) deck messages next : state =
                     {next = None}
                 }
         pl_type = state.ui_state.pl_type 
-        messages
+        messages = state.ui_state.messages
         deck
     }) next
 
@@ -211,14 +215,14 @@ inl event_loop (msg, state : event * state) : state =
     match msg with
     | StartGame =>
         console.write_ln "Starting the game."
-        action_loop init() create_deck() sa_listm.create' (game python_play())
+        action_loop init() create_deck() (game python_play())
     | PlayerChanged pl_type =>
         {state with
             ui_state #= fun ui_state => {ui_state with pl_type}
             }
     | ActionSelected action =>
         match state.game_state.next with
-        | Some {deck messages cont} => action_loop state deck messages (cont action) 
+        | Some {deck cont} => action_loop state deck (cont action) 
         | None => state
 
 inl main() =

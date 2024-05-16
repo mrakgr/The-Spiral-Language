@@ -30,10 +30,16 @@ type Game_State =
     | ["WaitingForActionFromPlayerId", Table]
     | ["GameOver", Table]
     
+type Message =
+    | ["PlayerGotCard", [number, Card]]
+    | ["CommunityCardIs", Card]
+    | ["PlayerAction", [number, Action]]
+    | ["Showdown", {winner_id : number; chips_won : number; cards_shown : [Card, Card]}]
+
 type UI_State = {
     pl_type : Players[];
     ui_game_state : Game_State;
-    // messages : Message;
+    messages : Message[];
 }
 
 // Creates a span with the specified gap in pixels.
@@ -44,7 +50,7 @@ class Leduc_UI extends LitElement {
     @property({type: Object}) state : UI_State = {
         pl_type: players,
         ui_game_state: ["GameNotStarted", []],
-        // messages: ["WaitingToStart",[]]
+        messages: []
     };
 
     socket = io('/leduc_game')
@@ -96,7 +102,7 @@ class Leduc_UI extends LitElement {
             <div class="game_area">
                 <leduc-game .state=${this.state.ui_game_state}></leduc-game>
                 ${gap(10)}
-                <leduc-history></leduc-history>
+                <leduc-history .messages=${this.state.messages}></leduc-history>
             </div>
         `
     }
@@ -196,43 +202,52 @@ class Leduc_History extends GameElement {
         }
     `
 
-    @property({type: Array}) message = ["TODO"]
+    @property({type: Array}) messages : Message[] = []
 
     protected updated(_changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
         // Scroll the message window to the bottom on ever new message.
         this.scrollTo({top: this.scrollHeight});
     }
 
-    // print_message = (x : Message) : string[] => {
-    //     const [tag,arg] = x
-    //     switch (tag) {
-    //         case 'ShowdownResult': {
-    //             if (arg[0][0] === arg[1][0]) {
-    //                 return [
-    //                     `Both players show ${arg[0][0]}!`,
-    //                     "It's a tie!"
-    //                 ]
-    //             } else {
-    //                 return [
-    //                     `Player 0 shows ${arg[0][0]} and player 1 shows ${arg[1][0]}!`,
-    //                     ((arg[0][0] === "Rock" && arg[1][0] === "Paper") 
-    //                     || (arg[0][0] === "Scissors" && arg[1][0] === "Rock") 
-    //                     || (arg[0][0] === "Paper" && arg[1][0] === "Scissors"))
-    //                     ? "Player 1 wins!"
-    //                     : "Player 0 wins!"
-    //                 ]
-    //             }
-    //         }
-    //         case 'WaitingToStart': return ["Waiting to start the game..."]
-    //         case 'GameStarted': return ["Rock-Paper-Scissors!"]
-    //         default : return assert_tag_is_never(tag)
-    //     }
-    // }
+    print_card = (x : Card) => x[0]
+    print_action = (x : Action) => {
+        switch (x[0]) {
+            case 'Raise': return "raises"
+            case 'Call': return "calls"
+            case 'Fold': return "folds"
+        }
+    }
 
+    print_message = (x : Message) : string[] => {
+        const [tag,arg] = x
+        switch (tag) {
+            case 'PlayerGotCard': {
+                return [`Player ${arg[0]} got ${this.print_card(arg[1])}`]
+            }
+            case 'CommunityCardIs': {
+                return [`The community card is ${this.print_card(arg)}`]
+            }
+            case 'PlayerAction': {
+                return [`Player ${arg[0]} ${this.print_action(arg[1])}.`]
+            }
+            case 'Showdown': {
+                const {winner_id, chips_won, cards_shown} = arg
+                return [
+                    `Player 0 shows ${this.print_card(cards_shown[0])}`,
+                    `Player 1 shows ${this.print_card(cards_shown[1])}`,
+                    winner_id === -1
+                    ? "The game is a tie."
+                    : `Player ${winner_id} wins ${chips_won} chips!`,
+                    "The game is over."
+                ]
+            }
+            default : return assert_tag_is_never(tag)
+        }
+    }
     
     render() {
         return html`
-            ${map((this.message), x => html`
+            ${map((this.messages).map(this.print_message), x => html`
                 <div>${x}</div>
             `)}
         `
