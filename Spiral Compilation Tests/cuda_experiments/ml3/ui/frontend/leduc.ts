@@ -233,8 +233,8 @@ class Leduc_History extends GameElement {
             case 'Showdown': {
                 const {winner_id, chips_won, cards_shown} = arg
                 return [
-                    `Player 0 shows ${this.print_card(cards_shown[0])}`,
-                    `Player 1 shows ${this.print_card(cards_shown[1])}`,
+                    `Player 0 shows ${this.print_card(cards_shown[0])}.`,
+                    `Player 1 shows ${this.print_card(cards_shown[1])}.`,
                     winner_id === -1
                     ? "The game is a tie."
                     : `Player ${winner_id} wins ${chips_won} chips!`,
@@ -247,7 +247,7 @@ class Leduc_History extends GameElement {
     
     render() {
         return html`
-            ${map((this.messages).map(this.print_message), x => html`
+            ${map((this.messages).flatMap(this.print_message), x => html`
                 <div>${x}</div>
             `)}
         `

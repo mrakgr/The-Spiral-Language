@@ -103,9 +103,7 @@ inl pot_call (pot : sam.sa 2 int) : sam.sa 2 int = sam.init (const (arraym.fold 
 
 let game forall r. (ret : leduc_game r) : r =
     inl rec round (table : table) =
-        console.write_ln {table}
         ret.action_round table fun action =>
-            console.write_ln {action}
             match table.community_card with
             | Some community_card => // round two
                 match action with
