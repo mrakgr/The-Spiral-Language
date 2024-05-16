@@ -58,7 +58,6 @@ class Leduc_UI extends LitElement {
     constructor(){
         super()
         this.socket.on('update', (state : UI_State) => {
-            console.log(`Got state: ${JSON.stringify(state)}`);
             this.state = state;
         });
         this.addEventListener('game', (ev) => {
@@ -87,7 +86,7 @@ class Leduc_UI extends LitElement {
         }
 
         leduc-game {
-            flex: 6;
+            flex: 4;
         }
         
         leduc-history {
@@ -373,12 +372,6 @@ class Leduc_Game extends GameElement {
         const [tag,arg] = this.state
         const some = (x : Card) : Option<Card> => ["Some", x]
         const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => {
-            console.log("---");
-            console.log(table);
-            console.log(card_visible);
-            console.log("---");
-            
-            
             return html`
                 <div class="row">
                     <div class="flex-pot">

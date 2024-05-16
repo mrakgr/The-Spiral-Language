@@ -42,7 +42,7 @@ type game_state =
     {
         next : option {
             deck : deck
-            cont : action -> node
+            cont : messages * action -> node
         }
     }
 
@@ -169,8 +169,8 @@ inl python_play () : leduc_game node =
     
 nominal game_loop_state = 
     {
-        messages : sa_listm.sa_list 32 message
-        human_action : table * (action -> node) -> state
+        messages : messages
+        human_action : table * (messages * action -> node) -> state
         terminal : table * f32 -> state
         pl_type : sam.sa 2 player_type
         deck : sa_listm.sa_list 6 card
@@ -180,7 +180,7 @@ inl rec game_loop (game_loop_state {messages human_action terminal pl_type deck}
     | Chance (cont) => join inl node,msg = cont(pop_deck deck) in sa_listm.push messages msg . game_loop state node : state
     | Action (table, cont) => 
         match index pl_type table.player_turn with
-        | Human => human_action(table, (fun action => inl node,msg = cont action in sa_listm.push messages msg . node))
+        | Human => human_action(table, (fun messages,action => inl node,msg = cont action in sa_listm.push messages msg . node))
         | Computer => join inl node,msg = cont(random_action table) in sa_listm.push messages msg . game_loop state node
     | Terminal (table, r, msg) => sa_listm.push messages msg . terminal(table,r)
 
@@ -212,7 +212,6 @@ let rec action_loop (state : state) deck next : state =
 inl event_loop (msg, state : event * state) : state =
     match msg with
     | StartGame =>
-        console.write_ln "Starting the game."
         action_loop init() create_deck() (game python_play())
     | PlayerChanged pl_type =>
         {state with
@@ -220,7 +219,7 @@ inl event_loop (msg, state : event * state) : state =
             }
     | ActionSelected action =>
         match state.game_state.next with
-        | Some {deck cont} => action_loop state deck (cont action) 
+        | Some {deck cont} => action_loop state deck (cont (state.ui_state.messages, action)) 
         | None => state
 
 inl main() =
