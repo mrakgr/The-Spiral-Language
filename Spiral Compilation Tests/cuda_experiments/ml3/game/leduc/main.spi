@@ -70,10 +70,7 @@ inl init() : state =
 let compare_hands (table : table) =
     let tag = function King => 2 | Queen => 1 | Jack => 0 : int
     match table.community_card with
-    | None => 
-        // print_static table.community_card
-        // error_type "Expected the community card to be present in the table."
-        failwith "Expected the community card to be present in the table."
+    | None => failwith "Expected the community card to be present in the table."
     | Some community_card =>
         let community_card = tag community_card
         let a = tag (index table.pl_card 0), community_card
@@ -111,6 +108,17 @@ inl game_round (table : table) action =
 inl game_chance_community_card (table : table) card = Round {table with is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=Some card; pot#=pot_call}
 inl game_chance_init (c0,c1) = Round {is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
 inl game_init() = ChanceInit
+
+// Shuffles the array.
+inl shuffle forall dim el. (ar : sa_listm.sa_list dim el) : () =
+    backend_switch {
+        Cuda = fun _ => corecuda.random.shuffle ar
+        Python = fun _ => 
+            global "import random"
+            inl x = $"!(ar.array)[:!(length ar)]" : $"object"
+            $"random.shuffle(!x)"
+            $"!(ar.array)[:!(length ar)] = !x"
+    }
 
 inl random_action (table : table) =
     open sa_listm
@@ -218,9 +226,25 @@ inl event_loop (msg, state : event * state) : state =
             | _ => failwith "Unexpected game node in ActionSelected."
         | None => state
 
+open corecuda
+open corepython
 inl main() =
-    open corepython
     named_tuple "Leduc_Game" {
         init = fun () => jsonm.serialize init()
         event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+        event_loop_gpu = fun (msg, state) =>
+            open serializer
+            inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
+            inl ptr_msg, ptr_state = create conv(offsets_size offsets_msg), create conv(offsets_size offsets_state)
+            inl msg, state = jsonm.deserialize msg, jsonm.deserialize state
+            serialize offsets_msg ptr_msg msg
+            serialize offsets_state ptr_state state
+
+            run fun () =>
+                inl from = rangem.threads_in_grid().from
+                if from = 0 then
+                    event_loop (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
+                    |> serialize offsets_state ptr_state
+
+            jsonm.serialize (deserialize offsets_state ptr_state)
     }

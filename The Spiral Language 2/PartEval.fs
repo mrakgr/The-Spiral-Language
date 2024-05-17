@@ -2249,7 +2249,7 @@ let peval (env : TopEnv) (x : E) =
             | a, _ -> raise_type_error s $"Expected a compile time function.\nGot: {show_data a}"
         | EOp(_,SizeOf,[EType(_,a)]) ->
             match ty s a with
-            | YPrim (Int8T | UInt8T) -> DLit (LitInt32 1)
+            | YPrim (Int8T | UInt8T | BoolT) -> DLit (LitInt32 1)
             | YPrim (Int16T | UInt16T) -> DLit (LitInt32 2)
             | YPrim (Int32T | UInt32T | Float32T) -> DLit (LitInt32 4)
             | YPrim (Int64T | UInt64T | Float64T) -> DLit (LitInt32 8)

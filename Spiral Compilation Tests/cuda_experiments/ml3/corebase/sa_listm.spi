@@ -62,17 +62,6 @@ inl clear forall dim el. (ar : sa_list dim el) : () =
     inl _ = unsafe_set_length ar (const 0)
     ()
 
-// Shuffles the array.
-inl shuffle forall dim el. (ar : sa_list dim el) : () =
-    backend_switch {
-        Cuda = fun _ => failwith "TODO"
-        Python = fun _ => 
-            global "import random"
-            inl x = $"!(ar.array)[:!(length ar)]" : $"object"
-            $"random.shuffle(!x)"
-            $"!(ar.array)[:!(length ar)] = !x"
-    }
-
 open arraym
 
 instance equable sa_list dim el = generic_equable

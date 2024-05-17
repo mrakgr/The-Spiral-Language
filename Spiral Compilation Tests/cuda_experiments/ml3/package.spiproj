@@ -74,10 +74,10 @@ modules:
 
             main
 
-        leduc/
+        rps/
             main
 
-        rps/
+        leduc/
             main
 
     closure

@@ -38,7 +38,7 @@ inl u32_4 (s : philox_state) : u32 * u32 * u32 * u32=
 // article. As GPUs don't support 64-bit arithmetic in hardware, but emulate them using sequences of
 // 32 bit instructructions, I won't be implementing the integer sampling that requires 64-bit 
 // multiplcation as most likely it'd be slower than these.
-inl uint_range rand range s =
+inl uint_ubound rand range s =
     if lit_is range then
         // calculates 2**32 % range
         inl bottom = (0 - range) % range
@@ -52,8 +52,25 @@ inl uint_range rand range s =
             inl x = r % range
             if r - x <= 0 - range then x else loop()
         loop()
-inl u32_range range s : u32 = uint_range u32 range s
-inl u64_range range s : u64 = uint_range u64 range s
+inl u32_ubound range s : u32 = uint_ubound u32 range s
+inl u64_ubound range s : u64 = uint_ubound u64 range s
+
+inl int_range ({from nearTo} : {from : int; nearTo : int}) s = u32_ubound conv(nearTo - from) s - conv from |> conv
+
+// Shuffles the array.
+inl shuffle' forall (array : * -> *){index; set; length} el. rng (ar : array el) : () =
+    // Knuth shuffle
+    loop.for' {from=0; nearTo=length ar - 1} fun i =>
+        inl j = int_range {from=i; nearTo=length ar} rng
+        inl tmp = index ar i
+        set ar i (index ar j)
+        set ar j tmp
+        
+// Shuffles the array.
+inl shuffle forall (array : * -> *){index; set; length} el. (ar : array el) : () =
+    globals()
+    inl rng : _ philox_state = init {seed = $"clock64()"; subsequence=0; offset=0}
+    shuffle' rng ar
 
 instance uniform philox_state = fun s => $"curand_uniform(!s)"
 instance normal philox_state = fun s => $"curand_normal(!s)"
