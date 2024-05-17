@@ -28,22 +28,23 @@ union message =
 type messages = sa_listm.sa_list 32 message
 type deck = sa_listm.sa_list 6 card
 
-union rec node =
-    | Chance : (card -> node * message)
-    | Action : table * (action -> node * message)
-    | Terminal : table * float * message
-
 union ui_game_state =
     | GameNotStarted
     | WaitingForActionFromPlayerId : table
     | GameOver : table 
 
+union game =
+    | TerminalFold : table
+    | TerminalCall : table
+    | RoundWithAction : table * action
+    | Round : table
+    | ChanceCommunityCard : table
+    | ChanceInit
+
 type game_state =
-    {
-        next : option {
-            deck : deck
-            cont : messages * action -> node
-        }
+    option {
+        deck : deck
+        game : game
     }
 
 type state =
@@ -63,7 +64,7 @@ inl init() : state =
             pl_type = arraym.fromList [Computer; Human]
             messages = sa_listm.create'
             }
-        game_state = {next = None}
+        game_state = None
     }
 
 let compare_hands (table : table) =
@@ -85,46 +86,31 @@ let compare_hands (table : table) =
         | false, true => lt()
         | _ => comp (order a) (order b)
 
-
-type leduc_game r =
-    {
-        chance_init : {player_turn : int} -> (card -> r) -> r
-        chance_community_card : (card -> r) -> r
-        action_round : table -> (action -> r) -> r
-        terminal_fold : table -> r
-        terminal_call : table -> r
-    }
-
 inl toggle (player_turn : int) : int = if player_turn = 0 then 1 else 0
 inl raiseBy (id : int) (amount : int) : sam.sa 2 int -> sam.sa 2 int = arraym.mapi (fun i pot => if i = id then pot + amount else pot)
 
 // Returns the max value of both pots in an static array.
 inl pot_call (pot : sam.sa 2 int) : sam.sa 2 int = sam.init (const (arraym.fold max 0 pot))
 
-let game forall r. (ret : leduc_game r) : r =
-    inl rec round (table : table) =
-        ret.action_round table fun action =>
-            match table.community_card with
-            | Some community_card => // round two
-                match action with
-                | Fold => ret.terminal_fold table
-                | Call when table.is_button_s_first_move => round {table with is_button_s_first_move=false; player_turn#=toggle}
-                | Call => ret.terminal_call {table with pot#=pot_call}
-                | Raise when table.raises_left > 0 => round {table with is_button_s_first_move=false; player_turn#=toggle; raises_left#=(+) -1; pot#=pot_call >> raiseBy table.player_turn 4}
-                | Raise => failwith "Invalid action. The number of raises left is not positive."
-            | None => // round one
-                match action with
-                | Fold => ret.terminal_fold table
-                | Call when table.is_button_s_first_move => round {table with is_button_s_first_move=false; player_turn#=toggle}
-                | Call => 
-                    ret.chance_community_card fun card => 
-                    round {table with is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=Some card; pot#=pot_call}
-                | Raise when table.raises_left > 0 => round {table with is_button_s_first_move=false; player_turn#=toggle; raises_left#=(+) -1; pot#=pot_call >> raiseBy table.player_turn 2}
-                | Raise => failwith "Invalid action. The number of raises left is not positive."
-
-    ret.chance_init {player_turn=0} fun c0 =>
-    ret.chance_init {player_turn=1} fun c1 =>
-    round {is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
+inl game_round (table : table) action = 
+    match table.community_card with
+    | Some community_card => // round two
+        match action with
+        | Fold => TerminalFold table
+        | Call when table.is_button_s_first_move => Round {table with is_button_s_first_move=false; player_turn#=toggle}
+        | Call => TerminalCall {table with pot#=pot_call}
+        | Raise when table.raises_left > 0 => Round {table with is_button_s_first_move=false; player_turn#=toggle; raises_left#=(+) -1; pot#=pot_call >> raiseBy table.player_turn 4}
+        | Raise => failwith "Invalid action. The number of raises left is not positive."
+    | None => // round one
+        match action with
+        | Fold => TerminalFold table
+        | Call when table.is_button_s_first_move => Round {table with is_button_s_first_move=false; player_turn#=toggle}
+        | Call => ChanceCommunityCard table 
+        | Raise when table.raises_left > 0 => Round {table with is_button_s_first_move=false; player_turn#=toggle; raises_left#=(+) -1; pot#=pot_call >> raiseBy table.player_turn 2}
+        | Raise => failwith "Invalid action. The number of raises left is not positive."
+inl game_chance_community_card (table : table) card = Round {table with is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=Some card; pot#=pot_call}
+inl game_chance_init (c0,c1) = Round {is_button_s_first_move=true; player_turn=0; raises_left=dyn 2; community_card=None; pot=arraym.fromList [1;1]; pl_card=arraym.fromList [c0;c1]}
+inl game_init() = ChanceInit
 
 inl random_action (table : table) =
     open sa_listm
@@ -145,81 +131,91 @@ inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
     inl x = pop deck
     x
 
-inl python_play () : leduc_game node =
-    {
-        chance_init = fun {player_turn} cont =>
-            Chance(fun card => cont card, PlayerGotCard(player_turn, card))
-        chance_community_card = fun cont =>
-            Chance(fun card => cont card, CommunityCardIs(card))
-        action_round = fun table cont =>
-            Action(table,fun action => cont action, PlayerAction(table.player_turn, action))
-        terminal_fold = fun table =>
-            inl chips_won = index table.pot table.player_turn
-            inl pl0_reward = conv if table.player_turn = 0 then -chips_won else chips_won
-            Terminal (table, pl0_reward, Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn})
-        terminal_call = fun table =>
-            inl pl0_reward, chips_won, winner_id =
-                inl chips_won = index table.pot table.player_turn
-                match compare_hands table with
-                | Gt => conv chips_won, chips_won, 0
-                | Eq => 0, 0, -1
-                | Lt => conv -chips_won, chips_won, 1 
-            Terminal(table,pl0_reward, Showdown{cards_shown=table.pl_card; chips_won winner_id})
-    }
-    
-nominal game_loop_state = 
+type game_loop_state = 
     {
         messages : messages
-        human_action : table * (messages * action -> node) -> state
-        terminal : table * f32 -> state
         pl_type : sam.sa 2 player_type
         deck : sa_listm.sa_list 6 card
     }
 
-inl rec game_loop (game_loop_state {messages human_action terminal pl_type deck} as state) = function
-    | Chance (cont) => join inl node,msg = cont(pop_deck deck) in sa_listm.push messages msg . game_loop state node : state
-    | Action (table, cont) => 
-        match index pl_type table.player_turn with
-        | Human => human_action(table, (fun messages,action => inl node,msg = cont action in sa_listm.push messages msg . node))
-        | Computer => join inl node,msg = cont(random_action table) in sa_listm.push messages msg . game_loop state node
-    | Terminal (table, r, msg) => sa_listm.push messages msg . terminal(table,r)
+let rec play_loop_inner (state : game_loop_state) node =
+    inl f = play_loop_inner state
+    match node with
+    | TerminalFold table => 
+        inl msg = 
+            inl chips_won = index table.pot table.player_turn
+            Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn}
+        sa_listm.push state.messages msg
+        node
+    | TerminalCall table => 
+        inl msg =
+            inl chips_won, winner_id =
+                inl chips_won = index table.pot table.player_turn
+                match compare_hands table with
+                | Gt => chips_won, 0
+                | Eq => 0, -1
+                | Lt => chips_won, 1 
+            Showdown{cards_shown=table.pl_card; chips_won winner_id}
+        sa_listm.push state.messages msg
+        node
+    | Round table => 
+        match index state.pl_type table.player_turn with
+        | Human => node
+        | Computer =>
+            inl action = random_action table
+            inl msg = PlayerAction(table.player_turn, action)
+            sa_listm.push state.messages msg
+            f (game_round table action)
+    | RoundWithAction(table,action) => 
+        inl msg = PlayerAction(table.player_turn, action)
+        sa_listm.push state.messages msg
+        f (game_round table action)
+    | ChanceCommunityCard table => 
+        inl card = pop_deck state.deck
+        inl msg = CommunityCardIs card
+        sa_listm.push state.messages msg
+        f (game_chance_community_card table card)
+    | ChanceInit () => 
+        inl c0,c1 = pop_deck state.deck, pop_deck state.deck
+        sa_listm.push state.messages PlayerGotCard(0, c0)
+        sa_listm.push state.messages PlayerGotCard(1, c1)
+        f (game_chance_init (c0,c1))
 
-let rec action_loop (state : state) deck next : state =
-    game_loop (game_loop_state {
-        human_action = fun table, cont =>
-            {state with
-                ui_state #= fun ui_state => 
-                    {ui_state with
-                        ui_game_state = WaitingForActionFromPlayerId(table)
-                    }
-                game_state =
-                    {next = Some {deck cont = fun action => cont action}}
+let rec play_loop (state : state) deck node : state =
+    inl messages = state.ui_state.messages
+    match play_loop_inner {pl_type = state.ui_state.pl_type; messages deck} node with
+    | Round table as game =>
+        {state with
+            ui_state #= fun ui_state => 
+                {ui_state with
+                    ui_game_state = WaitingForActionFromPlayerId(table)
                 }
-        terminal = fun table,r =>
-            {state with
-                ui_state #= fun ui_state => 
-                    {ui_state with
-                        ui_game_state = GameOver(table)
-                    }
-                game_state =
-                    {next = None}
+            game_state = Some {deck game }
+            }
+    | TerminalCall table | TerminalFold table =>
+        {state with
+            ui_state #= fun ui_state => 
+                {ui_state with
+                    ui_game_state = GameOver(table)
                 }
-        pl_type = state.ui_state.pl_type 
-        messages = state.ui_state.messages
-        deck
-    }) next
+            game_state = None
+            }
+    | game =>
+        failwith "Unexpected node received in play_loop."
 
 inl event_loop (msg, state : event * state) : state =
     match msg with
-    | StartGame =>
-        action_loop init() create_deck() (game python_play())
+    | StartGame => play_loop init() create_deck() game_init()
     | PlayerChanged pl_type =>
         {state with
             ui_state #= fun ui_state => {ui_state with pl_type}
             }
     | ActionSelected action =>
-        match state.game_state.next with
-        | Some {deck cont} => action_loop state deck (cont (state.ui_state.messages, action)) 
+        match state.game_state with
+        | Some {deck game} => 
+            match game with
+            | Round table => play_loop state deck RoundWithAction(table, action)
+            | _ => failwith "Unexpected game node in ActionSelected."
         | None => state
 
 inl main() =

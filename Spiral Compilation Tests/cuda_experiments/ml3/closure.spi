@@ -1,0 +1,9 @@
+open corebase
+open corecuda
+
+inl f y (x : int) = y + x
+
+inl main() =
+    run fun () =>
+        inl ~_ = f
+        ()

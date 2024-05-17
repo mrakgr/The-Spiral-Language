@@ -1,3 +1,7 @@
+2.10.5 (5/15/2024)
+
+* Fixed the ref counting related bug leading to unbound vars being deleted in the Python codegen.
+
 2.10.4 (5/15/2024)
 
 * Fixed the handling of closure variables in the Python codegen.

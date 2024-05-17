@@ -79,3 +79,5 @@ modules:
 
         rps/
             main
+
+    closure

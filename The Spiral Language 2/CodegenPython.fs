@@ -268,7 +268,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                         let x = data_free_vars a
                         let g_decr' = Utils.get_default g_decr (Array.head b) (fun () -> Set.empty)
                         let x,g_decr' = Array.mapFold (fun g_decr (L(i,_) as v) -> if Set.contains v g_decr then "_", Set.remove v g_decr else sprintf "v%i" i, g_decr) g_decr' x
-                        if Set.isEmpty g_decr' = false then g_decr.[Array.head b] <- g_decr'
+                        g_decr.[Array.head b] <- g_decr'
                         sprintf "%s_%i(%s)" prefix i (String.concat ", " x)
                         )
                     |> String.concat ", "
