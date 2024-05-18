@@ -275,10 +275,10 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 line s (sprintf "case %s: # %s" cases k)
                 binds g_decr (indent s) ret b
                 ) on_succs
-            line s "case _:"
+            line s "case t:"
             match on_fail with
             | Some b -> binds g_decr (indent s) ret b
-            | None -> line (indent s) "raise Exception('Pattern matching miss.')"
+            | None -> line (indent s) "raise Exception(f'Pattern matching miss. Got: {t}')"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
@@ -447,6 +447,7 @@ let codegen' backend_type env x =
         let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
         let g = Dictionary(HashIdentity.Structural)
         let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
+
         let codegen = Cuda.CppDevice.codegen ars env
         let python_code =
             codegen'' (fun (jp_body,key,r') ->
@@ -471,6 +472,17 @@ let codegen' backend_type env x =
 
         cuda_kernels
             .AppendLine("\"\"\"")
+            .AppendLine("""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = length
+        """.Trim())
             .Append(python_code).ToString()
 
 let codegen_cuda env x = codegen' Cuda env x

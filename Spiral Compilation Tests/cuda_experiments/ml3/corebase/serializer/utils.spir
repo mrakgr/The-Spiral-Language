@@ -114,7 +114,7 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                 ar
             | sa_listm.sa_list ~dim ~el' =>
                 inl ar = sa_listm.create' `dim `el'
-                inl _ = sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
+                sa_listm.unsafe_set_length `dim `el' ar (f ptr offset.dim_offset)
                 deserialize_sa `(sa_listm.sa_list dim) `el' ar
                 ar
             | _ =>

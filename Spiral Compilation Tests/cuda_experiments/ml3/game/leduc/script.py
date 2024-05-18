@@ -1,16 +1,11 @@
-import random
-from typing import TypeVar
-
-class static_array_list(list):
+class static_array(list):
     def __init__(self, length):
         for _ in range(length):
             self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
         self.length = length
 
-static_array = list
-def foo(x : static_array_list):
-    pass
-
-x = static_array_list(10)
-x[0] = 123
-print(x[1])
+static_array_list(5)

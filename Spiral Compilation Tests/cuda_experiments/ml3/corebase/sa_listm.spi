@@ -1,6 +1,6 @@
 // Resizable arrays based on the static ones. The dim in the type determines their max length.
 // Is intended to be a value type on the Cuda backend, and how it works on the Python backend, is merely a serialization convenience.
-nominal sa_list dim el = $"backend_switch `({Python : $"static_array_list"; Cuda : $"static_array_list<@dim,`el>"})"
+nominal sa_list dim el = $"backend_switch `({Python : $"static_array_list"; Cuda : $"static_array_list<@dim,`el,`int>"})"
 
 // Creates an empty array.
 inl create' forall dim el. : sa_list dim el = 
@@ -17,7 +17,7 @@ inl create' forall dim el. : sa_list dim el =
 instance length sa_list dim = fun ar => $"!ar.length"
 
 // Sets the array to the specified length. Returns the old one. Doesn't do any checking that the new length is in range.
-inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int) = $"!ar.length = !f"
+inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int) : () = $"!ar.length = !f"
 
 instance create sa_list dim = fun dim =>
     assert ((real real_core.type_lit_to_lit `dim) >= dim) "The type level dimension has to equal the value passed at runtime into create."

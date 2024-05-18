@@ -23,7 +23,8 @@ let deserialize forall t. (json x : json t) : t = real
         | ~a * ~b => f_tuple `t' 0 x
         | {} => 
             record_type_map (fun k => forall v. =>
-                f `v ($'!x[!(symbol_to_string k)]' : obj)
+                typecase `k with ~k =>
+                f `v ($'!x["@k"] # type: ignore' : obj)
                 ) `t'
         | sam.sa ~dim ~el => deserialize_sa `(sam.sa dim) `el
         | sa_listm.sa_list ~dim ~el => 
@@ -35,7 +36,7 @@ let deserialize forall t. (json x : json t) : t = real
         | _ =>
             if union_type_is `t' then 
                 inl body() =
-                    inl k,v = ($"!x[0]" : string), ($"!x[1]" : obj)
+                    inl k,v = ($"!x[0] # type: ignore" : string), ($"!x[1] # type: ignore" : obj)
                     union_to_record `t' forall r. =>
                     record_type_fold_back (fun key => forall value. next _ =>
                         if symbol_to_string key = k then nominal_create `t' (key, f `value v)

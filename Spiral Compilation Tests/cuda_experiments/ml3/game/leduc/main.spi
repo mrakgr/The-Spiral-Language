@@ -90,7 +90,7 @@ inl raiseBy (id : int) (amount : int) : sam.sa 2 int -> sam.sa 2 int = arraym.ma
 // Returns the max value of both pots in an static array.
 inl pot_call (pot : sam.sa 2 int) : sam.sa 2 int = sam.init (const (arraym.fold max 0 pot))
 
-inl game_round (table : table) action = 
+inl game_round (table : table) action =
     match table.community_card with
     | Some community_card => // round two
         match action with

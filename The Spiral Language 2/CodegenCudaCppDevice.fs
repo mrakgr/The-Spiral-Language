@@ -577,7 +577,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             )
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the Cuda C++ backend due to them needing to be heap allocated."
 
-    global' "template <typename el, int dim> struct array { el v[dim]; };"
+    global' "template <typename el, int dim> struct static_array { el v[dim]; };"
+    global' "template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };"
 
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
