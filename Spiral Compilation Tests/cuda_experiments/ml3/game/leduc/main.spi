@@ -68,6 +68,17 @@ inl init() : state =
         game_state = None
     }
 
+
+inl init_find_bug() : state = 
+    {
+        ui_state = {
+            ui_game_state = GameNotStarted
+            pl_type = arraym.fromList [Computer; Computer]
+            messages = sa_listm.create'
+            }
+        game_state = None
+    }
+
 let compare_hands (table : table) =
     let tag = function King => 2 | Queen => 1 | Jack => 0 : int
     match table.community_card with

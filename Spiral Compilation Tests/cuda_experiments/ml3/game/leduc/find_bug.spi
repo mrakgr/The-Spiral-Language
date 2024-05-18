@@ -1,0 +1,23 @@
+open corebase
+open corecuda
+open corepython
+open main
+inl main() =
+    open serializer
+
+    inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
+    inl ptr_msg, ptr_state = create conv(offsets_size offsets_msg), create conv(offsets_size offsets_state)
+    
+    inl ~msg = StartGame
+    inl ~state = init_find_bug()
+
+    serialize offsets_msg ptr_msg msg
+    serialize offsets_state ptr_state state
+
+    run fun () =>
+        inl from = rangem.threads_in_grid().from
+        if from = 0 then
+            event_loop (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
+            |> serialize offsets_state ptr_state
+
+    jsonm.serialize (deserialize offsets_state ptr_state)
