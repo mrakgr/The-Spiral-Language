@@ -143,21 +143,25 @@ inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
     inl x = pop deck
     x
 
+open corecuda
 type game_loop_state = 
     {
-        messages : messages
+        messages : refm.ref messages
         pl_type : player_types
-        deck : deck
+        deck : refm.ref deck
     }
 
 let rec play_loop_inner (state : game_loop_state) node =
+    console.write_ln "in inner"
     inl f = play_loop_inner state
+    inl push_message = sa_listm.push (refm.local state.messages)
+    inl pop_deck() = pop_deck (refm.local state.deck)
     match node with
     | TerminalFold table => 
         inl msg = 
             inl chips_won = index table.pot table.player_turn
             Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn}
-        sa_listm.push state.messages msg
+        push_message msg
         node
     | TerminalCall table => 
         inl msg =
@@ -168,46 +172,55 @@ let rec play_loop_inner (state : game_loop_state) node =
                 | Eq => 0, -1
                 | Lt => chips_won, 1 
             Showdown{cards_shown=table.pl_card; chips_won winner_id}
-        sa_listm.push state.messages msg
+        push_message msg
         node
     | Round table => 
+        console.write_ln "in round"
         match index state.pl_type table.player_turn with
         | Human => node
         | Computer =>
             inl action = random_action table
             inl msg = PlayerAction(table.player_turn, action)
-            sa_listm.push state.messages msg
+            push_message msg
             f (game_round table action)
     | RoundWithAction(table,action) => 
         inl msg = PlayerAction(table.player_turn, action)
-        sa_listm.push state.messages msg
+        push_message msg
         f (game_round table action)
     | ChanceCommunityCard table => 
-        inl card = pop_deck state.deck
+        inl card = pop_deck()
         inl msg = CommunityCardIs card
-        sa_listm.push state.messages msg
+        push_message msg
         f (game_chance_community_card table card)
     | ChanceInit () => 
-        inl c0,c1 = pop_deck state.deck, pop_deck state.deck
-        sa_listm.push state.messages PlayerGotCard(0, c0)
-        sa_listm.push state.messages PlayerGotCard(1, c1)
+        console.write_ln "in chance_init"
+        inl c0,c1 = pop_deck(), pop_deck()
+        push_message PlayerGotCard(0, c0)
+        push_message PlayerGotCard(1, c1)
         f (game_chance_init (c0,c1))
 
-let rec play_loop (state : state) deck node : state =
-    inl messages = state.ui_state.messages
-    match play_loop_inner {pl_type = state.ui_state.pl_type; messages deck} node with
+let play_loop (state : state) deck node : state =
+    console.write_ln "in play_loop"
+    inl messages = refm.ref state.ui_state.messages
+    inl deck = refm.ref deck
+    console.write_ln "before calling play_loop_inner"
+    inl result = play_loop_inner {pl_type = state.ui_state.pl_type; messages deck} node
+    console.write_ln "after calling play_loop_inner"
+    match result with
     | Round table as game =>
         {state with
             ui_state #= fun ui_state => 
                 {ui_state with
+                    messages = refm.deref messages
                     ui_game_state = WaitingForActionFromPlayerId(table)
                 }
-            game_state = Some { game; deck = deck }
+            game_state = Some { game; deck = refm.deref deck }
             }
     | TerminalCall table | TerminalFold table =>
         {state with
             ui_state #= fun ui_state => 
                 {ui_state with
+                    messages = refm.deref messages
                     ui_game_state = GameOver(table)
                 }
             game_state = None
@@ -226,7 +239,7 @@ inl event_loop (msg, state : event * state) : state =
         match state.game_state with
         | Some {deck game} => 
             match game with
-            | Round table => play_loop state (deck) RoundWithAction(table, action)
+            | Round table => play_loop state deck RoundWithAction(table, action)
             | _ => failwith "Unexpected game node in ActionSelected."
         | None => state
 
@@ -235,7 +248,7 @@ open corepython
 inl main() =
     named_tuple "Leduc_Game" {
         init = fun () => jsonm.serialize init()
-        event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
+        // event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
         event_loop_gpu = fun (msg, state) =>
             open serializer
             inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets

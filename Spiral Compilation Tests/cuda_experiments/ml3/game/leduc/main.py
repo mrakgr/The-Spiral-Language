@@ -19,7 +19,7 @@ __device__ long tag_4(US4 v0);
 __device__ bool is_pair_5(long v0, long v1);
 __device__ Tuple1 order_6(long v0, long v1);
 __device__ US9 compare_hands_3(US6 v0, bool v1, static_array<US4,2l> v2, long v3, static_array<long,2l> v4, long v5);
-__device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US5 v3);
+__device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> & v0, static_array_list<US7,32l,long> & v1, static_array<US2,2l> v2, US5 v3);
 __device__ Tuple0 play_loop_0(US3 v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US8 v3, static_array_list<US4,6l,long> v4, US5 v5);
 struct US1 {
     union {
@@ -494,487 +494,488 @@ __device__ US9 compare_hands_3(US6 v0, bool v1, static_array<US4,2l> v2, long v3
         }
     }
 }
-__device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US5 v3){
+__device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> & v0, static_array_list<US7,32l,long> & v1, static_array<US2,2l> v2, US5 v3){
+    const char * v4;
+    v4 = "%s";
+    const char * v5;
+    v5 = "in inner";
+    printf(v4,v5);
+    printf("\n");
+    static_array_list<US7,32l,long> & v6 = v1;
     switch (v3.tag) {
         case 0: { // ChanceCommunityCard
-            US6 v395 = v3.v.case0.v0; bool v396 = v3.v.case0.v1; static_array<US4,2l> v397 = v3.v.case0.v2; long v398 = v3.v.case0.v3; static_array<long,2l> v399 = v3.v.case0.v4; long v400 = v3.v.case0.v5;
-            long v401;
-            v401 = v0.length;
-            long v402;
-            v402 = v401 - 1l;
-            bool v403;
-            v403 = 0l <= v402;
-            bool v406;
-            if (v403){
-                long v404;
-                v404 = v0.length;
-                bool v405;
-                v405 = v402 < v404;
-                v406 = v405;
-            } else {
-                v406 = false;
-            }
-            bool v407;
-            v407 = v406 == false;
-            if (v407){
-                assert("The read index needs to be in range." && v406);
-            } else {
-            }
-            US4 v408;
-            v408 = v0.v[v402];
-            v0.length = v402;
-            long v409;
-            v409 = v1.length;
-            bool v410;
-            v410 = v409 < 32l;
+            US6 v399 = v3.v.case0.v0; bool v400 = v3.v.case0.v1; static_array<US4,2l> v401 = v3.v.case0.v2; long v402 = v3.v.case0.v3; static_array<long,2l> v403 = v3.v.case0.v4; long v404 = v3.v.case0.v5;
+            static_array_list<US4,6l,long> & v405 = v0;
+            long v406;
+            v406 = v405.length;
+            long v407;
+            v407 = v406 - 1l;
+            bool v408;
+            v408 = 0l <= v407;
             bool v411;
-            v411 = v410 == false;
-            if (v411){
-                assert("The length has to be less than the maximum length of the array." && v410);
+            if (v408){
+                long v409;
+                v409 = v405.length;
+                bool v410;
+                v410 = v407 < v409;
+                v411 = v410;
+            } else {
+                v411 = false;
+            }
+            bool v412;
+            v412 = v411 == false;
+            if (v412){
+                assert("The read index needs to be in range." && v411);
             } else {
             }
-            long v412;
-            v412 = v409 + 1l;
-            v1.length = v412;
-            bool v413;
-            v413 = 0l <= v409;
+            US4 v413;
+            v413 = v405.v[v407];
+            v405.length = v407;
+            long v414;
+            v414 = v6.length;
+            bool v415;
+            v415 = v414 < 32l;
             bool v416;
-            if (v413){
-                long v414;
-                v414 = v1.length;
-                bool v415;
-                v415 = v409 < v414;
-                v416 = v415;
-            } else {
-                v416 = false;
-            }
-            bool v417;
-            v417 = v416 == false;
-            if (v417){
-                assert("The set index needs to be in range." && v416);
+            v416 = v415 == false;
+            if (v416){
+                assert("The length has to be less than the maximum length of the array." && v415);
             } else {
             }
-            US7 v418;
-            v418 = US7_0(v408);
-            v1.v[v409] = v418;
-            long v419;
-            v419 = 2l;
-            long v420; long v421;
+            long v417;
+            v417 = v414 + 1l;
+            v6.length = v417;
+            bool v418;
+            v418 = 0l <= v414;
+            bool v421;
+            if (v418){
+                long v419;
+                v419 = v6.length;
+                bool v420;
+                v420 = v414 < v419;
+                v421 = v420;
+            } else {
+                v421 = false;
+            }
+            bool v422;
+            v422 = v421 == false;
+            if (v422){
+                assert("The set index needs to be in range." && v421);
+            } else {
+            }
+            US7 v423;
+            v423 = US7_0(v413);
+            v6.v[v414] = v423;
+            long v424;
+            v424 = 2l;
+            long v425; long v426;
             Tuple1 tmp0 = Tuple1(0l, 0l);
-            v420 = tmp0.v0; v421 = tmp0.v1;
-            while (while_method_0(v420)){
-                bool v423;
-                v423 = 0l <= v420;
-                bool v425;
-                if (v423){
-                    bool v424;
-                    v424 = v420 < 2l;
-                    v425 = v424;
-                } else {
-                    v425 = false;
-                }
-                bool v426;
-                v426 = v425 == false;
-                if (v426){
-                    assert("The read index needs to be in range." && v425);
-                } else {
-                }
-                long v427;
-                v427 = v399.v[v420];
+            v425 = tmp0.v0; v426 = tmp0.v1;
+            while (while_method_0(v425)){
                 bool v428;
-                v428 = v421 >= v427;
-                long v429;
+                v428 = 0l <= v425;
+                bool v430;
                 if (v428){
-                    v429 = v421;
+                    bool v429;
+                    v429 = v425 < 2l;
+                    v430 = v429;
                 } else {
-                    v429 = v427;
+                    v430 = false;
                 }
-                v421 = v429;
-                v420 += 1l ;
-            }
-            static_array<long,2l> v430;
-            long v431;
-            v431 = 0l;
-            while (while_method_0(v431)){
+                bool v431;
+                v431 = v430 == false;
+                if (v431){
+                    assert("The read index needs to be in range." && v430);
+                } else {
+                }
+                long v432;
+                v432 = v403.v[v425];
                 bool v433;
-                v433 = 0l <= v431;
-                bool v435;
+                v433 = v426 >= v432;
+                long v434;
                 if (v433){
-                    bool v434;
-                    v434 = v431 < 2l;
-                    v435 = v434;
+                    v434 = v426;
                 } else {
-                    v435 = false;
+                    v434 = v432;
                 }
-                bool v436;
-                v436 = v435 == false;
-                if (v436){
-                    assert("The read index needs to be in range." && v435);
-                } else {
-                }
-                v430.v[v431] = v421;
-                v431 += 1l ;
+                v426 = v434;
+                v425 += 1l ;
             }
-            US6 v437;
-            v437 = US6_1(v408);
-            bool v438;
-            v438 = true;
-            long v439;
-            v439 = 0l;
-            US5 v440;
-            v440 = US5_2(v437, v438, v397, v439, v430, v419);
-            return play_loop_inner_1(v0, v1, v2, v440);
+            static_array<long,2l> v435;
+            long v436;
+            v436 = 0l;
+            while (while_method_0(v436)){
+                bool v438;
+                v438 = 0l <= v436;
+                bool v440;
+                if (v438){
+                    bool v439;
+                    v439 = v436 < 2l;
+                    v440 = v439;
+                } else {
+                    v440 = false;
+                }
+                bool v441;
+                v441 = v440 == false;
+                if (v441){
+                    assert("The read index needs to be in range." && v440);
+                } else {
+                }
+                v435.v[v436] = v426;
+                v436 += 1l ;
+            }
+            US6 v442;
+            v442 = US6_1(v413);
+            bool v443;
+            v443 = true;
+            long v444;
+            v444 = 0l;
+            US5 v445;
+            v445 = US5_2(v442, v443, v401, v444, v435, v424);
+            return play_loop_inner_1(v0, v1, v2, v445);
             break;
         }
         case 1: { // ChanceInit
-            long v442;
-            v442 = v0.length;
-            long v443;
-            v443 = v442 - 1l;
-            bool v444;
-            v444 = 0l <= v443;
-            bool v447;
-            if (v444){
-                long v445;
-                v445 = v0.length;
-                bool v446;
-                v446 = v443 < v445;
-                v447 = v446;
-            } else {
-                v447 = false;
-            }
-            bool v448;
-            v448 = v447 == false;
-            if (v448){
-                assert("The read index needs to be in range." && v447);
-            } else {
-            }
-            US4 v449;
-            v449 = v0.v[v443];
-            v0.length = v443;
+            const char * v447;
+            v447 = "in chance_init";
+            printf(v4,v447);
+            printf("\n");
+            static_array_list<US4,6l,long> & v448 = v0;
+            long v449;
+            v449 = v448.length;
             long v450;
-            v450 = v0.length;
-            long v451;
-            v451 = v450 - 1l;
-            bool v452;
-            v452 = 0l <= v451;
+            v450 = v449 - 1l;
+            bool v451;
+            v451 = 0l <= v450;
+            bool v454;
+            if (v451){
+                long v452;
+                v452 = v448.length;
+                bool v453;
+                v453 = v450 < v452;
+                v454 = v453;
+            } else {
+                v454 = false;
+            }
             bool v455;
-            if (v452){
-                long v453;
-                v453 = v0.length;
-                bool v454;
-                v454 = v451 < v453;
-                v455 = v454;
-            } else {
-                v455 = false;
-            }
-            bool v456;
-            v456 = v455 == false;
-            if (v456){
-                assert("The read index needs to be in range." && v455);
+            v455 = v454 == false;
+            if (v455){
+                assert("The read index needs to be in range." && v454);
             } else {
             }
-            US4 v457;
-            v457 = v0.v[v451];
-            v0.length = v451;
+            US4 v456;
+            v456 = v448.v[v450];
+            v448.length = v450;
+            static_array_list<US4,6l,long> & v457 = v0;
             long v458;
-            v458 = v1.length;
-            bool v459;
-            v459 = v458 < 32l;
+            v458 = v457.length;
+            long v459;
+            v459 = v458 - 1l;
             bool v460;
-            v460 = v459 == false;
+            v460 = 0l <= v459;
+            bool v463;
             if (v460){
-                assert("The length has to be less than the maximum length of the array." && v459);
+                long v461;
+                v461 = v457.length;
+                bool v462;
+                v462 = v459 < v461;
+                v463 = v462;
+            } else {
+                v463 = false;
+            }
+            bool v464;
+            v464 = v463 == false;
+            if (v464){
+                assert("The read index needs to be in range." && v463);
             } else {
             }
-            long v461;
-            v461 = v458 + 1l;
-            v1.length = v461;
-            bool v462;
-            v462 = 0l <= v458;
-            bool v465;
-            if (v462){
-                long v463;
-                v463 = v1.length;
-                bool v464;
-                v464 = v458 < v463;
-                v465 = v464;
-            } else {
-                v465 = false;
-            }
-            bool v466;
-            v466 = v465 == false;
-            if (v466){
-                assert("The set index needs to be in range." && v465);
+            US4 v465;
+            v465 = v457.v[v459];
+            v457.length = v459;
+            long v466;
+            v466 = v6.length;
+            bool v467;
+            v467 = v466 < 32l;
+            bool v468;
+            v468 = v467 == false;
+            if (v468){
+                assert("The length has to be less than the maximum length of the array." && v467);
             } else {
             }
-            US7 v467;
-            v467 = US7_2(0l, v449);
-            v1.v[v458] = v467;
-            long v468;
-            v468 = v1.length;
-            bool v469;
-            v469 = v468 < 32l;
+            long v469;
+            v469 = v466 + 1l;
+            v6.length = v469;
             bool v470;
-            v470 = v469 == false;
+            v470 = 0l <= v466;
+            bool v473;
             if (v470){
-                assert("The length has to be less than the maximum length of the array." && v469);
+                long v471;
+                v471 = v6.length;
+                bool v472;
+                v472 = v466 < v471;
+                v473 = v472;
+            } else {
+                v473 = false;
+            }
+            bool v474;
+            v474 = v473 == false;
+            if (v474){
+                assert("The set index needs to be in range." && v473);
             } else {
             }
-            long v471;
-            v471 = v468 + 1l;
-            v1.length = v471;
-            bool v472;
-            v472 = 0l <= v468;
-            bool v475;
-            if (v472){
-                long v473;
-                v473 = v1.length;
-                bool v474;
-                v474 = v468 < v473;
-                v475 = v474;
-            } else {
-                v475 = false;
-            }
-            bool v476;
-            v476 = v475 == false;
-            if (v476){
-                assert("The set index needs to be in range." && v475);
+            US7 v475;
+            v475 = US7_2(0l, v456);
+            v6.v[v466] = v475;
+            long v476;
+            v476 = v6.length;
+            bool v477;
+            v477 = v476 < 32l;
+            bool v478;
+            v478 = v477 == false;
+            if (v478){
+                assert("The length has to be less than the maximum length of the array." && v477);
             } else {
             }
-            US7 v477;
-            v477 = US7_2(1l, v457);
-            v1.v[v468] = v477;
-            long v478;
-            v478 = 2l;
-            static_array<long,2l> v479;
-            v479.v[0l] = 1l;
-            v479.v[1l] = 1l;
-            static_array<US4,2l> v480;
-            v480.v[0l] = v449;
-            v480.v[1l] = v457;
-            US6 v481;
-            v481 = US6_0();
-            bool v482;
-            v482 = true;
-            long v483;
-            v483 = 0l;
-            US5 v484;
-            v484 = US5_2(v481, v482, v480, v483, v479, v478);
-            return play_loop_inner_1(v0, v1, v2, v484);
+            long v479;
+            v479 = v476 + 1l;
+            v6.length = v479;
+            bool v480;
+            v480 = 0l <= v476;
+            bool v483;
+            if (v480){
+                long v481;
+                v481 = v6.length;
+                bool v482;
+                v482 = v476 < v481;
+                v483 = v482;
+            } else {
+                v483 = false;
+            }
+            bool v484;
+            v484 = v483 == false;
+            if (v484){
+                assert("The set index needs to be in range." && v483);
+            } else {
+            }
+            US7 v485;
+            v485 = US7_2(1l, v465);
+            v6.v[v476] = v485;
+            long v486;
+            v486 = 2l;
+            static_array<long,2l> v487;
+            v487.v[0l] = 1l;
+            v487.v[1l] = 1l;
+            static_array<US4,2l> v488;
+            v488.v[0l] = v456;
+            v488.v[1l] = v465;
+            US6 v489;
+            v489 = US6_0();
+            bool v490;
+            v490 = true;
+            long v491;
+            v491 = 0l;
+            US5 v492;
+            v492 = US5_2(v489, v490, v488, v491, v487, v486);
+            return play_loop_inner_1(v0, v1, v2, v492);
             break;
         }
         case 2: { // Round
-            US6 v55 = v3.v.case2.v0; bool v56 = v3.v.case2.v1; static_array<US4,2l> v57 = v3.v.case2.v2; long v58 = v3.v.case2.v3; static_array<long,2l> v59 = v3.v.case2.v4; long v60 = v3.v.case2.v5;
-            bool v61;
-            v61 = 0l <= v58;
-            bool v63;
-            if (v61){
-                bool v62;
-                v62 = v58 < 2l;
-                v63 = v62;
+            US6 v58 = v3.v.case2.v0; bool v59 = v3.v.case2.v1; static_array<US4,2l> v60 = v3.v.case2.v2; long v61 = v3.v.case2.v3; static_array<long,2l> v62 = v3.v.case2.v4; long v63 = v3.v.case2.v5;
+            const char * v64;
+            v64 = "in round";
+            printf(v4,v64);
+            printf("\n");
+            bool v65;
+            v65 = 0l <= v61;
+            bool v67;
+            if (v65){
+                bool v66;
+                v66 = v61 < 2l;
+                v67 = v66;
             } else {
-                v63 = false;
+                v67 = false;
             }
-            bool v64;
-            v64 = v63 == false;
-            if (v64){
-                assert("The read index needs to be in range." && v63);
+            bool v68;
+            v68 = v67 == false;
+            if (v68){
+                assert("The read index needs to be in range." && v67);
             } else {
             }
-            US2 v65;
-            v65 = v2.v[v58];
-            switch (v65.tag) {
+            US2 v69;
+            v69 = v2.v[v61];
+            switch (v69.tag) {
                 case 0: { // Computer
-                    static_array_list<US1,3l,long> v66;
-                    v66.length = 0;
-                    v66.length = 1l;
-                    long v67;
-                    v67 = v66.length;
-                    bool v68;
-                    v68 = 0l < v67;
-                    bool v69;
-                    v69 = v68 == false;
-                    if (v69){
-                        assert("The set index needs to be in range." && v68);
-                    } else {
-                    }
-                    US1 v70;
-                    v70 = US1_0();
-                    v66.v[0l] = v70;
+                    static_array_list<US1,3l,long> v70;
+                    v70.length = 0;
+                    v70.length = 1l;
                     long v71;
-                    v71 = v59.v[0l];
-                    long v72;
-                    v72 = v59.v[1l];
+                    v71 = v70.length;
+                    bool v72;
+                    v72 = 0l < v71;
                     bool v73;
-                    v73 = v71 == v72;
-                    bool v74;
-                    v74 = v73 != true;
-                    if (v74){
-                        long v75;
-                        v75 = v66.length;
-                        bool v76;
-                        v76 = v75 < 3l;
-                        bool v77;
-                        v77 = v76 == false;
-                        if (v77){
-                            assert("The length has to be less than the maximum length of the array." && v76);
+                    v73 = v72 == false;
+                    if (v73){
+                        assert("The set index needs to be in range." && v72);
+                    } else {
+                    }
+                    US1 v74;
+                    v74 = US1_0();
+                    v70.v[0l] = v74;
+                    long v75;
+                    v75 = v62.v[0l];
+                    long v76;
+                    v76 = v62.v[1l];
+                    bool v77;
+                    v77 = v75 == v76;
+                    bool v78;
+                    v78 = v77 != true;
+                    if (v78){
+                        long v79;
+                        v79 = v70.length;
+                        bool v80;
+                        v80 = v79 < 3l;
+                        bool v81;
+                        v81 = v80 == false;
+                        if (v81){
+                            assert("The length has to be less than the maximum length of the array." && v80);
                         } else {
                         }
-                        long v78;
-                        v78 = v75 + 1l;
-                        v66.length = v78;
-                        bool v79;
-                        v79 = 0l <= v75;
-                        bool v82;
-                        if (v79){
-                            long v80;
-                            v80 = v66.length;
-                            bool v81;
-                            v81 = v75 < v80;
-                            v82 = v81;
-                        } else {
-                            v82 = false;
-                        }
+                        long v82;
+                        v82 = v79 + 1l;
+                        v70.length = v82;
                         bool v83;
-                        v83 = v82 == false;
+                        v83 = 0l <= v79;
+                        bool v86;
                         if (v83){
-                            assert("The set index needs to be in range." && v82);
+                            long v84;
+                            v84 = v70.length;
+                            bool v85;
+                            v85 = v79 < v84;
+                            v86 = v85;
                         } else {
+                            v86 = false;
                         }
-                        US1 v84;
-                        v84 = US1_1();
-                        v66.v[v75] = v84;
-                    } else {
-                    }
-                    bool v85;
-                    v85 = v60 > 0l;
-                    if (v85){
-                        long v86;
-                        v86 = v66.length;
                         bool v87;
-                        v87 = v86 < 3l;
-                        bool v88;
-                        v88 = v87 == false;
-                        if (v88){
-                            assert("The length has to be less than the maximum length of the array." && v87);
+                        v87 = v86 == false;
+                        if (v87){
+                            assert("The set index needs to be in range." && v86);
                         } else {
                         }
-                        long v89;
-                        v89 = v86 + 1l;
-                        v66.length = v89;
-                        bool v90;
-                        v90 = 0l <= v86;
-                        bool v93;
-                        if (v90){
-                            long v91;
-                            v91 = v66.length;
-                            bool v92;
-                            v92 = v86 < v91;
-                            v93 = v92;
-                        } else {
-                            v93 = false;
-                        }
-                        bool v94;
-                        v94 = v93 == false;
-                        if (v94){
-                            assert("The set index needs to be in range." && v93);
-                        } else {
-                        }
-                        US1 v95;
-                        v95 = US1_2();
-                        v66.v[v86] = v95;
+                        US1 v88;
+                        v88 = US1_1();
+                        v70.v[v79] = v88;
                     } else {
                     }
-                    unsigned long long v96;
-                    v96 = clock64();
-                    curandStatePhilox4_32_10_t v97;
-                    curandStatePhilox4_32_10_t * v98 = &v97;
-                    curand_init(v96,0ull,0ull,v98);
-                    long v99;
-                    v99 = v66.length;
-                    long v100;
-                    v100 = v99 - 1l;
-                    long v101;
-                    v101 = 0l;
-                    while (while_method_1(v100, v101)){
-                        long v103;
-                        v103 = v66.length;
-                        long v104;
-                        v104 = v103 - v101;
-                        unsigned long v105;
-                        v105 = (unsigned long)v104;
-                        unsigned long v106;
-                        v106 = loop_2(v105, v98);
-                        unsigned long v107;
-                        v107 = (unsigned long)v101;
-                        unsigned long v108;
-                        v108 = v106 - v107;
-                        long v109;
-                        v109 = (long)v108;
-                        bool v110;
-                        v110 = 0l <= v101;
-                        bool v113;
-                        if (v110){
-                            long v111;
-                            v111 = v66.length;
-                            bool v112;
-                            v112 = v101 < v111;
-                            v113 = v112;
+                    bool v89;
+                    v89 = v63 > 0l;
+                    if (v89){
+                        long v90;
+                        v90 = v70.length;
+                        bool v91;
+                        v91 = v90 < 3l;
+                        bool v92;
+                        v92 = v91 == false;
+                        if (v92){
+                            assert("The length has to be less than the maximum length of the array." && v91);
                         } else {
-                            v113 = false;
                         }
+                        long v93;
+                        v93 = v90 + 1l;
+                        v70.length = v93;
+                        bool v94;
+                        v94 = 0l <= v90;
+                        bool v97;
+                        if (v94){
+                            long v95;
+                            v95 = v70.length;
+                            bool v96;
+                            v96 = v90 < v95;
+                            v97 = v96;
+                        } else {
+                            v97 = false;
+                        }
+                        bool v98;
+                        v98 = v97 == false;
+                        if (v98){
+                            assert("The set index needs to be in range." && v97);
+                        } else {
+                        }
+                        US1 v99;
+                        v99 = US1_2();
+                        v70.v[v90] = v99;
+                    } else {
+                    }
+                    unsigned long long v100;
+                    v100 = clock64();
+                    curandStatePhilox4_32_10_t v101;
+                    curandStatePhilox4_32_10_t * v102 = &v101;
+                    curand_init(v100,0ull,0ull,v102);
+                    long v103;
+                    v103 = v70.length;
+                    long v104;
+                    v104 = v103 - 1l;
+                    long v105;
+                    v105 = 0l;
+                    while (while_method_1(v104, v105)){
+                        long v107;
+                        v107 = v70.length;
+                        long v108;
+                        v108 = v107 - v105;
+                        unsigned long v109;
+                        v109 = (unsigned long)v108;
+                        unsigned long v110;
+                        v110 = loop_2(v109, v102);
+                        unsigned long v111;
+                        v111 = (unsigned long)v105;
+                        unsigned long v112;
+                        v112 = v110 - v111;
+                        long v113;
+                        v113 = (long)v112;
                         bool v114;
-                        v114 = v113 == false;
+                        v114 = 0l <= v105;
+                        bool v117;
                         if (v114){
-                            assert("The read index needs to be in range." && v113);
+                            long v115;
+                            v115 = v70.length;
+                            bool v116;
+                            v116 = v105 < v115;
+                            v117 = v116;
+                        } else {
+                            v117 = false;
+                        }
+                        bool v118;
+                        v118 = v117 == false;
+                        if (v118){
+                            assert("The read index needs to be in range." && v117);
                         } else {
                         }
-                        US1 v115;
-                        v115 = v66.v[v101];
-                        bool v116;
-                        v116 = 0l <= v109;
-                        bool v119;
-                        if (v116){
-                            long v117;
-                            v117 = v66.length;
-                            bool v118;
-                            v118 = v109 < v117;
-                            v119 = v118;
-                        } else {
-                            v119 = false;
-                        }
+                        US1 v119;
+                        v119 = v70.v[v105];
                         bool v120;
-                        v120 = v119 == false;
+                        v120 = 0l <= v113;
+                        bool v123;
                         if (v120){
-                            assert("The read index needs to be in range." && v119);
+                            long v121;
+                            v121 = v70.length;
+                            bool v122;
+                            v122 = v113 < v121;
+                            v123 = v122;
                         } else {
+                            v123 = false;
                         }
-                        US1 v121;
-                        v121 = v66.v[v109];
                         bool v124;
-                        if (v110){
-                            long v122;
-                            v122 = v66.length;
-                            bool v123;
-                            v123 = v101 < v122;
-                            v124 = v123;
-                        } else {
-                            v124 = false;
-                        }
-                        bool v125;
-                        v125 = v124 == false;
-                        if (v125){
-                            assert("The set index needs to be in range." && v124);
+                        v124 = v123 == false;
+                        if (v124){
+                            assert("The read index needs to be in range." && v123);
                         } else {
                         }
-                        v66.v[v101] = v121;
+                        US1 v125;
+                        v125 = v70.v[v113];
                         bool v128;
-                        if (v116){
+                        if (v114){
                             long v126;
-                            v126 = v66.length;
+                            v126 = v70.length;
                             bool v127;
-                            v127 = v109 < v126;
+                            v127 = v105 < v126;
                             v128 = v127;
                         } else {
                             v128 = false;
@@ -985,210 +986,227 @@ __device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array
                             assert("The set index needs to be in range." && v128);
                         } else {
                         }
-                        v66.v[v109] = v115;
-                        v101 += 1l ;
+                        v70.v[v105] = v125;
+                        bool v132;
+                        if (v120){
+                            long v130;
+                            v130 = v70.length;
+                            bool v131;
+                            v131 = v113 < v130;
+                            v132 = v131;
+                        } else {
+                            v132 = false;
+                        }
+                        bool v133;
+                        v133 = v132 == false;
+                        if (v133){
+                            assert("The set index needs to be in range." && v132);
+                        } else {
+                        }
+                        v70.v[v113] = v119;
+                        v105 += 1l ;
                     }
-                    long v130;
-                    v130 = v66.length;
-                    long v131;
-                    v131 = v130 - 1l;
-                    bool v132;
-                    v132 = 0l <= v131;
-                    bool v135;
-                    if (v132){
-                        long v133;
-                        v133 = v66.length;
-                        bool v134;
-                        v134 = v131 < v133;
-                        v135 = v134;
-                    } else {
-                        v135 = false;
-                    }
+                    long v134;
+                    v134 = v70.length;
+                    long v135;
+                    v135 = v134 - 1l;
                     bool v136;
-                    v136 = v135 == false;
-                    if (v136){
-                        assert("The read index needs to be in range." && v135);
-                    } else {
-                    }
-                    US1 v137;
-                    v137 = v66.v[v131];
-                    v66.length = v131;
-                    long v138;
-                    v138 = v1.length;
+                    v136 = 0l <= v135;
                     bool v139;
-                    v139 = v138 < 32l;
+                    if (v136){
+                        long v137;
+                        v137 = v70.length;
+                        bool v138;
+                        v138 = v135 < v137;
+                        v139 = v138;
+                    } else {
+                        v139 = false;
+                    }
                     bool v140;
                     v140 = v139 == false;
                     if (v140){
-                        assert("The length has to be less than the maximum length of the array." && v139);
+                        assert("The read index needs to be in range." && v139);
                     } else {
                     }
-                    long v141;
-                    v141 = v138 + 1l;
-                    v1.length = v141;
-                    bool v142;
-                    v142 = 0l <= v138;
-                    bool v145;
-                    if (v142){
-                        long v143;
-                        v143 = v1.length;
-                        bool v144;
-                        v144 = v138 < v143;
-                        v145 = v144;
+                    US1 v141;
+                    v141 = v70.v[v135];
+                    v70.length = v135;
+                    long v142;
+                    v142 = v6.length;
+                    bool v143;
+                    v143 = v142 < 32l;
+                    bool v144;
+                    v144 = v143 == false;
+                    if (v144){
+                        assert("The length has to be less than the maximum length of the array." && v143);
                     } else {
-                        v145 = false;
                     }
+                    long v145;
+                    v145 = v142 + 1l;
+                    v6.length = v145;
                     bool v146;
-                    v146 = v145 == false;
+                    v146 = 0l <= v142;
+                    bool v149;
                     if (v146){
-                        assert("The set index needs to be in range." && v145);
+                        long v147;
+                        v147 = v6.length;
+                        bool v148;
+                        v148 = v142 < v147;
+                        v149 = v148;
+                    } else {
+                        v149 = false;
+                    }
+                    bool v150;
+                    v150 = v149 == false;
+                    if (v150){
+                        assert("The set index needs to be in range." && v149);
                     } else {
                     }
-                    US7 v147;
-                    v147 = US7_1(v58, v137);
-                    v1.v[v138] = v147;
-                    US5 v259;
-                    switch (v55.tag) {
+                    US7 v151;
+                    v151 = US7_1(v61, v141);
+                    v6.v[v142] = v151;
+                    US5 v263;
+                    switch (v58.tag) {
                         case 0: { // None
-                            switch (v137.tag) {
+                            switch (v141.tag) {
                                 case 0: { // Call
-                                    if (v56){
-                                        bool v213;
-                                        v213 = v58 == 0l;
-                                        long v214;
-                                        if (v213){
-                                            v214 = 1l;
+                                    if (v59){
+                                        bool v217;
+                                        v217 = v61 == 0l;
+                                        long v218;
+                                        if (v217){
+                                            v218 = 1l;
                                         } else {
-                                            v214 = 0l;
+                                            v218 = 0l;
                                         }
-                                        v259 = US5_2(v55, false, v57, v214, v59, v60);
+                                        v263 = US5_2(v58, false, v60, v218, v62, v63);
                                     } else {
-                                        v259 = US5_0(v55, v56, v57, v58, v59, v60);
+                                        v263 = US5_0(v58, v59, v60, v61, v62, v63);
                                     }
                                     break;
                                 }
                                 case 1: { // Fold
-                                    v259 = US5_5(v55, v56, v57, v58, v59, v60);
+                                    v263 = US5_5(v58, v59, v60, v61, v62, v63);
                                     break;
                                 }
                                 default: { // Raise
-                                    if (v85){
-                                        bool v218;
-                                        v218 = v58 == 0l;
-                                        long v219;
-                                        if (v218){
-                                            v219 = 1l;
+                                    if (v89){
+                                        bool v222;
+                                        v222 = v61 == 0l;
+                                        long v223;
+                                        if (v222){
+                                            v223 = 1l;
                                         } else {
-                                            v219 = 0l;
+                                            v223 = 0l;
                                         }
-                                        long v220;
-                                        v220 = -1l + v60;
-                                        long v221; long v222;
+                                        long v224;
+                                        v224 = -1l + v63;
+                                        long v225; long v226;
                                         Tuple1 tmp1 = Tuple1(0l, 0l);
-                                        v221 = tmp1.v0; v222 = tmp1.v1;
-                                        while (while_method_0(v221)){
-                                            bool v224;
-                                            v224 = 0l <= v221;
-                                            bool v226;
-                                            if (v224){
-                                                bool v225;
-                                                v225 = v221 < 2l;
-                                                v226 = v225;
+                                        v225 = tmp1.v0; v226 = tmp1.v1;
+                                        while (while_method_0(v225)){
+                                            bool v228;
+                                            v228 = 0l <= v225;
+                                            bool v230;
+                                            if (v228){
+                                                bool v229;
+                                                v229 = v225 < 2l;
+                                                v230 = v229;
                                             } else {
-                                                v226 = false;
+                                                v230 = false;
                                             }
-                                            bool v227;
-                                            v227 = v226 == false;
-                                            if (v227){
-                                                assert("The read index needs to be in range." && v226);
+                                            bool v231;
+                                            v231 = v230 == false;
+                                            if (v231){
+                                                assert("The read index needs to be in range." && v230);
                                             } else {
                                             }
-                                            long v228;
-                                            v228 = v59.v[v221];
-                                            bool v229;
-                                            v229 = v222 >= v228;
-                                            long v230;
-                                            if (v229){
-                                                v230 = v222;
+                                            long v232;
+                                            v232 = v62.v[v225];
+                                            bool v233;
+                                            v233 = v226 >= v232;
+                                            long v234;
+                                            if (v233){
+                                                v234 = v226;
                                             } else {
-                                                v230 = v228;
+                                                v234 = v232;
                                             }
-                                            v222 = v230;
-                                            v221 += 1l ;
+                                            v226 = v234;
+                                            v225 += 1l ;
                                         }
-                                        static_array<long,2l> v231;
-                                        long v232;
-                                        v232 = 0l;
-                                        while (while_method_0(v232)){
-                                            bool v234;
-                                            v234 = 0l <= v232;
-                                            bool v236;
-                                            if (v234){
-                                                bool v235;
-                                                v235 = v232 < 2l;
-                                                v236 = v235;
+                                        static_array<long,2l> v235;
+                                        long v236;
+                                        v236 = 0l;
+                                        while (while_method_0(v236)){
+                                            bool v238;
+                                            v238 = 0l <= v236;
+                                            bool v240;
+                                            if (v238){
+                                                bool v239;
+                                                v239 = v236 < 2l;
+                                                v240 = v239;
                                             } else {
-                                                v236 = false;
+                                                v240 = false;
                                             }
-                                            bool v237;
-                                            v237 = v236 == false;
-                                            if (v237){
-                                                assert("The read index needs to be in range." && v236);
-                                            } else {
-                                            }
-                                            v231.v[v232] = v222;
-                                            v232 += 1l ;
-                                        }
-                                        static_array<long,2l> v238;
-                                        long v239;
-                                        v239 = 0l;
-                                        while (while_method_0(v239)){
                                             bool v241;
-                                            v241 = 0l <= v239;
-                                            bool v243;
+                                            v241 = v240 == false;
                                             if (v241){
-                                                bool v242;
-                                                v242 = v239 < 2l;
-                                                v243 = v242;
-                                            } else {
-                                                v243 = false;
-                                            }
-                                            bool v244;
-                                            v244 = v243 == false;
-                                            if (v244){
-                                                assert("The read index needs to be in range." && v243);
+                                                assert("The read index needs to be in range." && v240);
                                             } else {
                                             }
-                                            long v245;
-                                            v245 = v231.v[v239];
-                                            bool v246;
-                                            v246 = v239 == v58;
-                                            long v248;
-                                            if (v246){
-                                                long v247;
-                                                v247 = v245 + 2l;
-                                                v248 = v247;
-                                            } else {
-                                                v248 = v245;
-                                            }
-                                            bool v250;
-                                            if (v241){
-                                                bool v249;
-                                                v249 = v239 < 2l;
-                                                v250 = v249;
-                                            } else {
-                                                v250 = false;
-                                            }
-                                            bool v251;
-                                            v251 = v250 == false;
-                                            if (v251){
-                                                assert("The read index needs to be in range." && v250);
-                                            } else {
-                                            }
-                                            v238.v[v239] = v248;
-                                            v239 += 1l ;
+                                            v235.v[v236] = v226;
+                                            v236 += 1l ;
                                         }
-                                        v259 = US5_2(v55, false, v57, v219, v238, v220);
+                                        static_array<long,2l> v242;
+                                        long v243;
+                                        v243 = 0l;
+                                        while (while_method_0(v243)){
+                                            bool v245;
+                                            v245 = 0l <= v243;
+                                            bool v247;
+                                            if (v245){
+                                                bool v246;
+                                                v246 = v243 < 2l;
+                                                v247 = v246;
+                                            } else {
+                                                v247 = false;
+                                            }
+                                            bool v248;
+                                            v248 = v247 == false;
+                                            if (v248){
+                                                assert("The read index needs to be in range." && v247);
+                                            } else {
+                                            }
+                                            long v249;
+                                            v249 = v235.v[v243];
+                                            bool v250;
+                                            v250 = v243 == v61;
+                                            long v252;
+                                            if (v250){
+                                                long v251;
+                                                v251 = v249 + 2l;
+                                                v252 = v251;
+                                            } else {
+                                                v252 = v249;
+                                            }
+                                            bool v254;
+                                            if (v245){
+                                                bool v253;
+                                                v253 = v243 < 2l;
+                                                v254 = v253;
+                                            } else {
+                                                v254 = false;
+                                            }
+                                            bool v255;
+                                            v255 = v254 == false;
+                                            if (v255){
+                                                assert("The read index needs to be in range." && v254);
+                                            } else {
+                                            }
+                                            v242.v[v243] = v252;
+                                            v243 += 1l ;
+                                        }
+                                        v263 = US5_2(v58, false, v60, v223, v242, v224);
                                     } else {
                                         printf("%s\n", "Invalid action. The number of raises left is not positive.");
                                         asm("exit;");
@@ -1198,202 +1216,202 @@ __device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array
                             break;
                         }
                         default: { // Some
-                            US4 v148 = v55.v.case1.v0;
-                            switch (v137.tag) {
+                            US4 v152 = v58.v.case1.v0;
+                            switch (v141.tag) {
                                 case 0: { // Call
-                                    if (v56){
-                                        bool v150;
-                                        v150 = v58 == 0l;
-                                        long v151;
-                                        if (v150){
-                                            v151 = 1l;
+                                    if (v59){
+                                        bool v154;
+                                        v154 = v61 == 0l;
+                                        long v155;
+                                        if (v154){
+                                            v155 = 1l;
                                         } else {
-                                            v151 = 0l;
+                                            v155 = 0l;
                                         }
-                                        v259 = US5_2(v55, false, v57, v151, v59, v60);
+                                        v263 = US5_2(v58, false, v60, v155, v62, v63);
                                     } else {
-                                        long v153; long v154;
+                                        long v157; long v158;
                                         Tuple1 tmp2 = Tuple1(0l, 0l);
-                                        v153 = tmp2.v0; v154 = tmp2.v1;
-                                        while (while_method_0(v153)){
-                                            bool v156;
-                                            v156 = 0l <= v153;
-                                            bool v158;
-                                            if (v156){
-                                                bool v157;
-                                                v157 = v153 < 2l;
-                                                v158 = v157;
+                                        v157 = tmp2.v0; v158 = tmp2.v1;
+                                        while (while_method_0(v157)){
+                                            bool v160;
+                                            v160 = 0l <= v157;
+                                            bool v162;
+                                            if (v160){
+                                                bool v161;
+                                                v161 = v157 < 2l;
+                                                v162 = v161;
                                             } else {
-                                                v158 = false;
+                                                v162 = false;
                                             }
-                                            bool v159;
-                                            v159 = v158 == false;
-                                            if (v159){
-                                                assert("The read index needs to be in range." && v158);
+                                            bool v163;
+                                            v163 = v162 == false;
+                                            if (v163){
+                                                assert("The read index needs to be in range." && v162);
                                             } else {
                                             }
-                                            long v160;
-                                            v160 = v59.v[v153];
-                                            bool v161;
-                                            v161 = v154 >= v160;
-                                            long v162;
-                                            if (v161){
-                                                v162 = v154;
+                                            long v164;
+                                            v164 = v62.v[v157];
+                                            bool v165;
+                                            v165 = v158 >= v164;
+                                            long v166;
+                                            if (v165){
+                                                v166 = v158;
                                             } else {
-                                                v162 = v160;
+                                                v166 = v164;
                                             }
-                                            v154 = v162;
-                                            v153 += 1l ;
+                                            v158 = v166;
+                                            v157 += 1l ;
                                         }
-                                        static_array<long,2l> v163;
-                                        long v164;
-                                        v164 = 0l;
-                                        while (while_method_0(v164)){
-                                            bool v166;
-                                            v166 = 0l <= v164;
-                                            bool v168;
-                                            if (v166){
-                                                bool v167;
-                                                v167 = v164 < 2l;
-                                                v168 = v167;
+                                        static_array<long,2l> v167;
+                                        long v168;
+                                        v168 = 0l;
+                                        while (while_method_0(v168)){
+                                            bool v170;
+                                            v170 = 0l <= v168;
+                                            bool v172;
+                                            if (v170){
+                                                bool v171;
+                                                v171 = v168 < 2l;
+                                                v172 = v171;
                                             } else {
-                                                v168 = false;
+                                                v172 = false;
                                             }
-                                            bool v169;
-                                            v169 = v168 == false;
-                                            if (v169){
-                                                assert("The read index needs to be in range." && v168);
+                                            bool v173;
+                                            v173 = v172 == false;
+                                            if (v173){
+                                                assert("The read index needs to be in range." && v172);
                                             } else {
                                             }
-                                            v163.v[v164] = v154;
-                                            v164 += 1l ;
+                                            v167.v[v168] = v158;
+                                            v168 += 1l ;
                                         }
-                                        v259 = US5_4(v55, v56, v57, v58, v163, v60);
+                                        v263 = US5_4(v58, v59, v60, v61, v167, v63);
                                     }
                                     break;
                                 }
                                 case 1: { // Fold
-                                    v259 = US5_5(v55, v56, v57, v58, v59, v60);
+                                    v263 = US5_5(v58, v59, v60, v61, v62, v63);
                                     break;
                                 }
                                 default: { // Raise
-                                    if (v85){
-                                        bool v172;
-                                        v172 = v58 == 0l;
-                                        long v173;
-                                        if (v172){
-                                            v173 = 1l;
+                                    if (v89){
+                                        bool v176;
+                                        v176 = v61 == 0l;
+                                        long v177;
+                                        if (v176){
+                                            v177 = 1l;
                                         } else {
-                                            v173 = 0l;
+                                            v177 = 0l;
                                         }
-                                        long v174;
-                                        v174 = -1l + v60;
-                                        long v175; long v176;
+                                        long v178;
+                                        v178 = -1l + v63;
+                                        long v179; long v180;
                                         Tuple1 tmp3 = Tuple1(0l, 0l);
-                                        v175 = tmp3.v0; v176 = tmp3.v1;
-                                        while (while_method_0(v175)){
-                                            bool v178;
-                                            v178 = 0l <= v175;
-                                            bool v180;
-                                            if (v178){
-                                                bool v179;
-                                                v179 = v175 < 2l;
-                                                v180 = v179;
+                                        v179 = tmp3.v0; v180 = tmp3.v1;
+                                        while (while_method_0(v179)){
+                                            bool v182;
+                                            v182 = 0l <= v179;
+                                            bool v184;
+                                            if (v182){
+                                                bool v183;
+                                                v183 = v179 < 2l;
+                                                v184 = v183;
                                             } else {
-                                                v180 = false;
+                                                v184 = false;
                                             }
-                                            bool v181;
-                                            v181 = v180 == false;
-                                            if (v181){
-                                                assert("The read index needs to be in range." && v180);
+                                            bool v185;
+                                            v185 = v184 == false;
+                                            if (v185){
+                                                assert("The read index needs to be in range." && v184);
                                             } else {
                                             }
-                                            long v182;
-                                            v182 = v59.v[v175];
-                                            bool v183;
-                                            v183 = v176 >= v182;
-                                            long v184;
-                                            if (v183){
-                                                v184 = v176;
+                                            long v186;
+                                            v186 = v62.v[v179];
+                                            bool v187;
+                                            v187 = v180 >= v186;
+                                            long v188;
+                                            if (v187){
+                                                v188 = v180;
                                             } else {
-                                                v184 = v182;
+                                                v188 = v186;
                                             }
-                                            v176 = v184;
-                                            v175 += 1l ;
+                                            v180 = v188;
+                                            v179 += 1l ;
                                         }
-                                        static_array<long,2l> v185;
-                                        long v186;
-                                        v186 = 0l;
-                                        while (while_method_0(v186)){
-                                            bool v188;
-                                            v188 = 0l <= v186;
-                                            bool v190;
-                                            if (v188){
-                                                bool v189;
-                                                v189 = v186 < 2l;
-                                                v190 = v189;
+                                        static_array<long,2l> v189;
+                                        long v190;
+                                        v190 = 0l;
+                                        while (while_method_0(v190)){
+                                            bool v192;
+                                            v192 = 0l <= v190;
+                                            bool v194;
+                                            if (v192){
+                                                bool v193;
+                                                v193 = v190 < 2l;
+                                                v194 = v193;
                                             } else {
-                                                v190 = false;
+                                                v194 = false;
                                             }
-                                            bool v191;
-                                            v191 = v190 == false;
-                                            if (v191){
-                                                assert("The read index needs to be in range." && v190);
-                                            } else {
-                                            }
-                                            v185.v[v186] = v176;
-                                            v186 += 1l ;
-                                        }
-                                        static_array<long,2l> v192;
-                                        long v193;
-                                        v193 = 0l;
-                                        while (while_method_0(v193)){
                                             bool v195;
-                                            v195 = 0l <= v193;
-                                            bool v197;
+                                            v195 = v194 == false;
                                             if (v195){
-                                                bool v196;
-                                                v196 = v193 < 2l;
-                                                v197 = v196;
-                                            } else {
-                                                v197 = false;
-                                            }
-                                            bool v198;
-                                            v198 = v197 == false;
-                                            if (v198){
-                                                assert("The read index needs to be in range." && v197);
+                                                assert("The read index needs to be in range." && v194);
                                             } else {
                                             }
-                                            long v199;
-                                            v199 = v185.v[v193];
-                                            bool v200;
-                                            v200 = v193 == v58;
-                                            long v202;
-                                            if (v200){
-                                                long v201;
-                                                v201 = v199 + 4l;
-                                                v202 = v201;
-                                            } else {
-                                                v202 = v199;
-                                            }
-                                            bool v204;
-                                            if (v195){
-                                                bool v203;
-                                                v203 = v193 < 2l;
-                                                v204 = v203;
-                                            } else {
-                                                v204 = false;
-                                            }
-                                            bool v205;
-                                            v205 = v204 == false;
-                                            if (v205){
-                                                assert("The read index needs to be in range." && v204);
-                                            } else {
-                                            }
-                                            v192.v[v193] = v202;
-                                            v193 += 1l ;
+                                            v189.v[v190] = v180;
+                                            v190 += 1l ;
                                         }
-                                        v259 = US5_2(v55, false, v57, v173, v192, v174);
+                                        static_array<long,2l> v196;
+                                        long v197;
+                                        v197 = 0l;
+                                        while (while_method_0(v197)){
+                                            bool v199;
+                                            v199 = 0l <= v197;
+                                            bool v201;
+                                            if (v199){
+                                                bool v200;
+                                                v200 = v197 < 2l;
+                                                v201 = v200;
+                                            } else {
+                                                v201 = false;
+                                            }
+                                            bool v202;
+                                            v202 = v201 == false;
+                                            if (v202){
+                                                assert("The read index needs to be in range." && v201);
+                                            } else {
+                                            }
+                                            long v203;
+                                            v203 = v189.v[v197];
+                                            bool v204;
+                                            v204 = v197 == v61;
+                                            long v206;
+                                            if (v204){
+                                                long v205;
+                                                v205 = v203 + 4l;
+                                                v206 = v205;
+                                            } else {
+                                                v206 = v203;
+                                            }
+                                            bool v208;
+                                            if (v199){
+                                                bool v207;
+                                                v207 = v197 < 2l;
+                                                v208 = v207;
+                                            } else {
+                                                v208 = false;
+                                            }
+                                            bool v209;
+                                            v209 = v208 == false;
+                                            if (v209){
+                                                assert("The read index needs to be in range." && v208);
+                                            } else {
+                                            }
+                                            v196.v[v197] = v206;
+                                            v197 += 1l ;
+                                        }
+                                        v263 = US5_2(v58, false, v60, v177, v196, v178);
                                     } else {
                                         printf("%s\n", "Invalid action. The number of raises left is not positive.");
                                         asm("exit;");
@@ -1402,7 +1420,7 @@ __device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array
                             }
                         }
                     }
-                    return play_loop_inner_1(v0, v1, v2, v259);
+                    return play_loop_inner_1(v0, v1, v2, v263);
                     break;
                 }
                 default: { // Human
@@ -1412,185 +1430,185 @@ __device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array
             break;
         }
         case 3: { // RoundWithAction
-            US6 v263 = v3.v.case3.v0; bool v264 = v3.v.case3.v1; static_array<US4,2l> v265 = v3.v.case3.v2; long v266 = v3.v.case3.v3; static_array<long,2l> v267 = v3.v.case3.v4; long v268 = v3.v.case3.v5; US1 v269 = v3.v.case3.v6;
-            long v270;
-            v270 = v1.length;
-            bool v271;
-            v271 = v270 < 32l;
-            bool v272;
-            v272 = v271 == false;
-            if (v272){
-                assert("The length has to be less than the maximum length of the array." && v271);
+            US6 v267 = v3.v.case3.v0; bool v268 = v3.v.case3.v1; static_array<US4,2l> v269 = v3.v.case3.v2; long v270 = v3.v.case3.v3; static_array<long,2l> v271 = v3.v.case3.v4; long v272 = v3.v.case3.v5; US1 v273 = v3.v.case3.v6;
+            long v274;
+            v274 = v6.length;
+            bool v275;
+            v275 = v274 < 32l;
+            bool v276;
+            v276 = v275 == false;
+            if (v276){
+                assert("The length has to be less than the maximum length of the array." && v275);
             } else {
             }
-            long v273;
-            v273 = v270 + 1l;
-            v1.length = v273;
-            bool v274;
-            v274 = 0l <= v270;
-            bool v277;
-            if (v274){
-                long v275;
-                v275 = v1.length;
-                bool v276;
-                v276 = v270 < v275;
-                v277 = v276;
-            } else {
-                v277 = false;
-            }
+            long v277;
+            v277 = v274 + 1l;
+            v6.length = v277;
             bool v278;
-            v278 = v277 == false;
+            v278 = 0l <= v274;
+            bool v281;
             if (v278){
-                assert("The set index needs to be in range." && v277);
+                long v279;
+                v279 = v6.length;
+                bool v280;
+                v280 = v274 < v279;
+                v281 = v280;
+            } else {
+                v281 = false;
+            }
+            bool v282;
+            v282 = v281 == false;
+            if (v282){
+                assert("The set index needs to be in range." && v281);
             } else {
             }
-            US7 v279;
-            v279 = US7_1(v266, v269);
-            v1.v[v270] = v279;
-            US5 v393;
-            switch (v263.tag) {
+            US7 v283;
+            v283 = US7_1(v270, v273);
+            v6.v[v274] = v283;
+            US5 v397;
+            switch (v267.tag) {
                 case 0: { // None
-                    switch (v269.tag) {
+                    switch (v273.tag) {
                         case 0: { // Call
-                            if (v264){
-                                bool v346;
-                                v346 = v266 == 0l;
-                                long v347;
-                                if (v346){
-                                    v347 = 1l;
+                            if (v268){
+                                bool v350;
+                                v350 = v270 == 0l;
+                                long v351;
+                                if (v350){
+                                    v351 = 1l;
                                 } else {
-                                    v347 = 0l;
+                                    v351 = 0l;
                                 }
-                                v393 = US5_2(v263, false, v265, v347, v267, v268);
+                                v397 = US5_2(v267, false, v269, v351, v271, v272);
                             } else {
-                                v393 = US5_0(v263, v264, v265, v266, v267, v268);
+                                v397 = US5_0(v267, v268, v269, v270, v271, v272);
                             }
                             break;
                         }
                         case 1: { // Fold
-                            v393 = US5_5(v263, v264, v265, v266, v267, v268);
+                            v397 = US5_5(v267, v268, v269, v270, v271, v272);
                             break;
                         }
                         default: { // Raise
-                            bool v351;
-                            v351 = v268 > 0l;
-                            if (v351){
-                                bool v352;
-                                v352 = v266 == 0l;
-                                long v353;
-                                if (v352){
-                                    v353 = 1l;
+                            bool v355;
+                            v355 = v272 > 0l;
+                            if (v355){
+                                bool v356;
+                                v356 = v270 == 0l;
+                                long v357;
+                                if (v356){
+                                    v357 = 1l;
                                 } else {
-                                    v353 = 0l;
+                                    v357 = 0l;
                                 }
-                                long v354;
-                                v354 = -1l + v268;
-                                long v355; long v356;
+                                long v358;
+                                v358 = -1l + v272;
+                                long v359; long v360;
                                 Tuple1 tmp4 = Tuple1(0l, 0l);
-                                v355 = tmp4.v0; v356 = tmp4.v1;
-                                while (while_method_0(v355)){
-                                    bool v358;
-                                    v358 = 0l <= v355;
-                                    bool v360;
-                                    if (v358){
-                                        bool v359;
-                                        v359 = v355 < 2l;
-                                        v360 = v359;
+                                v359 = tmp4.v0; v360 = tmp4.v1;
+                                while (while_method_0(v359)){
+                                    bool v362;
+                                    v362 = 0l <= v359;
+                                    bool v364;
+                                    if (v362){
+                                        bool v363;
+                                        v363 = v359 < 2l;
+                                        v364 = v363;
                                     } else {
-                                        v360 = false;
+                                        v364 = false;
                                     }
-                                    bool v361;
-                                    v361 = v360 == false;
-                                    if (v361){
-                                        assert("The read index needs to be in range." && v360);
+                                    bool v365;
+                                    v365 = v364 == false;
+                                    if (v365){
+                                        assert("The read index needs to be in range." && v364);
                                     } else {
                                     }
-                                    long v362;
-                                    v362 = v267.v[v355];
-                                    bool v363;
-                                    v363 = v356 >= v362;
-                                    long v364;
-                                    if (v363){
-                                        v364 = v356;
+                                    long v366;
+                                    v366 = v271.v[v359];
+                                    bool v367;
+                                    v367 = v360 >= v366;
+                                    long v368;
+                                    if (v367){
+                                        v368 = v360;
                                     } else {
-                                        v364 = v362;
+                                        v368 = v366;
                                     }
-                                    v356 = v364;
-                                    v355 += 1l ;
+                                    v360 = v368;
+                                    v359 += 1l ;
                                 }
-                                static_array<long,2l> v365;
-                                long v366;
-                                v366 = 0l;
-                                while (while_method_0(v366)){
-                                    bool v368;
-                                    v368 = 0l <= v366;
-                                    bool v370;
-                                    if (v368){
-                                        bool v369;
-                                        v369 = v366 < 2l;
-                                        v370 = v369;
+                                static_array<long,2l> v369;
+                                long v370;
+                                v370 = 0l;
+                                while (while_method_0(v370)){
+                                    bool v372;
+                                    v372 = 0l <= v370;
+                                    bool v374;
+                                    if (v372){
+                                        bool v373;
+                                        v373 = v370 < 2l;
+                                        v374 = v373;
                                     } else {
-                                        v370 = false;
+                                        v374 = false;
                                     }
-                                    bool v371;
-                                    v371 = v370 == false;
-                                    if (v371){
-                                        assert("The read index needs to be in range." && v370);
-                                    } else {
-                                    }
-                                    v365.v[v366] = v356;
-                                    v366 += 1l ;
-                                }
-                                static_array<long,2l> v372;
-                                long v373;
-                                v373 = 0l;
-                                while (while_method_0(v373)){
                                     bool v375;
-                                    v375 = 0l <= v373;
-                                    bool v377;
+                                    v375 = v374 == false;
                                     if (v375){
-                                        bool v376;
-                                        v376 = v373 < 2l;
-                                        v377 = v376;
-                                    } else {
-                                        v377 = false;
-                                    }
-                                    bool v378;
-                                    v378 = v377 == false;
-                                    if (v378){
-                                        assert("The read index needs to be in range." && v377);
+                                        assert("The read index needs to be in range." && v374);
                                     } else {
                                     }
-                                    long v379;
-                                    v379 = v365.v[v373];
-                                    bool v380;
-                                    v380 = v373 == v266;
-                                    long v382;
-                                    if (v380){
-                                        long v381;
-                                        v381 = v379 + 2l;
-                                        v382 = v381;
-                                    } else {
-                                        v382 = v379;
-                                    }
-                                    bool v384;
-                                    if (v375){
-                                        bool v383;
-                                        v383 = v373 < 2l;
-                                        v384 = v383;
-                                    } else {
-                                        v384 = false;
-                                    }
-                                    bool v385;
-                                    v385 = v384 == false;
-                                    if (v385){
-                                        assert("The read index needs to be in range." && v384);
-                                    } else {
-                                    }
-                                    v372.v[v373] = v382;
-                                    v373 += 1l ;
+                                    v369.v[v370] = v360;
+                                    v370 += 1l ;
                                 }
-                                v393 = US5_2(v263, false, v265, v353, v372, v354);
+                                static_array<long,2l> v376;
+                                long v377;
+                                v377 = 0l;
+                                while (while_method_0(v377)){
+                                    bool v379;
+                                    v379 = 0l <= v377;
+                                    bool v381;
+                                    if (v379){
+                                        bool v380;
+                                        v380 = v377 < 2l;
+                                        v381 = v380;
+                                    } else {
+                                        v381 = false;
+                                    }
+                                    bool v382;
+                                    v382 = v381 == false;
+                                    if (v382){
+                                        assert("The read index needs to be in range." && v381);
+                                    } else {
+                                    }
+                                    long v383;
+                                    v383 = v369.v[v377];
+                                    bool v384;
+                                    v384 = v377 == v270;
+                                    long v386;
+                                    if (v384){
+                                        long v385;
+                                        v385 = v383 + 2l;
+                                        v386 = v385;
+                                    } else {
+                                        v386 = v383;
+                                    }
+                                    bool v388;
+                                    if (v379){
+                                        bool v387;
+                                        v387 = v377 < 2l;
+                                        v388 = v387;
+                                    } else {
+                                        v388 = false;
+                                    }
+                                    bool v389;
+                                    v389 = v388 == false;
+                                    if (v389){
+                                        assert("The read index needs to be in range." && v388);
+                                    } else {
+                                    }
+                                    v376.v[v377] = v386;
+                                    v377 += 1l ;
+                                }
+                                v397 = US5_2(v267, false, v269, v357, v376, v358);
                             } else {
                                 printf("%s\n", "Invalid action. The number of raises left is not positive.");
                                 asm("exit;");
@@ -1600,204 +1618,204 @@ __device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array
                     break;
                 }
                 default: { // Some
-                    US4 v280 = v263.v.case1.v0;
-                    switch (v269.tag) {
+                    US4 v284 = v267.v.case1.v0;
+                    switch (v273.tag) {
                         case 0: { // Call
-                            if (v264){
-                                bool v282;
-                                v282 = v266 == 0l;
-                                long v283;
-                                if (v282){
-                                    v283 = 1l;
+                            if (v268){
+                                bool v286;
+                                v286 = v270 == 0l;
+                                long v287;
+                                if (v286){
+                                    v287 = 1l;
                                 } else {
-                                    v283 = 0l;
+                                    v287 = 0l;
                                 }
-                                v393 = US5_2(v263, false, v265, v283, v267, v268);
+                                v397 = US5_2(v267, false, v269, v287, v271, v272);
                             } else {
-                                long v285; long v286;
+                                long v289; long v290;
                                 Tuple1 tmp5 = Tuple1(0l, 0l);
-                                v285 = tmp5.v0; v286 = tmp5.v1;
-                                while (while_method_0(v285)){
-                                    bool v288;
-                                    v288 = 0l <= v285;
-                                    bool v290;
-                                    if (v288){
-                                        bool v289;
-                                        v289 = v285 < 2l;
-                                        v290 = v289;
+                                v289 = tmp5.v0; v290 = tmp5.v1;
+                                while (while_method_0(v289)){
+                                    bool v292;
+                                    v292 = 0l <= v289;
+                                    bool v294;
+                                    if (v292){
+                                        bool v293;
+                                        v293 = v289 < 2l;
+                                        v294 = v293;
                                     } else {
-                                        v290 = false;
+                                        v294 = false;
                                     }
-                                    bool v291;
-                                    v291 = v290 == false;
-                                    if (v291){
-                                        assert("The read index needs to be in range." && v290);
+                                    bool v295;
+                                    v295 = v294 == false;
+                                    if (v295){
+                                        assert("The read index needs to be in range." && v294);
                                     } else {
                                     }
-                                    long v292;
-                                    v292 = v267.v[v285];
-                                    bool v293;
-                                    v293 = v286 >= v292;
-                                    long v294;
-                                    if (v293){
-                                        v294 = v286;
+                                    long v296;
+                                    v296 = v271.v[v289];
+                                    bool v297;
+                                    v297 = v290 >= v296;
+                                    long v298;
+                                    if (v297){
+                                        v298 = v290;
                                     } else {
-                                        v294 = v292;
+                                        v298 = v296;
                                     }
-                                    v286 = v294;
-                                    v285 += 1l ;
+                                    v290 = v298;
+                                    v289 += 1l ;
                                 }
-                                static_array<long,2l> v295;
-                                long v296;
-                                v296 = 0l;
-                                while (while_method_0(v296)){
-                                    bool v298;
-                                    v298 = 0l <= v296;
-                                    bool v300;
-                                    if (v298){
-                                        bool v299;
-                                        v299 = v296 < 2l;
-                                        v300 = v299;
+                                static_array<long,2l> v299;
+                                long v300;
+                                v300 = 0l;
+                                while (while_method_0(v300)){
+                                    bool v302;
+                                    v302 = 0l <= v300;
+                                    bool v304;
+                                    if (v302){
+                                        bool v303;
+                                        v303 = v300 < 2l;
+                                        v304 = v303;
                                     } else {
-                                        v300 = false;
+                                        v304 = false;
                                     }
-                                    bool v301;
-                                    v301 = v300 == false;
-                                    if (v301){
-                                        assert("The read index needs to be in range." && v300);
+                                    bool v305;
+                                    v305 = v304 == false;
+                                    if (v305){
+                                        assert("The read index needs to be in range." && v304);
                                     } else {
                                     }
-                                    v295.v[v296] = v286;
-                                    v296 += 1l ;
+                                    v299.v[v300] = v290;
+                                    v300 += 1l ;
                                 }
-                                v393 = US5_4(v263, v264, v265, v266, v295, v268);
+                                v397 = US5_4(v267, v268, v269, v270, v299, v272);
                             }
                             break;
                         }
                         case 1: { // Fold
-                            v393 = US5_5(v263, v264, v265, v266, v267, v268);
+                            v397 = US5_5(v267, v268, v269, v270, v271, v272);
                             break;
                         }
                         default: { // Raise
-                            bool v304;
-                            v304 = v268 > 0l;
-                            if (v304){
-                                bool v305;
-                                v305 = v266 == 0l;
-                                long v306;
-                                if (v305){
-                                    v306 = 1l;
+                            bool v308;
+                            v308 = v272 > 0l;
+                            if (v308){
+                                bool v309;
+                                v309 = v270 == 0l;
+                                long v310;
+                                if (v309){
+                                    v310 = 1l;
                                 } else {
-                                    v306 = 0l;
+                                    v310 = 0l;
                                 }
-                                long v307;
-                                v307 = -1l + v268;
-                                long v308; long v309;
+                                long v311;
+                                v311 = -1l + v272;
+                                long v312; long v313;
                                 Tuple1 tmp6 = Tuple1(0l, 0l);
-                                v308 = tmp6.v0; v309 = tmp6.v1;
-                                while (while_method_0(v308)){
-                                    bool v311;
-                                    v311 = 0l <= v308;
-                                    bool v313;
-                                    if (v311){
-                                        bool v312;
-                                        v312 = v308 < 2l;
-                                        v313 = v312;
+                                v312 = tmp6.v0; v313 = tmp6.v1;
+                                while (while_method_0(v312)){
+                                    bool v315;
+                                    v315 = 0l <= v312;
+                                    bool v317;
+                                    if (v315){
+                                        bool v316;
+                                        v316 = v312 < 2l;
+                                        v317 = v316;
                                     } else {
-                                        v313 = false;
+                                        v317 = false;
                                     }
-                                    bool v314;
-                                    v314 = v313 == false;
-                                    if (v314){
-                                        assert("The read index needs to be in range." && v313);
+                                    bool v318;
+                                    v318 = v317 == false;
+                                    if (v318){
+                                        assert("The read index needs to be in range." && v317);
                                     } else {
                                     }
-                                    long v315;
-                                    v315 = v267.v[v308];
-                                    bool v316;
-                                    v316 = v309 >= v315;
-                                    long v317;
-                                    if (v316){
-                                        v317 = v309;
+                                    long v319;
+                                    v319 = v271.v[v312];
+                                    bool v320;
+                                    v320 = v313 >= v319;
+                                    long v321;
+                                    if (v320){
+                                        v321 = v313;
                                     } else {
-                                        v317 = v315;
+                                        v321 = v319;
                                     }
-                                    v309 = v317;
-                                    v308 += 1l ;
+                                    v313 = v321;
+                                    v312 += 1l ;
                                 }
-                                static_array<long,2l> v318;
-                                long v319;
-                                v319 = 0l;
-                                while (while_method_0(v319)){
-                                    bool v321;
-                                    v321 = 0l <= v319;
-                                    bool v323;
-                                    if (v321){
-                                        bool v322;
-                                        v322 = v319 < 2l;
-                                        v323 = v322;
+                                static_array<long,2l> v322;
+                                long v323;
+                                v323 = 0l;
+                                while (while_method_0(v323)){
+                                    bool v325;
+                                    v325 = 0l <= v323;
+                                    bool v327;
+                                    if (v325){
+                                        bool v326;
+                                        v326 = v323 < 2l;
+                                        v327 = v326;
                                     } else {
-                                        v323 = false;
+                                        v327 = false;
                                     }
-                                    bool v324;
-                                    v324 = v323 == false;
-                                    if (v324){
-                                        assert("The read index needs to be in range." && v323);
-                                    } else {
-                                    }
-                                    v318.v[v319] = v309;
-                                    v319 += 1l ;
-                                }
-                                static_array<long,2l> v325;
-                                long v326;
-                                v326 = 0l;
-                                while (while_method_0(v326)){
                                     bool v328;
-                                    v328 = 0l <= v326;
-                                    bool v330;
+                                    v328 = v327 == false;
                                     if (v328){
-                                        bool v329;
-                                        v329 = v326 < 2l;
-                                        v330 = v329;
-                                    } else {
-                                        v330 = false;
-                                    }
-                                    bool v331;
-                                    v331 = v330 == false;
-                                    if (v331){
-                                        assert("The read index needs to be in range." && v330);
+                                        assert("The read index needs to be in range." && v327);
                                     } else {
                                     }
-                                    long v332;
-                                    v332 = v318.v[v326];
-                                    bool v333;
-                                    v333 = v326 == v266;
-                                    long v335;
-                                    if (v333){
-                                        long v334;
-                                        v334 = v332 + 4l;
-                                        v335 = v334;
-                                    } else {
-                                        v335 = v332;
-                                    }
-                                    bool v337;
-                                    if (v328){
-                                        bool v336;
-                                        v336 = v326 < 2l;
-                                        v337 = v336;
-                                    } else {
-                                        v337 = false;
-                                    }
-                                    bool v338;
-                                    v338 = v337 == false;
-                                    if (v338){
-                                        assert("The read index needs to be in range." && v337);
-                                    } else {
-                                    }
-                                    v325.v[v326] = v335;
-                                    v326 += 1l ;
+                                    v322.v[v323] = v313;
+                                    v323 += 1l ;
                                 }
-                                v393 = US5_2(v263, false, v265, v306, v325, v307);
+                                static_array<long,2l> v329;
+                                long v330;
+                                v330 = 0l;
+                                while (while_method_0(v330)){
+                                    bool v332;
+                                    v332 = 0l <= v330;
+                                    bool v334;
+                                    if (v332){
+                                        bool v333;
+                                        v333 = v330 < 2l;
+                                        v334 = v333;
+                                    } else {
+                                        v334 = false;
+                                    }
+                                    bool v335;
+                                    v335 = v334 == false;
+                                    if (v335){
+                                        assert("The read index needs to be in range." && v334);
+                                    } else {
+                                    }
+                                    long v336;
+                                    v336 = v322.v[v330];
+                                    bool v337;
+                                    v337 = v330 == v270;
+                                    long v339;
+                                    if (v337){
+                                        long v338;
+                                        v338 = v336 + 4l;
+                                        v339 = v338;
+                                    } else {
+                                        v339 = v336;
+                                    }
+                                    bool v341;
+                                    if (v332){
+                                        bool v340;
+                                        v340 = v330 < 2l;
+                                        v341 = v340;
+                                    } else {
+                                        v341 = false;
+                                    }
+                                    bool v342;
+                                    v342 = v341 == false;
+                                    if (v342){
+                                        assert("The read index needs to be in range." && v341);
+                                    } else {
+                                    }
+                                    v329.v[v330] = v339;
+                                    v330 += 1l ;
+                                }
+                                v397 = US5_2(v267, false, v269, v310, v329, v311);
                             } else {
                                 printf("%s\n", "Invalid action. The number of raises left is not positive.");
                                 asm("exit;");
@@ -1806,177 +1824,197 @@ __device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array
                     }
                 }
             }
-            return play_loop_inner_1(v0, v1, v2, v393);
+            return play_loop_inner_1(v0, v1, v2, v397);
             break;
         }
         case 4: { // TerminalCall
-            US6 v27 = v3.v.case4.v0; bool v28 = v3.v.case4.v1; static_array<US4,2l> v29 = v3.v.case4.v2; long v30 = v3.v.case4.v3; static_array<long,2l> v31 = v3.v.case4.v4; long v32 = v3.v.case4.v5;
-            bool v33;
-            v33 = 0l <= v30;
-            bool v35;
-            if (v33){
-                bool v34;
-                v34 = v30 < 2l;
-                v35 = v34;
-            } else {
-                v35 = false;
-            }
+            US6 v30 = v3.v.case4.v0; bool v31 = v3.v.case4.v1; static_array<US4,2l> v32 = v3.v.case4.v2; long v33 = v3.v.case4.v3; static_array<long,2l> v34 = v3.v.case4.v4; long v35 = v3.v.case4.v5;
             bool v36;
-            v36 = v35 == false;
+            v36 = 0l <= v33;
+            bool v38;
             if (v36){
-                assert("The read index needs to be in range." && v35);
+                bool v37;
+                v37 = v33 < 2l;
+                v38 = v37;
+            } else {
+                v38 = false;
+            }
+            bool v39;
+            v39 = v38 == false;
+            if (v39){
+                assert("The read index needs to be in range." && v38);
             } else {
             }
-            long v37;
-            v37 = v31.v[v30];
-            US9 v38;
-            v38 = compare_hands_3(v27, v28, v29, v30, v31, v32);
-            long v43; long v44;
-            switch (v38.tag) {
+            long v40;
+            v40 = v34.v[v33];
+            US9 v41;
+            v41 = compare_hands_3(v30, v31, v32, v33, v34, v35);
+            long v46; long v47;
+            switch (v41.tag) {
                 case 0: { // Eq
-                    v43 = 0l; v44 = -1l;
+                    v46 = 0l; v47 = -1l;
                     break;
                 }
                 case 1: { // Gt
-                    v43 = v37; v44 = 0l;
+                    v46 = v40; v47 = 0l;
                     break;
                 }
                 default: { // Lt
-                    v43 = v37; v44 = 1l;
+                    v46 = v40; v47 = 1l;
                 }
             }
-            long v45;
-            v45 = v1.length;
-            bool v46;
-            v46 = v45 < 32l;
-            bool v47;
-            v47 = v46 == false;
-            if (v47){
-                assert("The length has to be less than the maximum length of the array." && v46);
-            } else {
-            }
             long v48;
-            v48 = v45 + 1l;
-            v1.length = v48;
+            v48 = v6.length;
             bool v49;
-            v49 = 0l <= v45;
+            v49 = v48 < 32l;
+            bool v50;
+            v50 = v49 == false;
+            if (v50){
+                assert("The length has to be less than the maximum length of the array." && v49);
+            } else {
+            }
+            long v51;
+            v51 = v48 + 1l;
+            v6.length = v51;
             bool v52;
-            if (v49){
-                long v50;
-                v50 = v1.length;
-                bool v51;
-                v51 = v45 < v50;
-                v52 = v51;
+            v52 = 0l <= v48;
+            bool v55;
+            if (v52){
+                long v53;
+                v53 = v6.length;
+                bool v54;
+                v54 = v48 < v53;
+                v55 = v54;
             } else {
-                v52 = false;
+                v55 = false;
             }
-            bool v53;
-            v53 = v52 == false;
-            if (v53){
-                assert("The set index needs to be in range." && v52);
+            bool v56;
+            v56 = v55 == false;
+            if (v56){
+                assert("The set index needs to be in range." && v55);
             } else {
             }
-            US7 v54;
-            v54 = US7_3(v29, v43, v44);
-            v1.v[v45] = v54;
+            US7 v57;
+            v57 = US7_3(v32, v46, v47);
+            v6.v[v48] = v57;
             return v3;
             break;
         }
         default: { // TerminalFold
-            US6 v4 = v3.v.case5.v0; bool v5 = v3.v.case5.v1; static_array<US4,2l> v6 = v3.v.case5.v2; long v7 = v3.v.case5.v3; static_array<long,2l> v8 = v3.v.case5.v4; long v9 = v3.v.case5.v5;
-            bool v10;
-            v10 = 0l <= v7;
-            bool v12;
-            if (v10){
-                bool v11;
-                v11 = v7 < 2l;
-                v12 = v11;
-            } else {
-                v12 = false;
-            }
+            US6 v7 = v3.v.case5.v0; bool v8 = v3.v.case5.v1; static_array<US4,2l> v9 = v3.v.case5.v2; long v10 = v3.v.case5.v3; static_array<long,2l> v11 = v3.v.case5.v4; long v12 = v3.v.case5.v5;
             bool v13;
-            v13 = v12 == false;
-            if (v13){
-                assert("The read index needs to be in range." && v12);
-            } else {
-            }
-            long v14;
-            v14 = v8.v[v7];
+            v13 = 0l <= v10;
             bool v15;
-            v15 = v7 == 0l;
-            long v16;
-            if (v15){
-                v16 = 1l;
+            if (v13){
+                bool v14;
+                v14 = v10 < 2l;
+                v15 = v14;
             } else {
-                v16 = 0l;
+                v15 = false;
+            }
+            bool v16;
+            v16 = v15 == false;
+            if (v16){
+                assert("The read index needs to be in range." && v15);
+            } else {
             }
             long v17;
-            v17 = v1.length;
+            v17 = v11.v[v10];
             bool v18;
-            v18 = v17 < 32l;
-            bool v19;
-            v19 = v18 == false;
-            if (v19){
-                assert("The length has to be less than the maximum length of the array." && v18);
+            v18 = v10 == 0l;
+            long v19;
+            if (v18){
+                v19 = 1l;
             } else {
+                v19 = 0l;
             }
             long v20;
-            v20 = v17 + 1l;
-            v1.length = v20;
+            v20 = v6.length;
             bool v21;
-            v21 = 0l <= v17;
+            v21 = v20 < 32l;
+            bool v22;
+            v22 = v21 == false;
+            if (v22){
+                assert("The length has to be less than the maximum length of the array." && v21);
+            } else {
+            }
+            long v23;
+            v23 = v20 + 1l;
+            v6.length = v23;
             bool v24;
-            if (v21){
-                long v22;
-                v22 = v1.length;
-                bool v23;
-                v23 = v17 < v22;
-                v24 = v23;
+            v24 = 0l <= v20;
+            bool v27;
+            if (v24){
+                long v25;
+                v25 = v6.length;
+                bool v26;
+                v26 = v20 < v25;
+                v27 = v26;
             } else {
-                v24 = false;
+                v27 = false;
             }
-            bool v25;
-            v25 = v24 == false;
-            if (v25){
-                assert("The set index needs to be in range." && v24);
+            bool v28;
+            v28 = v27 == false;
+            if (v28){
+                assert("The set index needs to be in range." && v27);
             } else {
             }
-            US7 v26;
-            v26 = US7_3(v6, v14, v16);
-            v1.v[v17] = v26;
+            US7 v29;
+            v29 = US7_3(v9, v17, v19);
+            v6.v[v20] = v29;
             return v3;
         }
     }
 }
 __device__ Tuple0 play_loop_0(US3 v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US8 v3, static_array_list<US4,6l,long> v4, US5 v5){
-    US5 v6;
-    v6 = play_loop_inner_1(v4, v1, v2, v5);
-    switch (v6.tag) {
+    const char * v6;
+    v6 = "%s";
+    const char * v7;
+    v7 = "in play_loop";
+    printf(v6,v7);
+    printf("\n");
+    static_array_list<US7,32l,long> v8 = v1;
+    static_array_list<US4,6l,long> v9 = v4;
+    const char * v10;
+    v10 = "before calling play_loop_inner";
+    printf(v6,v10);
+    printf("\n");
+    US5 v11;
+    v11 = play_loop_inner_1(v9, v8, v2, v5);
+    const char * v12;
+    v12 = "after calling play_loop_inner";
+    printf(v6,v12);
+    printf("\n");
+    switch (v11.tag) {
         case 2: { // Round
-            US6 v7 = v6.v.case2.v0; bool v8 = v6.v.case2.v1; static_array<US4,2l> v9 = v6.v.case2.v2; long v10 = v6.v.case2.v3; static_array<long,2l> v11 = v6.v.case2.v4; long v12 = v6.v.case2.v5;
-            US3 v13;
-            v13 = US3_1(v4, v6);
-            US8 v14;
-            v14 = US8_2(v7, v8, v9, v10, v11, v12);
-            return Tuple0(v13, v1, v2, v14);
+            US6 v13 = v11.v.case2.v0; bool v14 = v11.v.case2.v1; static_array<US4,2l> v15 = v11.v.case2.v2; long v16 = v11.v.case2.v3; static_array<long,2l> v17 = v11.v.case2.v4; long v18 = v11.v.case2.v5;
+            static_array_list<US7,32l,long> v19 = v8;
+            static_array_list<US4,6l,long> v20 = v9;
+            US3 v21;
+            v21 = US3_1(v20, v11);
+            US8 v22;
+            v22 = US8_2(v13, v14, v15, v16, v17, v18);
+            return Tuple0(v21, v19, v2, v22);
             break;
         }
         case 4: { // TerminalCall
-            US6 v15 = v6.v.case4.v0; bool v16 = v6.v.case4.v1; static_array<US4,2l> v17 = v6.v.case4.v2; long v18 = v6.v.case4.v3; static_array<long,2l> v19 = v6.v.case4.v4; long v20 = v6.v.case4.v5;
-            US3 v21;
-            v21 = US3_0();
-            US8 v22;
-            v22 = US8_1(v15, v16, v17, v18, v19, v20);
-            return Tuple0(v21, v1, v2, v22);
+            US6 v23 = v11.v.case4.v0; bool v24 = v11.v.case4.v1; static_array<US4,2l> v25 = v11.v.case4.v2; long v26 = v11.v.case4.v3; static_array<long,2l> v27 = v11.v.case4.v4; long v28 = v11.v.case4.v5;
+            static_array_list<US7,32l,long> v29 = v8;
+            US3 v30;
+            v30 = US3_0();
+            US8 v31;
+            v31 = US8_1(v23, v24, v25, v26, v27, v28);
+            return Tuple0(v30, v29, v2, v31);
             break;
         }
         case 5: { // TerminalFold
-            US6 v23 = v6.v.case5.v0; bool v24 = v6.v.case5.v1; static_array<US4,2l> v25 = v6.v.case5.v2; long v26 = v6.v.case5.v3; static_array<long,2l> v27 = v6.v.case5.v4; long v28 = v6.v.case5.v5;
-            US3 v29;
-            v29 = US3_0();
-            US8 v30;
-            v30 = US8_1(v23, v24, v25, v26, v27, v28);
-            return Tuple0(v29, v1, v2, v30);
+            US6 v32 = v11.v.case5.v0; bool v33 = v11.v.case5.v1; static_array<US4,2l> v34 = v11.v.case5.v2; long v35 = v11.v.case5.v3; static_array<long,2l> v36 = v11.v.case5.v4; long v37 = v11.v.case5.v5;
+            static_array_list<US7,32l,long> v38 = v8;
+            US3 v39;
+            v39 = US3_0();
+            US8 v40;
+            v40 = US8_1(v32, v33, v34, v35, v36, v37);
+            return Tuple0(v39, v38, v2, v40);
             break;
         }
         default: {
@@ -4930,7 +4968,6 @@ from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
-import random
 options = []
 options.append('--define-macro=NDEBUG')
 options.append('--diag-suppress=550,20012')
@@ -5060,222 +5097,7 @@ class US8_3(NamedTuple): # Showdown
     v2 : i32
     tag = 3
 US8 = Union[US8_0, US8_1, US8_2, US8_3]
-class US9_0(NamedTuple): # Eq
-    tag = 0
-class US9_1(NamedTuple): # Gt
-    tag = 1
-class US9_2(NamedTuple): # Lt
-    tag = 2
-US9 = Union[US9_0, US9_1, US9_2]
 def Closure0():
-    def inner(v0 : object, v1 : object) -> object:
-        v2 = method0(v0)
-        v3, v4, v5, v6 = method5(v1)
-        match v2:
-            case US0_0(v80): # ActionSelected
-                match v3:
-                    case US3_0(): # None
-                        del v80
-                        v118, v119, v120, v121 = v3, v4, v5, v6
-                    case US3_1(v81, v82): # Some
-                        match v82:
-                            case US4_2(v83, v84, v85, v86, v87, v88): # Round
-                                del v82
-                                v89 = US4_3(v83, v84, v85, v86, v87, v88, v80)
-                                del v80, v83, v84, v85, v86, v87, v88
-                                v118, v119, v120, v121 = method12(v3, v4, v5, v6, v81, v89)
-                            case t:
-                                del v80, v81, v82
-                                raise Exception("Unexpected game node in ActionSelected.")
-                    case t:
-                        raise Exception(f'Pattern matching miss. Got: {t}')
-            case US0_1(v79): # PlayerChanged
-                v118, v119, v120, v121 = v3, v4, v79, v6
-            case US0_2(): # StartGame
-                v7 = static_array(2)
-                v8 = US2_0()
-                v7[0] = v8
-                del v8
-                v9 = US2_1()
-                v7[1] = v9
-                del v9
-                v10 = static_array_list(32)
-                v11 = US3_0()
-                v12 = US7_0()
-                v13 = static_array_list(6)
-                v13.length = 6
-                v14 = v13.length
-                v15 = 0 < v14
-                del v14
-                v16 = v15 == False
-                if v16:
-                    v17 = "The set index needs to be in range."
-                    assert v15, v17
-                    del v17
-                else:
-                    pass
-                del v15, v16
-                v18 = US6_1()
-                v13[0] = v18
-                del v18
-                v19 = v13.length
-                v20 = 1 < v19
-                del v19
-                v21 = v20 == False
-                if v21:
-                    v22 = "The set index needs to be in range."
-                    assert v20, v22
-                    del v22
-                else:
-                    pass
-                del v20, v21
-                v23 = US6_1()
-                v13[1] = v23
-                del v23
-                v24 = v13.length
-                v25 = 2 < v24
-                del v24
-                v26 = v25 == False
-                if v26:
-                    v27 = "The set index needs to be in range."
-                    assert v25, v27
-                    del v27
-                else:
-                    pass
-                del v25, v26
-                v28 = US6_2()
-                v13[2] = v28
-                del v28
-                v29 = v13.length
-                v30 = 3 < v29
-                del v29
-                v31 = v30 == False
-                if v31:
-                    v32 = "The set index needs to be in range."
-                    assert v30, v32
-                    del v32
-                else:
-                    pass
-                del v30, v31
-                v33 = US6_2()
-                v13[3] = v33
-                del v33
-                v34 = v13.length
-                v35 = 4 < v34
-                del v34
-                v36 = v35 == False
-                if v36:
-                    v37 = "The set index needs to be in range."
-                    assert v35, v37
-                    del v37
-                else:
-                    pass
-                del v35, v36
-                v38 = US6_0()
-                v13[4] = v38
-                del v38
-                v39 = v13.length
-                v40 = 5 < v39
-                del v39
-                v41 = v40 == False
-                if v41:
-                    v42 = "The set index needs to be in range."
-                    assert v40, v42
-                    del v42
-                else:
-                    pass
-                del v40, v41
-                v43 = US6_0()
-                v13[5] = v43
-                del v43
-                v44 = v13.length
-                v45 = v44 - 1
-                del v44
-                v46 = 0
-                while method3(v45, v46):
-                    v48 = v13.length
-                    v49 = random.randrange(v46, v48)
-                    del v48
-                    v50 = 0 <= v46
-                    if v50:
-                        v51 = v13.length
-                        v52 = v46 < v51
-                        del v51
-                        v53 = v52
-                    else:
-                        v53 = False
-                    v54 = v53 == False
-                    if v54:
-                        v55 = "The read index needs to be in range."
-                        assert v53, v55
-                        del v55
-                    else:
-                        pass
-                    del v53, v54
-                    v56 = v13[v46]
-                    v57 = 0 <= v49
-                    if v57:
-                        v58 = v13.length
-                        v59 = v49 < v58
-                        del v58
-                        v60 = v59
-                    else:
-                        v60 = False
-                    v61 = v60 == False
-                    if v61:
-                        v62 = "The read index needs to be in range."
-                        assert v60, v62
-                        del v62
-                    else:
-                        pass
-                    del v60, v61
-                    v63 = v13[v49]
-                    if v50:
-                        v64 = v13.length
-                        v65 = v46 < v64
-                        del v64
-                        v66 = v65
-                    else:
-                        v66 = False
-                    del v50
-                    v67 = v66 == False
-                    if v67:
-                        v68 = "The set index needs to be in range."
-                        assert v66, v68
-                        del v68
-                    else:
-                        pass
-                    del v66, v67
-                    v13[v46] = v63
-                    del v63
-                    if v57:
-                        v69 = v13.length
-                        v70 = v49 < v69
-                        del v69
-                        v71 = v70
-                    else:
-                        v71 = False
-                    del v57
-                    v72 = v71 == False
-                    if v72:
-                        v73 = "The set index needs to be in range."
-                        assert v71, v73
-                        del v73
-                    else:
-                        pass
-                    del v71, v72
-                    v13[v49] = v56
-                    del v49, v56
-                    v46 += 1 
-                del v45, v46
-                v74 = US4_1()
-                v118, v119, v120, v121 = method12(v11, v10, v7, v12, v13, v74)
-            case t:
-                raise Exception(f'Pattern matching miss. Got: {t}')
-        del v2, v3, v4, v5, v6
-        return method19(v118, v119, v120, v121)
-    return inner
-def Closure1():
     def inner(v0 : object, v1 : object) -> object:
         v2 = cp.empty(16,dtype=cp.uint8)
         v3 = cp.empty(1152,dtype=cp.uint8)
@@ -5302,7 +5124,7 @@ def Closure1():
                         raise Exception(f'Pattern matching miss. Got: {t}')
             case US0_1(v14): # PlayerChanged
                 v15 = 0
-                while method14(v15):
+                while method12(v15):
                     v17 = u64(v15)
                     v18 = v17 * 4
                     del v17
@@ -5438,7 +5260,7 @@ def Closure1():
                         v64[0] = v54
                         del v54, v64
                         v65 = 0
-                        while method14(v65):
+                        while method12(v65):
                             v67 = u64(v65)
                             v68 = v67 * 4
                             del v67
@@ -5483,7 +5305,7 @@ def Closure1():
                         v79[0] = v56
                         del v56, v79
                         v80 = 0
-                        while method14(v80):
+                        while method12(v80):
                             v82 = u64(v80)
                             v83 = v82 * 4
                             del v82
@@ -5548,7 +5370,7 @@ def Closure1():
                         v105[0] = v95
                         del v95, v105
                         v106 = 0
-                        while method14(v106):
+                        while method12(v106):
                             v108 = u64(v106)
                             v109 = v108 * 4
                             del v108
@@ -5593,7 +5415,7 @@ def Closure1():
                         v120[0] = v97
                         del v97, v120
                         v121 = 0
-                        while method14(v121):
+                        while method12(v121):
                             v123 = u64(v121)
                             v124 = v123 * 4
                             del v123
@@ -5656,7 +5478,7 @@ def Closure1():
                         v147[0] = v136
                         del v136, v147
                         v148 = 0
-                        while method14(v148):
+                        while method12(v148):
                             v150 = u64(v148)
                             v151 = v150 * 4
                             del v150
@@ -5701,7 +5523,7 @@ def Closure1():
                         v162[0] = v138
                         del v138, v162
                         v163 = 0
-                        while method14(v163):
+                        while method12(v163):
                             v165 = u64(v163)
                             v166 = v165 * 4
                             del v165
@@ -5777,7 +5599,7 @@ def Closure1():
                         v190[0] = v180
                         del v180, v190
                         v191 = 0
-                        while method14(v191):
+                        while method12(v191):
                             v193 = u64(v191)
                             v194 = v193 * 4
                             del v193
@@ -5822,7 +5644,7 @@ def Closure1():
                         v205[0] = v182
                         del v182, v205
                         v206 = 0
-                        while method14(v206):
+                        while method12(v206):
                             v208 = u64(v206)
                             v209 = v208 * 4
                             del v208
@@ -5885,7 +5707,7 @@ def Closure1():
                         v231[0] = v221
                         del v221, v231
                         v232 = 0
-                        while method14(v232):
+                        while method12(v232):
                             v234 = u64(v232)
                             v235 = v234 * 4
                             del v234
@@ -5930,7 +5752,7 @@ def Closure1():
                         v246[0] = v223
                         del v223, v246
                         v247 = 0
-                        while method14(v247):
+                        while method12(v247):
                             v249 = u64(v247)
                             v250 = v249 * 4
                             del v249
@@ -6055,7 +5877,7 @@ def Closure1():
                             raise Exception(f'Pattern matching miss. Got: {t}')
                 case US8_3(v292, v293, v294): # Showdown
                     v295 = 0
-                    while method14(v295):
+                    while method12(v295):
                         v297 = u64(v295)
                         v298 = v297 * 4
                         del v297
@@ -6108,7 +5930,7 @@ def Closure1():
             v264 += 1 
         del v6, v263, v264
         v311 = 0
-        while method14(v311):
+        while method12(v311):
             v313 = u64(v311)
             v314 = v313 * 4
             del v313
@@ -6183,7 +6005,7 @@ def Closure1():
                 v338[0] = v328
                 del v328, v338
                 v339 = 0
-                while method14(v339):
+                while method12(v339):
                     v341 = u64(v339)
                     v342 = v341 * 4
                     del v341
@@ -6228,7 +6050,7 @@ def Closure1():
                 v353[0] = v330
                 del v330, v353
                 v354 = 0
-                while method14(v354):
+                while method12(v354):
                     v356 = u64(v354)
                     v357 = v356 * 4
                     del v356
@@ -6290,7 +6112,7 @@ def Closure1():
                 v379[0] = v369
                 del v369, v379
                 v380 = 0
-                while method14(v380):
+                while method12(v380):
                     v382 = u64(v380)
                     v383 = v382 * 4
                     del v382
@@ -6335,7 +6157,7 @@ def Closure1():
                 v394[0] = v371
                 del v371, v394
                 v395 = 0
-                while method14(v395):
+                while method12(v395):
                     v397 = u64(v395)
                     v398 = v397 * 4
                     del v397
@@ -6464,7 +6286,7 @@ def Closure1():
                 del v454
                 v456 = static_array(2)
                 v457 = 0
-                while method14(v457):
+                while method12(v457):
                     v459 = u64(v457)
                     v460 = v459 * 4
                     del v459
@@ -6509,7 +6331,7 @@ def Closure1():
                 del v475
                 v477 = static_array(2)
                 v478 = 0
-                while method14(v478):
+                while method12(v478):
                     v480 = u64(v478)
                     v481 = v480 * 4
                     del v480
@@ -6574,7 +6396,7 @@ def Closure1():
                 del v508
                 v510 = static_array(2)
                 v511 = 0
-                while method14(v511):
+                while method12(v511):
                     v513 = u64(v511)
                     v514 = v513 * 4
                     del v513
@@ -6619,7 +6441,7 @@ def Closure1():
                 del v529
                 v531 = static_array(2)
                 v532 = 0
-                while method14(v532):
+                while method12(v532):
                     v534 = u64(v532)
                     v535 = v534 * 4
                     del v534
@@ -6682,7 +6504,7 @@ def Closure1():
                 del v561
                 v563 = static_array(2)
                 v564 = 0
-                while method14(v564):
+                while method12(v564):
                     v566 = u64(v564)
                     v567 = v566 * 4
                     del v566
@@ -6727,7 +6549,7 @@ def Closure1():
                 del v582
                 v584 = static_array(2)
                 v585 = 0
-                while method14(v585):
+                while method12(v585):
                     v587 = u64(v585)
                     v588 = v587 * 4
                     del v587
@@ -6802,7 +6624,7 @@ def Closure1():
                 del v621
                 v623 = static_array(2)
                 v624 = 0
-                while method14(v624):
+                while method12(v624):
                     v626 = u64(v624)
                     v627 = v626 * 4
                     del v626
@@ -6847,7 +6669,7 @@ def Closure1():
                 del v642
                 v644 = static_array(2)
                 v645 = 0
-                while method14(v645):
+                while method12(v645):
                     v647 = u64(v645)
                     v648 = v647 * 4
                     del v647
@@ -6910,7 +6732,7 @@ def Closure1():
                 del v674
                 v676 = static_array(2)
                 v677 = 0
-                while method14(v677):
+                while method12(v677):
                     v679 = u64(v677)
                     v680 = v679 * 4
                     del v679
@@ -6955,7 +6777,7 @@ def Closure1():
                 del v695
                 v697 = static_array(2)
                 v698 = 0
-                while method14(v698):
+                while method12(v698):
                     v700 = u64(v698)
                     v701 = v700 * 4
                     del v700
@@ -7067,7 +6889,7 @@ def Closure1():
             elif v728 == 3:
                 v758 = static_array(2)
                 v759 = 0
-                while method14(v759):
+                while method12(v759):
                     v761 = u64(v759)
                     v762 = v761 * 4
                     del v761
@@ -7140,7 +6962,7 @@ def Closure1():
         del v720, v721
         v789 = static_array(2)
         v790 = 0
-        while method14(v790):
+        while method12(v790):
             v792 = u64(v790)
             v793 = v792 * 4
             del v792
@@ -7211,7 +7033,7 @@ def Closure1():
             del v824
             v826 = static_array(2)
             v827 = 0
-            while method14(v827):
+            while method12(v827):
                 v829 = u64(v827)
                 v830 = v829 * 4
                 del v829
@@ -7256,7 +7078,7 @@ def Closure1():
             del v845
             v847 = static_array(2)
             v848 = 0
-            while method14(v848):
+            while method12(v848):
                 v850 = u64(v848)
                 v851 = v850 * 4
                 del v850
@@ -7319,7 +7141,7 @@ def Closure1():
             del v877
             v879 = static_array(2)
             v880 = 0
-            while method14(v880):
+            while method12(v880):
                 v882 = u64(v880)
                 v883 = v882 * 4
                 del v882
@@ -7364,7 +7186,7 @@ def Closure1():
             del v898
             v900 = static_array(2)
             v901 = 0
-            while method14(v901):
+            while method12(v901):
                 v903 = u64(v901)
                 v904 = v903 * 4
                 del v903
@@ -7402,9 +7224,9 @@ def Closure1():
         else:
             raise Exception("Invalid tag.")
         del v3, v808
-        return method19(v716, v717, v789, v917)
+        return method13(v716, v717, v789, v917)
     return inner
-def Closure2():
+def Closure1():
     def inner() -> object:
         v0 = static_array(2)
         v1 = US2_0()
@@ -7416,7 +7238,7 @@ def Closure2():
         v3 = static_array_list(32)
         v4 = US3_0()
         v5 = US7_0()
-        return method19(v4, v3, v0, v5)
+        return method13(v4, v3, v0, v5)
     return inner
 def method2(v0 : object) -> US1:
     v1 = v0[0] # type: ignore
@@ -8565,1415 +8387,11 @@ def method5(v0 : object) -> Tuple[US3, static_array_list, static_array, US7]:
     v37 = method11(v36)
     del v36
     return v2, v10, v26, v37
-def method14(v0 : i32) -> bool:
+def method12(v0 : i32) -> bool:
     v1 = v0 < 2
     del v0
     return v1
-def method16(v0 : US6) -> i32:
-    match v0:
-        case US6_0(): # Jack
-            del v0
-            return 0
-        case US6_1(): # King
-            del v0
-            return 2
-        case US6_2(): # Queen
-            del v0
-            return 1
-        case t:
-            raise Exception(f'Pattern matching miss. Got: {t}')
-def method17(v0 : i32, v1 : i32) -> bool:
-    v2 = v1 == v0
-    del v0, v1
-    return v2
-def method18(v0 : i32, v1 : i32) -> Tuple[i32, i32]:
-    v2 = v1 > v0
-    if v2:
-        del v2
-        return v1, v0
-    else:
-        del v2
-        return v0, v1
-def method15(v0 : US5, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : i32) -> US9:
-    del v1, v3, v4, v5
-    match v0:
-        case US5_0(): # None
-            del v0, v2
-            raise Exception("Expected the community card to be present in the table.")
-        case US5_1(v7): # Some
-            del v0
-            v8 = method16(v7)
-            del v7
-            v9 = v2[0]
-            v10 = method16(v9)
-            del v9
-            v11 = v2[1]
-            del v2
-            v12 = method16(v11)
-            del v11
-            v13 = method17(v8, v10)
-            v14 = method17(v8, v12)
-            if v13:
-                del v8, v13
-                if v14:
-                    del v14
-                    v15 = v10 < v12
-                    if v15:
-                        del v10, v12, v15
-                        return US9_2()
-                    else:
-                        del v15
-                        v17 = v10 > v12
-                        del v10, v12
-                        if v17:
-                            del v17
-                            return US9_1()
-                        else:
-                            del v17
-                            return US9_0()
-                else:
-                    del v10, v12, v14
-                    return US9_1()
-            else:
-                del v13
-                if v14:
-                    del v8, v10, v12, v14
-                    return US9_2()
-                else:
-                    del v14
-                    v25, v26 = method18(v8, v10)
-                    del v10
-                    v27, v28 = method18(v8, v12)
-                    del v8, v12
-                    v29 = v25 < v27
-                    if v29:
-                        v35 = US9_2()
-                    else:
-                        v31 = v25 > v27
-                        if v31:
-                            del v31
-                            v35 = US9_1()
-                        else:
-                            del v31
-                            v35 = US9_0()
-                    del v25, v27, v29
-                    match v35:
-                        case US9_0(): # Eq
-                            v36 = True
-                        case t:
-                            v36 = False
-                    if v36:
-                        del v35, v36
-                        v37 = v26 < v28
-                        if v37:
-                            del v26, v28, v37
-                            return US9_2()
-                        else:
-                            del v37
-                            v39 = v26 > v28
-                            del v26, v28
-                            if v39:
-                                del v39
-                                return US9_1()
-                            else:
-                                del v39
-                                return US9_0()
-                    else:
-                        del v26, v28, v36
-                        return v35
-        case t:
-            raise Exception(f'Pattern matching miss. Got: {t}')
-def method13(v0 : static_array_list, v1 : static_array_list, v2 : static_array, v3 : US4) -> US4:
-    match v3:
-        case US4_0(_, _, v430, _, v432, _): # ChanceCommunityCard
-            del v3
-            v434 = v0.length
-            v435 = v434 - 1
-            del v434
-            v436 = 0 <= v435
-            if v436:
-                v437 = v0.length
-                v438 = v435 < v437
-                del v437
-                v439 = v438
-            else:
-                v439 = False
-            del v436
-            v440 = v439 == False
-            if v440:
-                v441 = "The read index needs to be in range."
-                assert v439, v441
-                del v441
-            else:
-                pass
-            del v439, v440
-            v442 = v0[v435]
-            v0.length = v435
-            del v435
-            v443 = v1.length
-            v444 = v443 < 32
-            v445 = v444 == False
-            if v445:
-                v446 = "The length has to be less than the maximum length of the array."
-                assert v444, v446
-                del v446
-            else:
-                pass
-            del v444, v445
-            v447 = v443 + 1
-            v1.length = v447
-            del v447
-            v448 = 0 <= v443
-            if v448:
-                v449 = v1.length
-                v450 = v443 < v449
-                del v449
-                v451 = v450
-            else:
-                v451 = False
-            del v448
-            v452 = v451 == False
-            if v452:
-                v453 = "The set index needs to be in range."
-                assert v451, v453
-                del v453
-            else:
-                pass
-            del v451, v452
-            v454 = US8_0(v442)
-            v1[v443] = v454
-            del v443, v454
-            v455 = 2
-            v456, v457 = (0, 0)
-            while method14(v456):
-                v459 = 0 <= v456
-                if v459:
-                    v460 = v456 < 2
-                    v461 = v460
-                else:
-                    v461 = False
-                del v459
-                v462 = v461 == False
-                if v462:
-                    v463 = "The read index needs to be in range."
-                    assert v461, v463
-                    del v463
-                else:
-                    pass
-                del v461, v462
-                v464 = v432[v456]
-                v465 = v457 >= v464
-                if v465:
-                    v466 = v457
-                else:
-                    v466 = v464
-                del v464, v465
-                v457 = v466
-                del v466
-                v456 += 1 
-            del v432, v456
-            v467 = static_array(2)
-            v468 = 0
-            while method14(v468):
-                v470 = 0 <= v468
-                if v470:
-                    v471 = v468 < 2
-                    v472 = v471
-                else:
-                    v472 = False
-                del v470
-                v473 = v472 == False
-                if v473:
-                    v474 = "The read index needs to be in range."
-                    assert v472, v474
-                    del v474
-                else:
-                    pass
-                del v472, v473
-                v467[v468] = v457
-                v468 += 1 
-            del v457, v468
-            v475 = US5_1(v442)
-            del v442
-            v476 = True
-            v477 = 0
-            v478 = US4_2(v475, v476, v430, v477, v467, v455)
-            del v430, v455, v467, v475, v476, v477
-            return method13(v0, v1, v2, v478)
-        case US4_1(): # ChanceInit
-            del v3
-            v480 = v0.length
-            v481 = v480 - 1
-            del v480
-            v482 = 0 <= v481
-            if v482:
-                v483 = v0.length
-                v484 = v481 < v483
-                del v483
-                v485 = v484
-            else:
-                v485 = False
-            del v482
-            v486 = v485 == False
-            if v486:
-                v487 = "The read index needs to be in range."
-                assert v485, v487
-                del v487
-            else:
-                pass
-            del v485, v486
-            v488 = v0[v481]
-            v0.length = v481
-            del v481
-            v489 = v0.length
-            v490 = v489 - 1
-            del v489
-            v491 = 0 <= v490
-            if v491:
-                v492 = v0.length
-                v493 = v490 < v492
-                del v492
-                v494 = v493
-            else:
-                v494 = False
-            del v491
-            v495 = v494 == False
-            if v495:
-                v496 = "The read index needs to be in range."
-                assert v494, v496
-                del v496
-            else:
-                pass
-            del v494, v495
-            v497 = v0[v490]
-            v0.length = v490
-            del v490
-            v498 = v1.length
-            v499 = v498 < 32
-            v500 = v499 == False
-            if v500:
-                v501 = "The length has to be less than the maximum length of the array."
-                assert v499, v501
-                del v501
-            else:
-                pass
-            del v499, v500
-            v502 = v498 + 1
-            v1.length = v502
-            del v502
-            v503 = 0 <= v498
-            if v503:
-                v504 = v1.length
-                v505 = v498 < v504
-                del v504
-                v506 = v505
-            else:
-                v506 = False
-            del v503
-            v507 = v506 == False
-            if v507:
-                v508 = "The set index needs to be in range."
-                assert v506, v508
-                del v508
-            else:
-                pass
-            del v506, v507
-            v509 = US8_2(0, v488)
-            v1[v498] = v509
-            del v498, v509
-            v510 = v1.length
-            v511 = v510 < 32
-            v512 = v511 == False
-            if v512:
-                v513 = "The length has to be less than the maximum length of the array."
-                assert v511, v513
-                del v513
-            else:
-                pass
-            del v511, v512
-            v514 = v510 + 1
-            v1.length = v514
-            del v514
-            v515 = 0 <= v510
-            if v515:
-                v516 = v1.length
-                v517 = v510 < v516
-                del v516
-                v518 = v517
-            else:
-                v518 = False
-            del v515
-            v519 = v518 == False
-            if v519:
-                v520 = "The set index needs to be in range."
-                assert v518, v520
-                del v520
-            else:
-                pass
-            del v518, v519
-            v521 = US8_2(1, v497)
-            v1[v510] = v521
-            del v510, v521
-            v522 = 2
-            v523 = static_array(2)
-            v523[0] = 1
-            v523[1] = 1
-            v524 = static_array(2)
-            v524[0] = v488
-            del v488
-            v524[1] = v497
-            del v497
-            v525 = US5_0()
-            v526 = True
-            v527 = 0
-            v528 = US4_2(v525, v526, v524, v527, v523, v522)
-            del v522, v523, v524, v525, v526, v527
-            return method13(v0, v1, v2, v528)
-        case US4_2(v61, v62, v63, v64, v65, v66): # Round
-            v67 = 0 <= v64
-            if v67:
-                v68 = v64 < 2
-                v69 = v68
-            else:
-                v69 = False
-            del v67
-            v70 = v69 == False
-            if v70:
-                v71 = "The read index needs to be in range."
-                assert v69, v71
-                del v71
-            else:
-                pass
-            del v69, v70
-            v72 = v2[v64]
-            match v72:
-                case US2_0(): # Computer
-                    del v3, v72
-                    v73 = static_array_list(3)
-                    v73.length = 1
-                    v74 = v73.length
-                    v75 = 0 < v74
-                    del v74
-                    v76 = v75 == False
-                    if v76:
-                        v77 = "The set index needs to be in range."
-                        assert v75, v77
-                        del v77
-                    else:
-                        pass
-                    del v75, v76
-                    v78 = US1_0()
-                    v73[0] = v78
-                    del v78
-                    v79 = v65[0]
-                    v80 = v65[1]
-                    v81 = v79 == v80
-                    del v79, v80
-                    v82 = v81 != True
-                    del v81
-                    if v82:
-                        v83 = v73.length
-                        v84 = v83 < 3
-                        v85 = v84 == False
-                        if v85:
-                            v86 = "The length has to be less than the maximum length of the array."
-                            assert v84, v86
-                            del v86
-                        else:
-                            pass
-                        del v84, v85
-                        v87 = v83 + 1
-                        v73.length = v87
-                        del v87
-                        v88 = 0 <= v83
-                        if v88:
-                            v89 = v73.length
-                            v90 = v83 < v89
-                            del v89
-                            v91 = v90
-                        else:
-                            v91 = False
-                        del v88
-                        v92 = v91 == False
-                        if v92:
-                            v93 = "The set index needs to be in range."
-                            assert v91, v93
-                            del v93
-                        else:
-                            pass
-                        del v91, v92
-                        v94 = US1_1()
-                        v73[v83] = v94
-                        del v83, v94
-                    else:
-                        pass
-                    del v82
-                    v95 = v66 > 0
-                    if v95:
-                        v96 = v73.length
-                        v97 = v96 < 3
-                        v98 = v97 == False
-                        if v98:
-                            v99 = "The length has to be less than the maximum length of the array."
-                            assert v97, v99
-                            del v99
-                        else:
-                            pass
-                        del v97, v98
-                        v100 = v96 + 1
-                        v73.length = v100
-                        del v100
-                        v101 = 0 <= v96
-                        if v101:
-                            v102 = v73.length
-                            v103 = v96 < v102
-                            del v102
-                            v104 = v103
-                        else:
-                            v104 = False
-                        del v101
-                        v105 = v104 == False
-                        if v105:
-                            v106 = "The set index needs to be in range."
-                            assert v104, v106
-                            del v106
-                        else:
-                            pass
-                        del v104, v105
-                        v107 = US1_2()
-                        v73[v96] = v107
-                        del v96, v107
-                    else:
-                        pass
-                    v108 = v73.length
-                    v109 = v108 - 1
-                    del v108
-                    v110 = 0
-                    while method3(v109, v110):
-                        v112 = v73.length
-                        v113 = random.randrange(v110, v112)
-                        del v112
-                        v114 = 0 <= v110
-                        if v114:
-                            v115 = v73.length
-                            v116 = v110 < v115
-                            del v115
-                            v117 = v116
-                        else:
-                            v117 = False
-                        v118 = v117 == False
-                        if v118:
-                            v119 = "The read index needs to be in range."
-                            assert v117, v119
-                            del v119
-                        else:
-                            pass
-                        del v117, v118
-                        v120 = v73[v110]
-                        v121 = 0 <= v113
-                        if v121:
-                            v122 = v73.length
-                            v123 = v113 < v122
-                            del v122
-                            v124 = v123
-                        else:
-                            v124 = False
-                        v125 = v124 == False
-                        if v125:
-                            v126 = "The read index needs to be in range."
-                            assert v124, v126
-                            del v126
-                        else:
-                            pass
-                        del v124, v125
-                        v127 = v73[v113]
-                        if v114:
-                            v128 = v73.length
-                            v129 = v110 < v128
-                            del v128
-                            v130 = v129
-                        else:
-                            v130 = False
-                        del v114
-                        v131 = v130 == False
-                        if v131:
-                            v132 = "The set index needs to be in range."
-                            assert v130, v132
-                            del v132
-                        else:
-                            pass
-                        del v130, v131
-                        v73[v110] = v127
-                        del v127
-                        if v121:
-                            v133 = v73.length
-                            v134 = v113 < v133
-                            del v133
-                            v135 = v134
-                        else:
-                            v135 = False
-                        del v121
-                        v136 = v135 == False
-                        if v136:
-                            v137 = "The set index needs to be in range."
-                            assert v135, v137
-                            del v137
-                        else:
-                            pass
-                        del v135, v136
-                        v73[v113] = v120
-                        del v113, v120
-                        v110 += 1 
-                    del v109, v110
-                    v138 = v73.length
-                    v139 = v138 - 1
-                    del v138
-                    v140 = 0 <= v139
-                    if v140:
-                        v141 = v73.length
-                        v142 = v139 < v141
-                        del v141
-                        v143 = v142
-                    else:
-                        v143 = False
-                    del v140
-                    v144 = v143 == False
-                    if v144:
-                        v145 = "The read index needs to be in range."
-                        assert v143, v145
-                        del v145
-                    else:
-                        pass
-                    del v143, v144
-                    v146 = v73[v139]
-                    v73.length = v139
-                    del v73, v139
-                    v147 = v1.length
-                    v148 = v147 < 32
-                    v149 = v148 == False
-                    if v149:
-                        v150 = "The length has to be less than the maximum length of the array."
-                        assert v148, v150
-                        del v150
-                    else:
-                        pass
-                    del v148, v149
-                    v151 = v147 + 1
-                    v1.length = v151
-                    del v151
-                    v152 = 0 <= v147
-                    if v152:
-                        v153 = v1.length
-                        v154 = v147 < v153
-                        del v153
-                        v155 = v154
-                    else:
-                        v155 = False
-                    del v152
-                    v156 = v155 == False
-                    if v156:
-                        v157 = "The set index needs to be in range."
-                        assert v155, v157
-                        del v157
-                    else:
-                        pass
-                    del v155, v156
-                    v158 = US8_1(v64, v146)
-                    v1[v147] = v158
-                    del v147, v158
-                    match v61:
-                        case US5_0(): # None
-                            match v146:
-                                case US1_0(): # Call
-                                    if v62:
-                                        v230 = v64 == 0
-                                        if v230:
-                                            v231 = 1
-                                        else:
-                                            v231 = 0
-                                        del v230
-                                        v280 = US4_2(v61, False, v63, v231, v65, v66)
-                                    else:
-                                        v280 = US4_0(v61, v62, v63, v64, v65, v66)
-                                case US1_1(): # Fold
-                                    v280 = US4_5(v61, v62, v63, v64, v65, v66)
-                                case US1_2(): # Raise
-                                    if v95:
-                                        v235 = v64 == 0
-                                        if v235:
-                                            v236 = 1
-                                        else:
-                                            v236 = 0
-                                        del v235
-                                        v237 = -1 + v66
-                                        v238, v239 = (0, 0)
-                                        while method14(v238):
-                                            v241 = 0 <= v238
-                                            if v241:
-                                                v242 = v238 < 2
-                                                v243 = v242
-                                            else:
-                                                v243 = False
-                                            del v241
-                                            v244 = v243 == False
-                                            if v244:
-                                                v245 = "The read index needs to be in range."
-                                                assert v243, v245
-                                                del v245
-                                            else:
-                                                pass
-                                            del v243, v244
-                                            v246 = v65[v238]
-                                            v247 = v239 >= v246
-                                            if v247:
-                                                v248 = v239
-                                            else:
-                                                v248 = v246
-                                            del v246, v247
-                                            v239 = v248
-                                            del v248
-                                            v238 += 1 
-                                        del v238
-                                        v249 = static_array(2)
-                                        v250 = 0
-                                        while method14(v250):
-                                            v252 = 0 <= v250
-                                            if v252:
-                                                v253 = v250 < 2
-                                                v254 = v253
-                                            else:
-                                                v254 = False
-                                            del v252
-                                            v255 = v254 == False
-                                            if v255:
-                                                v256 = "The read index needs to be in range."
-                                                assert v254, v256
-                                                del v256
-                                            else:
-                                                pass
-                                            del v254, v255
-                                            v249[v250] = v239
-                                            v250 += 1 
-                                        del v239, v250
-                                        v257 = static_array(2)
-                                        v258 = 0
-                                        while method14(v258):
-                                            v260 = 0 <= v258
-                                            if v260:
-                                                v261 = v258 < 2
-                                                v262 = v261
-                                            else:
-                                                v262 = False
-                                            v263 = v262 == False
-                                            if v263:
-                                                v264 = "The read index needs to be in range."
-                                                assert v262, v264
-                                                del v264
-                                            else:
-                                                pass
-                                            del v262, v263
-                                            v265 = v249[v258]
-                                            v266 = v258 == v64
-                                            if v266:
-                                                v267 = v265 + 2
-                                                v268 = v267
-                                            else:
-                                                v268 = v265
-                                            del v265, v266
-                                            if v260:
-                                                v269 = v258 < 2
-                                                v270 = v269
-                                            else:
-                                                v270 = False
-                                            del v260
-                                            v271 = v270 == False
-                                            if v271:
-                                                v272 = "The read index needs to be in range."
-                                                assert v270, v272
-                                                del v272
-                                            else:
-                                                pass
-                                            del v270, v271
-                                            v257[v258] = v268
-                                            del v268
-                                            v258 += 1 
-                                        del v249, v258
-                                        v280 = US4_2(v61, False, v63, v236, v257, v237)
-                                    else:
-                                        raise Exception("Invalid action. The number of raises left is not positive.")
-                                case t:
-                                    raise Exception(f'Pattern matching miss. Got: {t}')
-                        case US5_1(_): # Some
-                            match v146:
-                                case US1_0(): # Call
-                                    if v62:
-                                        v161 = v64 == 0
-                                        if v161:
-                                            v162 = 1
-                                        else:
-                                            v162 = 0
-                                        del v161
-                                        v280 = US4_2(v61, False, v63, v162, v65, v66)
-                                    else:
-                                        v164, v165 = (0, 0)
-                                        while method14(v164):
-                                            v167 = 0 <= v164
-                                            if v167:
-                                                v168 = v164 < 2
-                                                v169 = v168
-                                            else:
-                                                v169 = False
-                                            del v167
-                                            v170 = v169 == False
-                                            if v170:
-                                                v171 = "The read index needs to be in range."
-                                                assert v169, v171
-                                                del v171
-                                            else:
-                                                pass
-                                            del v169, v170
-                                            v172 = v65[v164]
-                                            v173 = v165 >= v172
-                                            if v173:
-                                                v174 = v165
-                                            else:
-                                                v174 = v172
-                                            del v172, v173
-                                            v165 = v174
-                                            del v174
-                                            v164 += 1 
-                                        del v164
-                                        v175 = static_array(2)
-                                        v176 = 0
-                                        while method14(v176):
-                                            v178 = 0 <= v176
-                                            if v178:
-                                                v179 = v176 < 2
-                                                v180 = v179
-                                            else:
-                                                v180 = False
-                                            del v178
-                                            v181 = v180 == False
-                                            if v181:
-                                                v182 = "The read index needs to be in range."
-                                                assert v180, v182
-                                                del v182
-                                            else:
-                                                pass
-                                            del v180, v181
-                                            v175[v176] = v165
-                                            v176 += 1 
-                                        del v165, v176
-                                        v280 = US4_4(v61, v62, v63, v64, v175, v66)
-                                case US1_1(): # Fold
-                                    v280 = US4_5(v61, v62, v63, v64, v65, v66)
-                                case US1_2(): # Raise
-                                    if v95:
-                                        v185 = v64 == 0
-                                        if v185:
-                                            v186 = 1
-                                        else:
-                                            v186 = 0
-                                        del v185
-                                        v187 = -1 + v66
-                                        v188, v189 = (0, 0)
-                                        while method14(v188):
-                                            v191 = 0 <= v188
-                                            if v191:
-                                                v192 = v188 < 2
-                                                v193 = v192
-                                            else:
-                                                v193 = False
-                                            del v191
-                                            v194 = v193 == False
-                                            if v194:
-                                                v195 = "The read index needs to be in range."
-                                                assert v193, v195
-                                                del v195
-                                            else:
-                                                pass
-                                            del v193, v194
-                                            v196 = v65[v188]
-                                            v197 = v189 >= v196
-                                            if v197:
-                                                v198 = v189
-                                            else:
-                                                v198 = v196
-                                            del v196, v197
-                                            v189 = v198
-                                            del v198
-                                            v188 += 1 
-                                        del v188
-                                        v199 = static_array(2)
-                                        v200 = 0
-                                        while method14(v200):
-                                            v202 = 0 <= v200
-                                            if v202:
-                                                v203 = v200 < 2
-                                                v204 = v203
-                                            else:
-                                                v204 = False
-                                            del v202
-                                            v205 = v204 == False
-                                            if v205:
-                                                v206 = "The read index needs to be in range."
-                                                assert v204, v206
-                                                del v206
-                                            else:
-                                                pass
-                                            del v204, v205
-                                            v199[v200] = v189
-                                            v200 += 1 
-                                        del v189, v200
-                                        v207 = static_array(2)
-                                        v208 = 0
-                                        while method14(v208):
-                                            v210 = 0 <= v208
-                                            if v210:
-                                                v211 = v208 < 2
-                                                v212 = v211
-                                            else:
-                                                v212 = False
-                                            v213 = v212 == False
-                                            if v213:
-                                                v214 = "The read index needs to be in range."
-                                                assert v212, v214
-                                                del v214
-                                            else:
-                                                pass
-                                            del v212, v213
-                                            v215 = v199[v208]
-                                            v216 = v208 == v64
-                                            if v216:
-                                                v217 = v215 + 4
-                                                v218 = v217
-                                            else:
-                                                v218 = v215
-                                            del v215, v216
-                                            if v210:
-                                                v219 = v208 < 2
-                                                v220 = v219
-                                            else:
-                                                v220 = False
-                                            del v210
-                                            v221 = v220 == False
-                                            if v221:
-                                                v222 = "The read index needs to be in range."
-                                                assert v220, v222
-                                                del v222
-                                            else:
-                                                pass
-                                            del v220, v221
-                                            v207[v208] = v218
-                                            del v218
-                                            v208 += 1 
-                                        del v199, v208
-                                        v280 = US4_2(v61, False, v63, v186, v207, v187)
-                                    else:
-                                        raise Exception("Invalid action. The number of raises left is not positive.")
-                                case t:
-                                    raise Exception(f'Pattern matching miss. Got: {t}')
-                        case t:
-                            raise Exception(f'Pattern matching miss. Got: {t}')
-                    del v61, v62, v63, v64, v65, v66, v95, v146
-                    return method13(v0, v1, v2, v280)
-                case US2_1(): # Human
-                    del v0, v1, v2, v61, v62, v63, v64, v65, v66, v72
-                    return v3
-                case t:
-                    raise Exception(f'Pattern matching miss. Got: {t}')
-        case US4_3(v284, v285, v286, v287, v288, v289, v290): # RoundWithAction
-            del v3
-            v291 = v1.length
-            v292 = v291 < 32
-            v293 = v292 == False
-            if v293:
-                v294 = "The length has to be less than the maximum length of the array."
-                assert v292, v294
-                del v294
-            else:
-                pass
-            del v292, v293
-            v295 = v291 + 1
-            v1.length = v295
-            del v295
-            v296 = 0 <= v291
-            if v296:
-                v297 = v1.length
-                v298 = v291 < v297
-                del v297
-                v299 = v298
-            else:
-                v299 = False
-            del v296
-            v300 = v299 == False
-            if v300:
-                v301 = "The set index needs to be in range."
-                assert v299, v301
-                del v301
-            else:
-                pass
-            del v299, v300
-            v302 = US8_1(v287, v290)
-            v1[v291] = v302
-            del v291, v302
-            match v284:
-                case US5_0(): # None
-                    match v290:
-                        case US1_0(): # Call
-                            if v285:
-                                v375 = v287 == 0
-                                if v375:
-                                    v376 = 1
-                                else:
-                                    v376 = 0
-                                del v375
-                                v426 = US4_2(v284, False, v286, v376, v288, v289)
-                            else:
-                                v426 = US4_0(v284, v285, v286, v287, v288, v289)
-                        case US1_1(): # Fold
-                            v426 = US4_5(v284, v285, v286, v287, v288, v289)
-                        case US1_2(): # Raise
-                            v380 = v289 > 0
-                            if v380:
-                                del v380
-                                v381 = v287 == 0
-                                if v381:
-                                    v382 = 1
-                                else:
-                                    v382 = 0
-                                del v381
-                                v383 = -1 + v289
-                                v384, v385 = (0, 0)
-                                while method14(v384):
-                                    v387 = 0 <= v384
-                                    if v387:
-                                        v388 = v384 < 2
-                                        v389 = v388
-                                    else:
-                                        v389 = False
-                                    del v387
-                                    v390 = v389 == False
-                                    if v390:
-                                        v391 = "The read index needs to be in range."
-                                        assert v389, v391
-                                        del v391
-                                    else:
-                                        pass
-                                    del v389, v390
-                                    v392 = v288[v384]
-                                    v393 = v385 >= v392
-                                    if v393:
-                                        v394 = v385
-                                    else:
-                                        v394 = v392
-                                    del v392, v393
-                                    v385 = v394
-                                    del v394
-                                    v384 += 1 
-                                del v384
-                                v395 = static_array(2)
-                                v396 = 0
-                                while method14(v396):
-                                    v398 = 0 <= v396
-                                    if v398:
-                                        v399 = v396 < 2
-                                        v400 = v399
-                                    else:
-                                        v400 = False
-                                    del v398
-                                    v401 = v400 == False
-                                    if v401:
-                                        v402 = "The read index needs to be in range."
-                                        assert v400, v402
-                                        del v402
-                                    else:
-                                        pass
-                                    del v400, v401
-                                    v395[v396] = v385
-                                    v396 += 1 
-                                del v385, v396
-                                v403 = static_array(2)
-                                v404 = 0
-                                while method14(v404):
-                                    v406 = 0 <= v404
-                                    if v406:
-                                        v407 = v404 < 2
-                                        v408 = v407
-                                    else:
-                                        v408 = False
-                                    v409 = v408 == False
-                                    if v409:
-                                        v410 = "The read index needs to be in range."
-                                        assert v408, v410
-                                        del v410
-                                    else:
-                                        pass
-                                    del v408, v409
-                                    v411 = v395[v404]
-                                    v412 = v404 == v287
-                                    if v412:
-                                        v413 = v411 + 2
-                                        v414 = v413
-                                    else:
-                                        v414 = v411
-                                    del v411, v412
-                                    if v406:
-                                        v415 = v404 < 2
-                                        v416 = v415
-                                    else:
-                                        v416 = False
-                                    del v406
-                                    v417 = v416 == False
-                                    if v417:
-                                        v418 = "The read index needs to be in range."
-                                        assert v416, v418
-                                        del v418
-                                    else:
-                                        pass
-                                    del v416, v417
-                                    v403[v404] = v414
-                                    del v414
-                                    v404 += 1 
-                                del v395, v404
-                                v426 = US4_2(v284, False, v286, v382, v403, v383)
-                            else:
-                                del v380
-                                raise Exception("Invalid action. The number of raises left is not positive.")
-                        case t:
-                            raise Exception(f'Pattern matching miss. Got: {t}')
-                case US5_1(_): # Some
-                    match v290:
-                        case US1_0(): # Call
-                            if v285:
-                                v305 = v287 == 0
-                                if v305:
-                                    v306 = 1
-                                else:
-                                    v306 = 0
-                                del v305
-                                v426 = US4_2(v284, False, v286, v306, v288, v289)
-                            else:
-                                v308, v309 = (0, 0)
-                                while method14(v308):
-                                    v311 = 0 <= v308
-                                    if v311:
-                                        v312 = v308 < 2
-                                        v313 = v312
-                                    else:
-                                        v313 = False
-                                    del v311
-                                    v314 = v313 == False
-                                    if v314:
-                                        v315 = "The read index needs to be in range."
-                                        assert v313, v315
-                                        del v315
-                                    else:
-                                        pass
-                                    del v313, v314
-                                    v316 = v288[v308]
-                                    v317 = v309 >= v316
-                                    if v317:
-                                        v318 = v309
-                                    else:
-                                        v318 = v316
-                                    del v316, v317
-                                    v309 = v318
-                                    del v318
-                                    v308 += 1 
-                                del v308
-                                v319 = static_array(2)
-                                v320 = 0
-                                while method14(v320):
-                                    v322 = 0 <= v320
-                                    if v322:
-                                        v323 = v320 < 2
-                                        v324 = v323
-                                    else:
-                                        v324 = False
-                                    del v322
-                                    v325 = v324 == False
-                                    if v325:
-                                        v326 = "The read index needs to be in range."
-                                        assert v324, v326
-                                        del v326
-                                    else:
-                                        pass
-                                    del v324, v325
-                                    v319[v320] = v309
-                                    v320 += 1 
-                                del v309, v320
-                                v426 = US4_4(v284, v285, v286, v287, v319, v289)
-                        case US1_1(): # Fold
-                            v426 = US4_5(v284, v285, v286, v287, v288, v289)
-                        case US1_2(): # Raise
-                            v329 = v289 > 0
-                            if v329:
-                                del v329
-                                v330 = v287 == 0
-                                if v330:
-                                    v331 = 1
-                                else:
-                                    v331 = 0
-                                del v330
-                                v332 = -1 + v289
-                                v333, v334 = (0, 0)
-                                while method14(v333):
-                                    v336 = 0 <= v333
-                                    if v336:
-                                        v337 = v333 < 2
-                                        v338 = v337
-                                    else:
-                                        v338 = False
-                                    del v336
-                                    v339 = v338 == False
-                                    if v339:
-                                        v340 = "The read index needs to be in range."
-                                        assert v338, v340
-                                        del v340
-                                    else:
-                                        pass
-                                    del v338, v339
-                                    v341 = v288[v333]
-                                    v342 = v334 >= v341
-                                    if v342:
-                                        v343 = v334
-                                    else:
-                                        v343 = v341
-                                    del v341, v342
-                                    v334 = v343
-                                    del v343
-                                    v333 += 1 
-                                del v333
-                                v344 = static_array(2)
-                                v345 = 0
-                                while method14(v345):
-                                    v347 = 0 <= v345
-                                    if v347:
-                                        v348 = v345 < 2
-                                        v349 = v348
-                                    else:
-                                        v349 = False
-                                    del v347
-                                    v350 = v349 == False
-                                    if v350:
-                                        v351 = "The read index needs to be in range."
-                                        assert v349, v351
-                                        del v351
-                                    else:
-                                        pass
-                                    del v349, v350
-                                    v344[v345] = v334
-                                    v345 += 1 
-                                del v334, v345
-                                v352 = static_array(2)
-                                v353 = 0
-                                while method14(v353):
-                                    v355 = 0 <= v353
-                                    if v355:
-                                        v356 = v353 < 2
-                                        v357 = v356
-                                    else:
-                                        v357 = False
-                                    v358 = v357 == False
-                                    if v358:
-                                        v359 = "The read index needs to be in range."
-                                        assert v357, v359
-                                        del v359
-                                    else:
-                                        pass
-                                    del v357, v358
-                                    v360 = v344[v353]
-                                    v361 = v353 == v287
-                                    if v361:
-                                        v362 = v360 + 4
-                                        v363 = v362
-                                    else:
-                                        v363 = v360
-                                    del v360, v361
-                                    if v355:
-                                        v364 = v353 < 2
-                                        v365 = v364
-                                    else:
-                                        v365 = False
-                                    del v355
-                                    v366 = v365 == False
-                                    if v366:
-                                        v367 = "The read index needs to be in range."
-                                        assert v365, v367
-                                        del v367
-                                    else:
-                                        pass
-                                    del v365, v366
-                                    v352[v353] = v363
-                                    del v363
-                                    v353 += 1 
-                                del v344, v353
-                                v426 = US4_2(v284, False, v286, v331, v352, v332)
-                            else:
-                                del v329
-                                raise Exception("Invalid action. The number of raises left is not positive.")
-                        case t:
-                            raise Exception(f'Pattern matching miss. Got: {t}')
-                case t:
-                    raise Exception(f'Pattern matching miss. Got: {t}')
-            del v284, v285, v286, v287, v288, v289, v290
-            return method13(v0, v1, v2, v426)
-        case US4_4(v30, v31, v32, v33, v34, v35): # TerminalCall
-            del v0, v2
-            v36 = 0 <= v33
-            if v36:
-                v37 = v33 < 2
-                v38 = v37
-            else:
-                v38 = False
-            del v36
-            v39 = v38 == False
-            if v39:
-                v40 = "The read index needs to be in range."
-                assert v38, v40
-                del v40
-            else:
-                pass
-            del v38, v39
-            v41 = v34[v33]
-            v42 = method15(v30, v31, v32, v33, v34, v35)
-            del v30, v31, v33, v34, v35
-            match v42:
-                case US9_0(): # Eq
-                    v47, v48 = 0, -1
-                case US9_1(): # Gt
-                    v47, v48 = v41, 0
-                case US9_2(): # Lt
-                    v47, v48 = v41, 1
-                case t:
-                    raise Exception(f'Pattern matching miss. Got: {t}')
-            del v41, v42
-            v49 = v1.length
-            v50 = v49 < 32
-            v51 = v50 == False
-            if v51:
-                v52 = "The length has to be less than the maximum length of the array."
-                assert v50, v52
-                del v52
-            else:
-                pass
-            del v50, v51
-            v53 = v49 + 1
-            v1.length = v53
-            del v53
-            v54 = 0 <= v49
-            if v54:
-                v55 = v1.length
-                v56 = v49 < v55
-                del v55
-                v57 = v56
-            else:
-                v57 = False
-            del v54
-            v58 = v57 == False
-            if v58:
-                v59 = "The set index needs to be in range."
-                assert v57, v59
-                del v59
-            else:
-                pass
-            del v57, v58
-            v60 = US8_3(v32, v47, v48)
-            del v32, v47, v48
-            v1[v49] = v60
-            del v1, v49, v60
-            return v3
-        case US4_5(_, _, v6, v7, v8, _): # TerminalFold
-            del v0, v2
-            v10 = 0 <= v7
-            if v10:
-                v11 = v7 < 2
-                v12 = v11
-            else:
-                v12 = False
-            del v10
-            v13 = v12 == False
-            if v13:
-                v14 = "The read index needs to be in range."
-                assert v12, v14
-                del v14
-            else:
-                pass
-            del v12, v13
-            v15 = v8[v7]
-            del v8
-            v16 = v7 == 0
-            del v7
-            if v16:
-                v17 = 1
-            else:
-                v17 = 0
-            del v16
-            v18 = v1.length
-            v19 = v18 < 32
-            v20 = v19 == False
-            if v20:
-                v21 = "The length has to be less than the maximum length of the array."
-                assert v19, v21
-                del v21
-            else:
-                pass
-            del v19, v20
-            v22 = v18 + 1
-            v1.length = v22
-            del v22
-            v23 = 0 <= v18
-            if v23:
-                v24 = v1.length
-                v25 = v18 < v24
-                del v24
-                v26 = v25
-            else:
-                v26 = False
-            del v23
-            v27 = v26 == False
-            if v27:
-                v28 = "The set index needs to be in range."
-                assert v26, v28
-                del v28
-            else:
-                pass
-            del v26, v27
-            v29 = US8_3(v6, v15, v17)
-            del v6, v15, v17
-            v1[v18] = v29
-            del v1, v18, v29
-            return v3
-        case t:
-            raise Exception(f'Pattern matching miss. Got: {t}')
-def method12(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7, v4 : static_array_list, v5 : US4) -> Tuple[US3, static_array_list, static_array, US7]:
-    del v0, v3
-    v6 = method13(v4, v1, v2, v5)
-    del v5
-    match v6:
-        case US4_2(v7, v8, v9, v10, v11, v12): # Round
-            v13 = US3_1(v4, v6)
-            del v4, v6
-            v14 = US7_2(v7, v8, v9, v10, v11, v12)
-            del v7, v8, v9, v10, v11, v12
-            return v13, v1, v2, v14
-        case US4_4(v15, v16, v17, v18, v19, v20): # TerminalCall
-            del v4, v6
-            v21 = US3_0()
-            v22 = US7_1(v15, v16, v17, v18, v19, v20)
-            del v15, v16, v17, v18, v19, v20
-            return v21, v1, v2, v22
-        case US4_5(v23, v24, v25, v26, v27, v28): # TerminalFold
-            del v4, v6
-            v29 = US3_0()
-            v30 = US7_1(v23, v24, v25, v26, v27, v28)
-            del v23, v24, v25, v26, v27, v28
-            return v29, v1, v2, v30
-        case t:
-            del v1, v2, v4, v6
-            raise Exception("Unexpected node received in play_loop.")
-def method21(v0 : US6) -> object:
+def method15(v0 : US6) -> object:
     match v0:
         case US6_0(): # Jack
             del v0
@@ -9998,7 +8416,7 @@ def method21(v0 : US6) -> object:
             return v9
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method23(v0 : US5) -> object:
+def method17(v0 : US5) -> object:
     match v0:
         case US5_0(): # None
             del v0
@@ -10009,7 +8427,7 @@ def method23(v0 : US5) -> object:
             return v3
         case US5_1(v4): # Some
             del v0
-            v5 = method21(v4)
+            v5 = method15(v4)
             del v4
             v6 = "Some"
             v7 = [v6,v5]
@@ -10017,7 +8435,7 @@ def method23(v0 : US5) -> object:
             return v7
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method24(v0 : US1) -> object:
+def method18(v0 : US1) -> object:
     match v0:
         case US1_0(): # Call
             del v0
@@ -10042,17 +8460,17 @@ def method24(v0 : US1) -> object:
             return v9
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method22(v0 : US4) -> object:
+def method16(v0 : US4) -> object:
     match v0:
         case US4_0(v1, v2, v3, v4, v5, v6): # ChanceCommunityCard
             del v0
-            v7 = method23(v1)
+            v7 = method17(v1)
             del v1
             v8 = v2
             del v2
             v9 = []
             v10 = 0
-            while method14(v10):
+            while method12(v10):
                 v12 = 0 <= v10
                 if v12:
                     v13 = v10 < 2
@@ -10069,7 +8487,7 @@ def method22(v0 : US4) -> object:
                     pass
                 del v14, v15
                 v17 = v3[v10]
-                v18 = method21(v17)
+                v18 = method15(v17)
                 del v17
                 v9.append(v18)
                 del v18
@@ -10079,7 +8497,7 @@ def method22(v0 : US4) -> object:
             del v4
             v20 = []
             v21 = 0
-            while method14(v21):
+            while method12(v21):
                 v23 = 0 <= v21
                 if v23:
                     v24 = v21 < 2
@@ -10119,13 +8537,13 @@ def method22(v0 : US4) -> object:
             return v36
         case US4_2(v37, v38, v39, v40, v41, v42): # Round
             del v0
-            v43 = method23(v37)
+            v43 = method17(v37)
             del v37
             v44 = v38
             del v38
             v45 = []
             v46 = 0
-            while method14(v46):
+            while method12(v46):
                 v48 = 0 <= v46
                 if v48:
                     v49 = v46 < 2
@@ -10142,7 +8560,7 @@ def method22(v0 : US4) -> object:
                     pass
                 del v50, v51
                 v53 = v39[v46]
-                v54 = method21(v53)
+                v54 = method15(v53)
                 del v53
                 v45.append(v54)
                 del v54
@@ -10152,7 +8570,7 @@ def method22(v0 : US4) -> object:
             del v40
             v56 = []
             v57 = 0
-            while method14(v57):
+            while method12(v57):
                 v59 = 0 <= v57
                 if v59:
                     v60 = v57 < 2
@@ -10186,13 +8604,13 @@ def method22(v0 : US4) -> object:
         case US4_3(v70, v71, v72, v73, v74, v75, v76): # RoundWithAction
             del v0
             v77 = []
-            v78 = method23(v70)
+            v78 = method17(v70)
             del v70
             v79 = v71
             del v71
             v80 = []
             v81 = 0
-            while method14(v81):
+            while method12(v81):
                 v83 = 0 <= v81
                 if v83:
                     v84 = v81 < 2
@@ -10209,7 +8627,7 @@ def method22(v0 : US4) -> object:
                     pass
                 del v85, v86
                 v88 = v72[v81]
-                v89 = method21(v88)
+                v89 = method15(v88)
                 del v88
                 v80.append(v89)
                 del v89
@@ -10219,7 +8637,7 @@ def method22(v0 : US4) -> object:
             del v73
             v91 = []
             v92 = 0
-            while method14(v92):
+            while method12(v92):
                 v94 = 0 <= v92
                 if v94:
                     v95 = v92 < 2
@@ -10248,7 +8666,7 @@ def method22(v0 : US4) -> object:
             del v78, v79, v80, v90, v91, v101
             v77.append(v102)
             del v102
-            v103 = method24(v76)
+            v103 = method18(v76)
             del v76
             v77.append(v103)
             del v103
@@ -10260,13 +8678,13 @@ def method22(v0 : US4) -> object:
             return v106
         case US4_4(v107, v108, v109, v110, v111, v112): # TerminalCall
             del v0
-            v113 = method23(v107)
+            v113 = method17(v107)
             del v107
             v114 = v108
             del v108
             v115 = []
             v116 = 0
-            while method14(v116):
+            while method12(v116):
                 v118 = 0 <= v116
                 if v118:
                     v119 = v116 < 2
@@ -10283,7 +8701,7 @@ def method22(v0 : US4) -> object:
                     pass
                 del v120, v121
                 v123 = v109[v116]
-                v124 = method21(v123)
+                v124 = method15(v123)
                 del v123
                 v115.append(v124)
                 del v124
@@ -10293,7 +8711,7 @@ def method22(v0 : US4) -> object:
             del v110
             v126 = []
             v127 = 0
-            while method14(v127):
+            while method12(v127):
                 v129 = 0 <= v127
                 if v129:
                     v130 = v127 < 2
@@ -10326,13 +8744,13 @@ def method22(v0 : US4) -> object:
             return v139
         case US4_5(v140, v141, v142, v143, v144, v145): # TerminalFold
             del v0
-            v146 = method23(v140)
+            v146 = method17(v140)
             del v140
             v147 = v141
             del v141
             v148 = []
             v149 = 0
-            while method14(v149):
+            while method12(v149):
                 v151 = 0 <= v149
                 if v151:
                     v152 = v149 < 2
@@ -10349,7 +8767,7 @@ def method22(v0 : US4) -> object:
                     pass
                 del v153, v154
                 v156 = v142[v149]
-                v157 = method21(v156)
+                v157 = method15(v156)
                 del v156
                 v148.append(v157)
                 del v157
@@ -10359,7 +8777,7 @@ def method22(v0 : US4) -> object:
             del v143
             v159 = []
             v160 = 0
-            while method14(v160):
+            while method12(v160):
                 v162 = 0 <= v160
                 if v162:
                     v163 = v160 < 2
@@ -10392,7 +8810,7 @@ def method22(v0 : US4) -> object:
             return v172
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method20(v0 : US3) -> object:
+def method14(v0 : US3) -> object:
     match v0:
         case US3_0(): # None
             del v0
@@ -10425,13 +8843,13 @@ def method20(v0 : US3) -> object:
                     pass
                 del v13, v14
                 v16 = v4[v8]
-                v17 = method21(v16)
+                v17 = method15(v16)
                 del v16
                 v6.append(v17)
                 del v17
                 v8 += 1 
             del v4, v7, v8
-            v18 = method22(v5)
+            v18 = method16(v5)
             del v5
             v19 = {'deck': v6, 'game': v18}
             del v6, v18
@@ -10441,11 +8859,11 @@ def method20(v0 : US3) -> object:
             return v21
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method25(v0 : US8) -> object:
+def method19(v0 : US8) -> object:
     match v0:
         case US8_0(v1): # CommunityCardIs
             del v0
-            v2 = method21(v1)
+            v2 = method15(v1)
             del v1
             v3 = "CommunityCardIs"
             v4 = [v3,v2]
@@ -10458,7 +8876,7 @@ def method25(v0 : US8) -> object:
             del v5
             v7.append(v8)
             del v8
-            v9 = method24(v6)
+            v9 = method18(v6)
             del v6
             v7.append(v9)
             del v9
@@ -10475,7 +8893,7 @@ def method25(v0 : US8) -> object:
             del v13
             v15.append(v16)
             del v16
-            v17 = method21(v14)
+            v17 = method15(v14)
             del v14
             v15.append(v17)
             del v17
@@ -10489,7 +8907,7 @@ def method25(v0 : US8) -> object:
             del v0
             v24 = []
             v25 = 0
-            while method14(v25):
+            while method12(v25):
                 v27 = 0 <= v25
                 if v27:
                     v28 = v25 < 2
@@ -10506,7 +8924,7 @@ def method25(v0 : US8) -> object:
                     pass
                 del v29, v30
                 v32 = v21[v25]
-                v33 = method21(v32)
+                v33 = method15(v32)
                 del v32
                 v24.append(v33)
                 del v33
@@ -10524,7 +8942,7 @@ def method25(v0 : US8) -> object:
             return v38
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method26(v0 : US2) -> object:
+def method20(v0 : US2) -> object:
     match v0:
         case US2_0(): # Computer
             del v0
@@ -10542,7 +8960,7 @@ def method26(v0 : US2) -> object:
             return v6
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method27(v0 : US7) -> object:
+def method21(v0 : US7) -> object:
     match v0:
         case US7_0(): # GameNotStarted
             del v0
@@ -10553,13 +8971,13 @@ def method27(v0 : US7) -> object:
             return v3
         case US7_1(v4, v5, v6, v7, v8, v9): # GameOver
             del v0
-            v10 = method23(v4)
+            v10 = method17(v4)
             del v4
             v11 = v5
             del v5
             v12 = []
             v13 = 0
-            while method14(v13):
+            while method12(v13):
                 v15 = 0 <= v13
                 if v15:
                     v16 = v13 < 2
@@ -10576,7 +8994,7 @@ def method27(v0 : US7) -> object:
                     pass
                 del v17, v18
                 v20 = v6[v13]
-                v21 = method21(v20)
+                v21 = method15(v20)
                 del v20
                 v12.append(v21)
                 del v21
@@ -10586,7 +9004,7 @@ def method27(v0 : US7) -> object:
             del v7
             v23 = []
             v24 = 0
-            while method14(v24):
+            while method12(v24):
                 v26 = 0 <= v24
                 if v26:
                     v27 = v24 < 2
@@ -10619,13 +9037,13 @@ def method27(v0 : US7) -> object:
             return v36
         case US7_2(v37, v38, v39, v40, v41, v42): # WaitingForActionFromPlayerId
             del v0
-            v43 = method23(v37)
+            v43 = method17(v37)
             del v37
             v44 = v38
             del v38
             v45 = []
             v46 = 0
-            while method14(v46):
+            while method12(v46):
                 v48 = 0 <= v46
                 if v48:
                     v49 = v46 < 2
@@ -10642,7 +9060,7 @@ def method27(v0 : US7) -> object:
                     pass
                 del v50, v51
                 v53 = v39[v46]
-                v54 = method21(v53)
+                v54 = method15(v53)
                 del v53
                 v45.append(v54)
                 del v54
@@ -10652,7 +9070,7 @@ def method27(v0 : US7) -> object:
             del v40
             v56 = []
             v57 = 0
-            while method14(v57):
+            while method12(v57):
                 v59 = 0 <= v57
                 if v59:
                     v60 = v57 < 2
@@ -10685,8 +9103,8 @@ def method27(v0 : US7) -> object:
             return v69
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method19(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7) -> object:
-    v4 = method20(v0)
+def method13(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7) -> object:
+    v4 = method14(v0)
     del v0
     v5 = []
     v6 = v1.length
@@ -10710,7 +9128,7 @@ def method19(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7) -> o
             pass
         del v12, v13
         v15 = v1[v7]
-        v16 = method25(v15)
+        v16 = method19(v15)
         del v15
         v5.append(v16)
         del v16
@@ -10718,7 +9136,7 @@ def method19(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7) -> o
     del v1, v6, v7
     v17 = []
     v18 = 0
-    while method14(v18):
+    while method12(v18):
         v20 = 0 <= v18
         if v20:
             v21 = v18 < 2
@@ -10735,13 +9153,13 @@ def method19(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7) -> o
             pass
         del v22, v23
         v25 = v2[v18]
-        v26 = method26(v25)
+        v26 = method20(v25)
         del v25
         v17.append(v26)
         del v26
         v18 += 1 
     del v2, v18
-    v27 = method27(v3)
+    v27 = method21(v3)
     del v3
     v28 = {'messages': v5, 'pl_type': v17, 'ui_game_state': v27}
     del v5, v17, v27
@@ -10751,9 +9169,8 @@ def method19(v0 : US3, v1 : static_array_list, v2 : static_array, v3 : US7) -> o
 def main():
     v0 = Closure0()
     v1 = Closure1()
-    v2 = Closure2()
-    v3 = collections.namedtuple("Leduc_Game",['event_loop_cpu', 'event_loop_gpu', 'init'])(v0, v1, v2)
-    del v0, v1, v2
-    return v3
+    v2 = collections.namedtuple("Leduc_Game",['event_loop_gpu', 'init'])(v0, v1)
+    del v0, v1
+    return v2
 
 if __name__ == '__main__': print(main())
