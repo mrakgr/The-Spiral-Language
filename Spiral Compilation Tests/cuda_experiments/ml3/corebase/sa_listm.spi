@@ -1,6 +1,6 @@
 // Resizable arrays based on the static ones. The dim in the type determines their max length.
 // Is intended to be a value type on the Cuda backend, and how it works on the Python backend, is merely a serialization convenience.
-nominal sa_list dim el = $"backend_switch `({Python : $"static_array_list"; Cuda : $"static_array_list<@dim,`el,`int>"})"
+nominal sa_list dim el = $"backend_switch `({Python : $"static_array_list"; Cuda : $"static_array_list<`el,@dim,`int>"})"
 
 // Creates an empty array.
 inl create' forall dim el. : sa_list dim el = 
@@ -8,7 +8,7 @@ inl create' forall dim el. : sa_list dim el =
     backend_switch {
         Python = fun () => $"static_array_list(@dim)"
         Cuda = fun () =>
-            inl ar : sa_list dim el = $"static_array_list<@dim,`el> \v"
+            inl ar : sa_list dim el = $"static_array_list<`el,@dim,`int> \v" 
             $"!ar.length = 0"
             ar
     }

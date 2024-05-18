@@ -1,6 +1,16 @@
 kernel = r"""
-template <typename el, int dim> struct array { el v[dim]; };
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
 """
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = length
 import cupy as cp
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
@@ -19,80 +29,64 @@ class US0_2(NamedTuple): # C
 US0 = Union[US0_0, US0_1, US0_2]
 def main():
     v0 = cp.empty(32,dtype=cp.uint8)
-    v2 = v0[0:].view(cp.int8)
-    v3 = v2
-    v3[0] = 1
+    v1 = v0[0:].view(cp.int8)
+    v1[0] = 1
+    del v1
+    v2 = v0[1:].view(cp.int8)
+    v2[0] = 2
+    del v2
+    v3 = v0[4:].view(cp.int32)
+    v3[0] = 4
     del v3
-    v5 = v0[1:].view(cp.int8)
-    v6 = v5
-    v6[0] = 2
+    v4 = v0[8:].view(cp.int32)
+    v4[0] = 2
+    del v4
+    v5 = v0[20:].view(cp.float32)
+    v5[0] = 234.5
+    del v5
+    v6 = v0[24:].view(cp.float64)
+    v6[0] = 12.0
     del v6
-    v8 = v0[4:].view(cp.int32)
-    v9 = v8
-    v9[0] = 4
+    v7 = v0[0:].view(cp.int8)
+    v8 = v7[0].item()
+    del v7
+    v9 = v0[1:].view(cp.int8)
+    v10 = v9[0].item()
     del v9
-    v11 = v0[8:].view(cp.int32)
-    v12 = v11
-    v12[0] = 2
-    del v12
-    v14 = v0[20:].view(cp.float32)
-    v15 = v14
-    v15[0] = 234.5
-    del v15
-    v17 = v0[24:].view(cp.float64)
-    v18 = v17
-    v18[0] = 12.0
-    del v18
-    v20 = v0[0:].view(cp.int8)
-    v21 = v20
-    v22 = v21[0].item()
-    del v21
-    v24 = v0[1:].view(cp.int8)
-    v25 = v24
-    v26 = v25[0].item()
-    del v25
-    v28 = v0[4:].view(cp.int32)
-    v29 = v28
-    v30 = v29[0].item()
-    del v29
-    v32 = v0[8:].view(cp.int32)
-    v33 = v32
-    v34 = v33[0].item()
-    del v33
-    if v34 == 0:
-        v37 = v0[12:].view(cp.int32)
-        v38 = v37
-        v39 = v38[0].item()
-        del v38
-        v55 = US0_0(v39)
-    elif v34 == 1:
-        v42 = v0[12:].view(cp.int8)
-        v43 = v42
-        v44 = v43[0].item()
-        del v43
-        v46 = v0[13:].view(cp.int8)
-        v47 = v46
-        v48 = v47[0].item()
-        del v47
-        v50 = v0[16:].view(cp.int32)
-        v51 = v50
-        v52 = v51[0].item()
-        del v51
-        v55 = US0_1(v44, v48, v52)
-    elif v34 == 2:
-        v55 = US0_2()
+    v11 = v0[4:].view(cp.int32)
+    v12 = v11[0].item()
+    del v11
+    v13 = v0[8:].view(cp.int32)
+    v14 = v13[0].item()
+    del v13
+    if v14 == 0:
+        v16 = v0[12:].view(cp.int32)
+        v17 = v16[0].item()
+        del v16
+        v27 = US0_0(v17)
+    elif v14 == 1:
+        v19 = v0[12:].view(cp.int8)
+        v20 = v19[0].item()
+        del v19
+        v21 = v0[13:].view(cp.int8)
+        v22 = v21[0].item()
+        del v21
+        v23 = v0[16:].view(cp.int32)
+        v24 = v23[0].item()
+        del v23
+        v27 = US0_1(v20, v22, v24)
+    elif v14 == 2:
+        v27 = US0_2()
     else:
         raise Exception("Invalid tag.")
-    del v34
-    v57 = v0[20:].view(cp.float32)
-    v58 = v57
-    v59 = v58[0].item()
-    del v58
-    v61 = v0[24:].view(cp.float64)
-    v62 = v61
+    del v14
+    v28 = v0[20:].view(cp.float32)
+    v29 = v28[0].item()
+    del v28
+    v30 = v0[24:].view(cp.float64)
     del v0
-    v63 = v62[0].item()
-    del v62
-    return v22, v26, v30, v55, v59, v63
+    v31 = v30[0].item()
+    del v30
+    return v8, v10, v12, v27, v29, v31
 
 if __name__ == '__main__': print(main())

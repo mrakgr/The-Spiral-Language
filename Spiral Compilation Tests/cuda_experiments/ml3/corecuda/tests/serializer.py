@@ -1,5 +1,6 @@
 kernel = r"""
-template <typename el, int dim> struct array { el v[dim]; };
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
 struct US0;
 struct US3;
 struct US4;
@@ -132,260 +133,251 @@ extern "C" __global__ void entry0(unsigned char * v0) {
     bool v5;
     v5 = v4 == 0l;
     if (v5){
-        array<Tuple0,14l> v6;
-        long v7 = 0l;
-        long & v8 = v7;
-        v7 = 3l;
-        long & v9 = v7;
-        bool v10;
-        v10 = 0l < v9;
-        bool v11;
-        v11 = v10 == false;
-        if (v11){
-            assert("The set index needs to be in range." && v10);
+        static_array_list<Tuple0,14l,long> v6;
+        v6.length = 0;
+        v6.length = 3l;
+        long v7;
+        v7 = v6.length;
+        bool v8;
+        v8 = 0l < v7;
+        bool v9;
+        v9 = v8 == false;
+        if (v9){
+            assert("The set index needs to be in range." && v8);
         } else {
         }
-        US0 v12;
-        v12 = US0_1(23ull);
-        US3 v13;
-        v13 = US3_1(555.0f);
-        US2 v14;
-        v14 = US2_0(5, 55u, v13);
-        US1 v15;
-        v15 = US1_1(v14);
-        v6.v[0l] = Tuple0(1l, v12, v15);
-        long & v16 = v7;
-        bool v17;
-        v17 = 1l < v16;
-        bool v18;
-        v18 = v17 == false;
-        if (v18){
-            assert("The set index needs to be in range." && v17);
+        US0 v10;
+        v10 = US0_1(23ull);
+        US3 v11;
+        v11 = US3_1(555.0f);
+        US2 v12;
+        v12 = US2_0(5, 55u, v11);
+        US1 v13;
+        v13 = US1_1(v12);
+        v6.v[0l] = Tuple0(1l, v10, v13);
+        long v14;
+        v14 = v6.length;
+        bool v15;
+        v15 = 1l < v14;
+        bool v16;
+        v16 = v15 == false;
+        if (v16){
+            assert("The set index needs to be in range." && v15);
         } else {
         }
-        US0 v19;
-        v19 = US0_1(34ull);
-        US4 v20;
-        v20 = US4_1(222.222);
-        US2 v21;
-        v21 = US2_1(2u, v20);
-        US1 v22;
-        v22 = US1_1(v21);
-        v6.v[1l] = Tuple0(2l, v19, v22);
-        long & v23 = v7;
-        bool v24;
-        v24 = 2l < v23;
-        bool v25;
-        v25 = v24 == false;
-        if (v25){
-            assert("The set index needs to be in range." && v24);
+        US0 v17;
+        v17 = US0_1(34ull);
+        US4 v18;
+        v18 = US4_1(222.222);
+        US2 v19;
+        v19 = US2_1(2u, v18);
+        US1 v20;
+        v20 = US1_1(v19);
+        v6.v[1l] = Tuple0(2l, v17, v20);
+        long v21;
+        v21 = v6.length;
+        bool v22;
+        v22 = 2l < v21;
+        bool v23;
+        v23 = v22 == false;
+        if (v23){
+            assert("The set index needs to be in range." && v22);
         } else {
         }
-        US0 v26;
-        v26 = US0_0();
-        US3 v27;
-        v27 = US3_1(890.876f);
-        US2 v28;
-        v28 = US2_0(88, 80u, v27);
-        US1 v29;
-        v29 = US1_1(v28);
-        v6.v[2l] = Tuple0(3l, v26, v29);
-        short * v30;
-        v30 = (short *)(v0+0ull);
-        v30[0l] = -2;
-        unsigned long long * v31;
-        v31 = (unsigned long long *)(v0+8ull);
-        v31[0l] = 555555555ull;
-        long & v32 = v7;
-        long * v33;
-        v33 = (long *)(v0+16ull);
-        v33[0l] = v32;
-        long & v34 = v7;
-        long v35;
-        v35 = 0l;
-        while (while_method_0(v34, v35)){
+        US0 v24;
+        v24 = US0_0();
+        US3 v25;
+        v25 = US3_1(890.876f);
+        US2 v26;
+        v26 = US2_0(88, 80u, v25);
+        US1 v27;
+        v27 = US1_1(v26);
+        v6.v[2l] = Tuple0(3l, v24, v27);
+        short * v28;
+        v28 = (short *)(v0+0ull);
+        v28[0l] = -2;
+        unsigned long long * v29;
+        v29 = (unsigned long long *)(v0+8ull);
+        v29[0l] = 555555555ull;
+        long v30;
+        v30 = v6.length;
+        long * v31;
+        v31 = (long *)(v0+16ull);
+        v31[0l] = v30;
+        long v32;
+        v32 = v6.length;
+        long v33;
+        v33 = 0l;
+        while (while_method_0(v32, v33)){
+            unsigned long long v35;
+            v35 = (unsigned long long)v33;
+            unsigned long long v36;
+            v36 = v35 * 48ull;
             unsigned long long v37;
-            v37 = (unsigned long long)v35;
-            unsigned long long v38;
-            v38 = v37 * 48ull;
-            unsigned long long v39;
-            v39 = 32ull + v38;
-            unsigned char * v40;
-            v40 = (unsigned char *)(v0+v39);
-            bool v41;
-            v41 = 0l <= v35;
-            bool v44;
-            if (v41){
-                long & v42 = v7;
-                bool v43;
-                v43 = v35 < v42;
-                v44 = v43;
+            v37 = 32ull + v36;
+            unsigned char * v38;
+            v38 = (unsigned char *)(v0+v37);
+            bool v39;
+            v39 = 0l <= v33;
+            bool v42;
+            if (v39){
+                long v40;
+                v40 = v6.length;
+                bool v41;
+                v41 = v33 < v40;
+                v42 = v41;
             } else {
-                v44 = false;
+                v42 = false;
             }
-            bool v45;
-            v45 = v44 == false;
-            if (v45){
-                assert("The read index needs to be in range." && v44);
+            bool v43;
+            v43 = v42 == false;
+            if (v43){
+                assert("The read index needs to be in range." && v42);
             } else {
             }
-            bool v47;
-            if (v41){
-                bool v46;
-                v46 = v35 < 14l;
-                v47 = v46;
-            } else {
-                v47 = false;
-            }
-            bool v48;
-            v48 = v47 == false;
-            if (v48){
-                assert("The read index needs to be in range." && v47);
-            } else {
-            }
-            long v49; US0 v50; US1 v51;
-            Tuple0 tmp0 = v6.v[v35];
-            v49 = tmp0.v0; v50 = tmp0.v1; v51 = tmp0.v2;
-            long * v52;
-            v52 = (long *)(v40+0ull);
-            v52[0l] = v49;
-            long v53;
-            v53 = v50.tag;
-            long * v54;
-            v54 = (long *)(v40+4ull);
-            v54[0l] = v53;
-            switch (v50.tag) {
+            long v44; US0 v45; US1 v46;
+            Tuple0 tmp0 = v6.v[v33];
+            v44 = tmp0.v0; v45 = tmp0.v1; v46 = tmp0.v2;
+            long * v47;
+            v47 = (long *)(v38+0ull);
+            v47[0l] = v44;
+            long v48;
+            v48 = v45.tag;
+            long * v49;
+            v49 = (long *)(v38+4ull);
+            v49[0l] = v48;
+            switch (v45.tag) {
                 case 0: { // None
                     break;
                 }
                 default: { // Some
-                    unsigned long long v55 = v50.v.case1.v0;
-                    unsigned long long * v56;
-                    v56 = (unsigned long long *)(v40+8ull);
+                    unsigned long long v50 = v45.v.case1.v0;
+                    unsigned long long * v51;
+                    v51 = (unsigned long long *)(v38+8ull);
+                    v51[0l] = v50;
+                }
+            }
+            long v52;
+            v52 = v46.tag;
+            long * v53;
+            v53 = (long *)(v38+16ull);
+            v53[0l] = v52;
+            switch (v46.tag) {
+                case 0: { // None
+                    break;
+                }
+                default: { // Some
+                    US2 v54 = v46.v.case1.v0;
+                    long v55;
+                    v55 = v54.tag;
+                    long * v56;
+                    v56 = (long *)(v38+20ull);
                     v56[0l] = v55;
-                }
-            }
-            long v57;
-            v57 = v51.tag;
-            long * v58;
-            v58 = (long *)(v40+16ull);
-            v58[0l] = v57;
-            switch (v51.tag) {
-                case 0: { // None
-                    break;
-                }
-                default: { // Some
-                    US2 v59 = v51.v.case1.v0;
-                    long v60;
-                    v60 = v59.tag;
-                    long * v61;
-                    v61 = (long *)(v40+20ull);
-                    v61[0l] = v60;
-                    switch (v59.tag) {
+                    switch (v54.tag) {
                         case 0: { // Q
-                            char v62 = v59.v.case0.v0; unsigned char v63 = v59.v.case0.v1; US3 v64 = v59.v.case0.v2;
-                            char * v65;
-                            v65 = (char *)(v40+24ull);
-                            v65[0l] = v62;
-                            unsigned char * v66;
-                            v66 = (unsigned char *)(v40+25ull);
-                            v66[0l] = v63;
-                            long v67;
-                            v67 = v64.tag;
-                            long * v68;
-                            v68 = (long *)(v40+28ull);
-                            v68[0l] = v67;
-                            switch (v64.tag) {
+                            char v57 = v54.v.case0.v0; unsigned char v58 = v54.v.case0.v1; US3 v59 = v54.v.case0.v2;
+                            char * v60;
+                            v60 = (char *)(v38+24ull);
+                            v60[0l] = v57;
+                            unsigned char * v61;
+                            v61 = (unsigned char *)(v38+25ull);
+                            v61[0l] = v58;
+                            long v62;
+                            v62 = v59.tag;
+                            long * v63;
+                            v63 = (long *)(v38+28ull);
+                            v63[0l] = v62;
+                            switch (v59.tag) {
                                 case 0: { // None
                                     break;
                                 }
                                 default: { // Some
-                                    float v69 = v64.v.case1.v0;
-                                    float * v70;
-                                    v70 = (float *)(v40+32ull);
-                                    v70[0l] = v69;
+                                    float v64 = v59.v.case1.v0;
+                                    float * v65;
+                                    v65 = (float *)(v38+32ull);
+                                    v65[0l] = v64;
                                 }
                             }
                             break;
                         }
                         default: { // W
-                            unsigned short v71 = v59.v.case1.v0; US4 v72 = v59.v.case1.v1;
-                            unsigned short * v73;
-                            v73 = (unsigned short *)(v40+24ull);
-                            v73[0l] = v71;
-                            long v74;
-                            v74 = v72.tag;
-                            long * v75;
-                            v75 = (long *)(v40+28ull);
-                            v75[0l] = v74;
-                            switch (v72.tag) {
+                            unsigned short v66 = v54.v.case1.v0; US4 v67 = v54.v.case1.v1;
+                            unsigned short * v68;
+                            v68 = (unsigned short *)(v38+24ull);
+                            v68[0l] = v66;
+                            long v69;
+                            v69 = v67.tag;
+                            long * v70;
+                            v70 = (long *)(v38+28ull);
+                            v70[0l] = v69;
+                            switch (v67.tag) {
                                 case 0: { // None
                                     break;
                                 }
                                 default: { // Some
-                                    double v76 = v72.v.case1.v0;
-                                    double * v77;
-                                    v77 = (double *)(v40+32ull);
-                                    v77[0l] = v76;
+                                    double v71 = v67.v.case1.v0;
+                                    double * v72;
+                                    v72 = (double *)(v38+32ull);
+                                    v72[0l] = v71;
                                 }
                             }
                         }
                     }
                 }
             }
-            v35 += 1l ;
+            v33 += 1l ;
         }
-        unsigned short * v78;
-        v78 = (unsigned short *)(v0+704ull);
-        v78[0l] = 3412u;
-        short * v79;
-        v79 = (short *)(v0+0ull);
-        short v80;
+        unsigned short * v73;
+        v73 = (unsigned short *)(v0+704ull);
+        v73[0l] = 3412u;
+        short * v74;
+        v74 = (short *)(v0+0ull);
+        short v75;
+        v75 = v74[0l];
+        unsigned long long * v76;
+        v76 = (unsigned long long *)(v0+8ull);
+        unsigned long long v77;
+        v77 = v76[0l];
+        static_array_list<Tuple0,14l,long> v78;
+        v78.length = 0;
+        long * v79;
+        v79 = (long *)(v0+16ull);
+        long v80;
         v80 = v79[0l];
-        unsigned long long * v81;
-        v81 = (unsigned long long *)(v0+8ull);
-        unsigned long long v82;
-        v82 = v81[0l];
-        array<Tuple0,14l> v83;
-        long v84 = 0l;
-        long * v85;
-        v85 = (long *)(v0+16ull);
-        long v86;
-        v86 = v85[0l];
-        long & v87 = v84;
-        v84 = v86;
-        long & v88 = v84;
-        long v89;
-        v89 = 0l;
-        while (while_method_0(v88, v89)){
-            unsigned long long v91;
-            v91 = (unsigned long long)v89;
-            unsigned long long v92;
-            v92 = v91 * 48ull;
-            unsigned long long v93;
-            v93 = 32ull + v92;
-            unsigned char * v94;
-            v94 = (unsigned char *)(v0+v93);
-            long * v95;
-            v95 = (long *)(v94+0ull);
-            long v96;
-            v96 = v95[0l];
-            long * v97;
-            v97 = (long *)(v94+4ull);
-            long v98;
-            v98 = v97[0l];
-            US0 v104;
-            switch (v98) {
+        v78.length = v80;
+        long v81;
+        v81 = v78.length;
+        long v82;
+        v82 = 0l;
+        while (while_method_0(v81, v82)){
+            unsigned long long v84;
+            v84 = (unsigned long long)v82;
+            unsigned long long v85;
+            v85 = v84 * 48ull;
+            unsigned long long v86;
+            v86 = 32ull + v85;
+            unsigned char * v87;
+            v87 = (unsigned char *)(v0+v86);
+            long * v88;
+            v88 = (long *)(v87+0ull);
+            long v89;
+            v89 = v88[0l];
+            long * v90;
+            v90 = (long *)(v87+4ull);
+            long v91;
+            v91 = v90[0l];
+            US0 v97;
+            switch (v91) {
                 case 0: {
-                    v104 = US0_0();
+                    v97 = US0_0();
                     break;
                 }
                 case 1: {
-                    unsigned long long * v101;
-                    v101 = (unsigned long long *)(v94+8ull);
-                    unsigned long long v102;
-                    v102 = v101[0l];
-                    v104 = US0_1(v102);
+                    unsigned long long * v94;
+                    v94 = (unsigned long long *)(v87+8ull);
+                    unsigned long long v95;
+                    v95 = v94[0l];
+                    v97 = US0_1(v95);
                     break;
                 }
                 default: {
@@ -393,48 +385,48 @@ extern "C" __global__ void entry0(unsigned char * v0) {
                     asm("exit;");
                 }
             }
-            long * v105;
-            v105 = (long *)(v94+16ull);
-            long v106;
-            v106 = v105[0l];
-            US1 v138;
-            switch (v106) {
+            long * v98;
+            v98 = (long *)(v87+16ull);
+            long v99;
+            v99 = v98[0l];
+            US1 v131;
+            switch (v99) {
                 case 0: {
-                    v138 = US1_0();
+                    v131 = US1_0();
                     break;
                 }
                 case 1: {
-                    long * v109;
-                    v109 = (long *)(v94+20ull);
-                    long v110;
-                    v110 = v109[0l];
-                    US2 v136;
-                    switch (v110) {
+                    long * v102;
+                    v102 = (long *)(v87+20ull);
+                    long v103;
+                    v103 = v102[0l];
+                    US2 v129;
+                    switch (v103) {
                         case 0: {
-                            char * v112;
-                            v112 = (char *)(v94+24ull);
-                            char v113;
-                            v113 = v112[0l];
-                            unsigned char * v114;
-                            v114 = (unsigned char *)(v94+25ull);
-                            unsigned char v115;
-                            v115 = v114[0l];
-                            long * v116;
-                            v116 = (long *)(v94+28ull);
-                            long v117;
-                            v117 = v116[0l];
-                            US3 v123;
-                            switch (v117) {
+                            char * v105;
+                            v105 = (char *)(v87+24ull);
+                            char v106;
+                            v106 = v105[0l];
+                            unsigned char * v107;
+                            v107 = (unsigned char *)(v87+25ull);
+                            unsigned char v108;
+                            v108 = v107[0l];
+                            long * v109;
+                            v109 = (long *)(v87+28ull);
+                            long v110;
+                            v110 = v109[0l];
+                            US3 v116;
+                            switch (v110) {
                                 case 0: {
-                                    v123 = US3_0();
+                                    v116 = US3_0();
                                     break;
                                 }
                                 case 1: {
-                                    float * v120;
-                                    v120 = (float *)(v94+32ull);
-                                    float v121;
-                                    v121 = v120[0l];
-                                    v123 = US3_1(v121);
+                                    float * v113;
+                                    v113 = (float *)(v87+32ull);
+                                    float v114;
+                                    v114 = v113[0l];
+                                    v116 = US3_1(v114);
                                     break;
                                 }
                                 default: {
@@ -442,30 +434,30 @@ extern "C" __global__ void entry0(unsigned char * v0) {
                                     asm("exit;");
                                 }
                             }
-                            v136 = US2_0(v113, v115, v123);
+                            v129 = US2_0(v106, v108, v116);
                             break;
                         }
                         case 1: {
-                            unsigned short * v125;
-                            v125 = (unsigned short *)(v94+24ull);
-                            unsigned short v126;
-                            v126 = v125[0l];
-                            long * v127;
-                            v127 = (long *)(v94+28ull);
-                            long v128;
-                            v128 = v127[0l];
-                            US4 v134;
-                            switch (v128) {
+                            unsigned short * v118;
+                            v118 = (unsigned short *)(v87+24ull);
+                            unsigned short v119;
+                            v119 = v118[0l];
+                            long * v120;
+                            v120 = (long *)(v87+28ull);
+                            long v121;
+                            v121 = v120[0l];
+                            US4 v127;
+                            switch (v121) {
                                 case 0: {
-                                    v134 = US4_0();
+                                    v127 = US4_0();
                                     break;
                                 }
                                 case 1: {
-                                    double * v131;
-                                    v131 = (double *)(v94+32ull);
-                                    double v132;
-                                    v132 = v131[0l];
-                                    v134 = US4_1(v132);
+                                    double * v124;
+                                    v124 = (double *)(v87+32ull);
+                                    double v125;
+                                    v125 = v124[0l];
+                                    v127 = US4_1(v125);
                                     break;
                                 }
                                 default: {
@@ -473,7 +465,7 @@ extern "C" __global__ void entry0(unsigned char * v0) {
                                     asm("exit;");
                                 }
                             }
-                            v136 = US2_1(v126, v134);
+                            v129 = US2_1(v119, v127);
                             break;
                         }
                         default: {
@@ -481,7 +473,7 @@ extern "C" __global__ void entry0(unsigned char * v0) {
                             asm("exit;");
                         }
                     }
-                    v138 = US1_1(v136);
+                    v131 = US1_1(v129);
                     break;
                 }
                 default: {
@@ -489,243 +481,220 @@ extern "C" __global__ void entry0(unsigned char * v0) {
                     asm("exit;");
                 }
             }
-            bool v139;
-            v139 = 0l <= v89;
-            bool v142;
-            if (v139){
-                long & v140 = v84;
-                bool v141;
-                v141 = v89 < v140;
-                v142 = v141;
+            bool v132;
+            v132 = 0l <= v82;
+            bool v135;
+            if (v132){
+                long v133;
+                v133 = v78.length;
+                bool v134;
+                v134 = v82 < v133;
+                v135 = v134;
             } else {
-                v142 = false;
+                v135 = false;
             }
-            bool v143;
-            v143 = v142 == false;
-            if (v143){
-                assert("The set index needs to be in range." && v142);
-            } else {
-            }
-            bool v145;
-            if (v139){
-                bool v144;
-                v144 = v89 < 14l;
-                v145 = v144;
-            } else {
-                v145 = false;
-            }
-            bool v146;
-            v146 = v145 == false;
-            if (v146){
-                assert("The read index needs to be in range." && v145);
+            bool v136;
+            v136 = v135 == false;
+            if (v136){
+                assert("The set index needs to be in range." && v135);
             } else {
             }
-            v83.v[v89] = Tuple0(v96, v104, v138);
-            v89 += 1l ;
+            v78.v[v82] = Tuple0(v89, v97, v131);
+            v82 += 1l ;
         }
-        unsigned short * v147;
-        v147 = (unsigned short *)(v0+704ull);
-        unsigned short v148;
-        v148 = v147[0l];
-        const char * v149;
-        v149 = "%d";
-        printf(v149,v80);
-        const char * v150;
-        v150 = "%s";
-        const char * v151;
-        v151 = ", ";
-        printf(v150,v151);
-        const char * v152;
-        v152 = "%u";
-        printf(v152,v82);
-        printf(v150,v151);
-        const char * v153;
-        v153 = "[";
-        printf(v150,v153);
-        long & v154 = v84;
-        bool v155;
-        v155 = 100l < v154;
-        long v156;
-        if (v155){
-            v156 = 100l;
+        unsigned short * v137;
+        v137 = (unsigned short *)(v0+704ull);
+        unsigned short v138;
+        v138 = v137[0l];
+        const char * v139;
+        v139 = "%d";
+        printf(v139,v75);
+        const char * v140;
+        v140 = "%s";
+        const char * v141;
+        v141 = ", ";
+        printf(v140,v141);
+        const char * v142;
+        v142 = "%u";
+        printf(v142,v77);
+        printf(v140,v141);
+        const char * v143;
+        v143 = "[";
+        printf(v140,v143);
+        long v144;
+        v144 = v78.length;
+        bool v145;
+        v145 = 100l < v144;
+        long v146;
+        if (v145){
+            v146 = 100l;
         } else {
-            v156 = v154;
+            v146 = v144;
         }
-        long v157;
-        v157 = 0l;
-        while (while_method_0(v156, v157)){
-            bool v159;
-            v159 = 0l <= v157;
-            bool v162;
-            if (v159){
-                long & v160 = v84;
-                bool v161;
-                v161 = v157 < v160;
-                v162 = v161;
+        long v147;
+        v147 = 0l;
+        while (while_method_0(v146, v147)){
+            bool v149;
+            v149 = 0l <= v147;
+            bool v152;
+            if (v149){
+                long v150;
+                v150 = v78.length;
+                bool v151;
+                v151 = v147 < v150;
+                v152 = v151;
             } else {
-                v162 = false;
+                v152 = false;
             }
-            bool v163;
-            v163 = v162 == false;
-            if (v163){
-                assert("The read index needs to be in range." && v162);
-            } else {
-            }
-            bool v165;
-            if (v159){
-                bool v164;
-                v164 = v157 < 14l;
-                v165 = v164;
-            } else {
-                v165 = false;
-            }
-            bool v166;
-            v166 = v165 == false;
-            if (v166){
-                assert("The read index needs to be in range." && v165);
+            bool v153;
+            v153 = v152 == false;
+            if (v153){
+                assert("The read index needs to be in range." && v152);
             } else {
             }
-            long v167; US0 v168; US1 v169;
-            Tuple0 tmp1 = v83.v[v157];
-            v167 = tmp1.v0; v168 = tmp1.v1; v169 = tmp1.v2;
-            printf(v149,v167);
-            printf(v150,v151);
-            switch (v168.tag) {
+            long v154; US0 v155; US1 v156;
+            Tuple0 tmp1 = v78.v[v147];
+            v154 = tmp1.v0; v155 = tmp1.v1; v156 = tmp1.v2;
+            printf(v139,v154);
+            printf(v140,v141);
+            switch (v155.tag) {
                 case 0: { // None
-                    const char * v170;
-                    v170 = "None";
-                    printf(v150,v170);
+                    const char * v157;
+                    v157 = "None";
+                    printf(v140,v157);
                     break;
                 }
                 default: { // Some
-                    unsigned long long v171 = v168.v.case1.v0;
-                    const char * v172;
-                    v172 = "Some";
-                    printf(v150,v172);
-                    const char * v173;
-                    v173 = "(";
-                    printf(v150,v173);
-                    printf(v152,v171);
-                    const char * v174;
-                    v174 = ")";
-                    printf(v150,v174);
+                    unsigned long long v158 = v155.v.case1.v0;
+                    const char * v159;
+                    v159 = "Some";
+                    printf(v140,v159);
+                    const char * v160;
+                    v160 = "(";
+                    printf(v140,v160);
+                    printf(v142,v158);
+                    const char * v161;
+                    v161 = ")";
+                    printf(v140,v161);
                 }
             }
-            printf(v150,v151);
-            switch (v169.tag) {
+            printf(v140,v141);
+            switch (v156.tag) {
                 case 0: { // None
-                    const char * v175;
-                    v175 = "None";
-                    printf(v150,v175);
+                    const char * v162;
+                    v162 = "None";
+                    printf(v140,v162);
                     break;
                 }
                 default: { // Some
-                    US2 v176 = v169.v.case1.v0;
-                    const char * v177;
-                    v177 = "Some";
-                    printf(v150,v177);
-                    const char * v178;
-                    v178 = "(";
-                    printf(v150,v178);
-                    switch (v176.tag) {
+                    US2 v163 = v156.v.case1.v0;
+                    const char * v164;
+                    v164 = "Some";
+                    printf(v140,v164);
+                    const char * v165;
+                    v165 = "(";
+                    printf(v140,v165);
+                    switch (v163.tag) {
                         case 0: { // Q
-                            char v179 = v176.v.case0.v0; unsigned char v180 = v176.v.case0.v1; US3 v181 = v176.v.case0.v2;
-                            const char * v182;
-                            v182 = "Q";
-                            printf(v150,v182);
-                            printf(v150,v178);
-                            printf(v149,v179);
-                            printf(v150,v151);
-                            printf(v152,v180);
-                            printf(v150,v151);
-                            switch (v181.tag) {
+                            char v166 = v163.v.case0.v0; unsigned char v167 = v163.v.case0.v1; US3 v168 = v163.v.case0.v2;
+                            const char * v169;
+                            v169 = "Q";
+                            printf(v140,v169);
+                            printf(v140,v165);
+                            printf(v139,v166);
+                            printf(v140,v141);
+                            printf(v142,v167);
+                            printf(v140,v141);
+                            switch (v168.tag) {
                                 case 0: { // None
-                                    const char * v183;
-                                    v183 = "None";
-                                    printf(v150,v183);
+                                    const char * v170;
+                                    v170 = "None";
+                                    printf(v140,v170);
                                     break;
                                 }
                                 default: { // Some
-                                    float v184 = v181.v.case1.v0;
-                                    printf(v150,v177);
-                                    printf(v150,v178);
-                                    const char * v185;
-                                    v185 = "%f";
-                                    printf(v185,v184);
-                                    const char * v186;
-                                    v186 = ")";
-                                    printf(v150,v186);
+                                    float v171 = v168.v.case1.v0;
+                                    printf(v140,v164);
+                                    printf(v140,v165);
+                                    const char * v172;
+                                    v172 = "%f";
+                                    printf(v172,v171);
+                                    const char * v173;
+                                    v173 = ")";
+                                    printf(v140,v173);
                                 }
                             }
-                            const char * v187;
-                            v187 = ")";
-                            printf(v150,v187);
+                            const char * v174;
+                            v174 = ")";
+                            printf(v140,v174);
                             break;
                         }
                         default: { // W
-                            unsigned short v188 = v176.v.case1.v0; US4 v189 = v176.v.case1.v1;
-                            const char * v190;
-                            v190 = "W";
-                            printf(v150,v190);
-                            printf(v150,v178);
-                            printf(v152,v188);
-                            printf(v150,v151);
-                            switch (v189.tag) {
+                            unsigned short v175 = v163.v.case1.v0; US4 v176 = v163.v.case1.v1;
+                            const char * v177;
+                            v177 = "W";
+                            printf(v140,v177);
+                            printf(v140,v165);
+                            printf(v142,v175);
+                            printf(v140,v141);
+                            switch (v176.tag) {
                                 case 0: { // None
-                                    const char * v191;
-                                    v191 = "None";
-                                    printf(v150,v191);
+                                    const char * v178;
+                                    v178 = "None";
+                                    printf(v140,v178);
                                     break;
                                 }
                                 default: { // Some
-                                    double v192 = v189.v.case1.v0;
-                                    printf(v150,v177);
-                                    printf(v150,v178);
-                                    const char * v193;
-                                    v193 = "%f";
-                                    printf(v193,v192);
-                                    const char * v194;
-                                    v194 = ")";
-                                    printf(v150,v194);
+                                    double v179 = v176.v.case1.v0;
+                                    printf(v140,v164);
+                                    printf(v140,v165);
+                                    const char * v180;
+                                    v180 = "%f";
+                                    printf(v180,v179);
+                                    const char * v181;
+                                    v181 = ")";
+                                    printf(v140,v181);
                                 }
                             }
-                            const char * v195;
-                            v195 = ")";
-                            printf(v150,v195);
+                            const char * v182;
+                            v182 = ")";
+                            printf(v140,v182);
                         }
                     }
-                    const char * v196;
-                    v196 = ")";
-                    printf(v150,v196);
+                    const char * v183;
+                    v183 = ")";
+                    printf(v140,v183);
                 }
             }
-            long v197;
-            v197 = v157 + 1l;
-            long & v198 = v84;
-            bool v199;
-            v199 = v197 < v198;
-            if (v199){
-                const char * v200;
-                v200 = "; ";
-                printf(v150,v200);
+            long v184;
+            v184 = v147 + 1l;
+            long v185;
+            v185 = v78.length;
+            bool v186;
+            v186 = v184 < v185;
+            if (v186){
+                const char * v187;
+                v187 = "; ";
+                printf(v140,v187);
             } else {
             }
-            v157 += 1l ;
+            v147 += 1l ;
         }
-        long & v201 = v84;
-        bool v202;
-        v202 = v201 > 100l;
-        if (v202){
-            const char * v203;
-            v203 = "; ...";
-            printf(v150,v203);
+        long v188;
+        v188 = v78.length;
+        bool v189;
+        v189 = v188 > 100l;
+        if (v189){
+            const char * v190;
+            v190 = "; ...";
+            printf(v140,v190);
         } else {
         }
-        const char * v204;
-        v204 = "]";
-        printf(v150,v204);
-        printf(v150,v151);
-        printf(v152,v148);
+        const char * v191;
+        v191 = "]";
+        printf(v140,v191);
+        printf(v140,v141);
+        printf(v142,v138);
         printf("\n");
         return ;
     } else {
@@ -733,6 +702,15 @@ extern "C" __global__ void entry0(unsigned char * v0) {
     }
 }
 """
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = length
 import cupy as cp
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
@@ -797,306 +775,287 @@ def main():
     v5 = v0[8:].view(cp.uint64)
     v6 = v5[0].item()
     del v5
-    v7 = [None] * 14
-    v8 = [0]
-    v9 = v0[16:].view(cp.int32)
-    v10 = v9[0].item()
+    v7 = static_array_list(14)
+    v8 = v0[16:].view(cp.int32)
+    v9 = v8[0].item()
+    del v8
+    v7.length = v9
     del v9
-    v11 = v8[0]
-    del v11
-    v8[0] = v10
-    del v10
-    v12 = v8[0]
-    v13 = 0
-    while method0(v12, v13):
-        v15 = u64(v13)
-        v16 = v15 * 48
+    v10 = v7.length
+    v11 = 0
+    while method0(v10, v11):
+        v13 = u64(v11)
+        v14 = v13 * 48
+        del v13
+        v15 = 32 + v14
+        del v14
+        v16 = v0[v15:].view(cp.uint8)
         del v15
-        v17 = 32 + v16
-        del v16
-        v18 = v0[v17:].view(cp.uint8)
+        v17 = v16[0:].view(cp.int32)
+        v18 = v17[0].item()
         del v17
-        v19 = v18[0:].view(cp.int32)
+        v19 = v16[4:].view(cp.int32)
         v20 = v19[0].item()
         del v19
-        v21 = v18[4:].view(cp.int32)
-        v22 = v21[0].item()
-        del v21
-        if v22 == 0:
-            v28 = US0_0()
-        elif v22 == 1:
-            v25 = v18[8:].view(cp.uint64)
-            v26 = v25[0].item()
-            del v25
-            v28 = US0_1(v26)
+        if v20 == 0:
+            v26 = US0_0()
+        elif v20 == 1:
+            v23 = v16[8:].view(cp.uint64)
+            v24 = v23[0].item()
+            del v23
+            v26 = US0_1(v24)
         else:
             raise Exception("Invalid tag.")
-        del v22
-        v29 = v18[16:].view(cp.int32)
-        v30 = v29[0].item()
-        del v29
-        if v30 == 0:
-            v62 = US1_0()
-        elif v30 == 1:
-            v33 = v18[20:].view(cp.int32)
-            v34 = v33[0].item()
-            del v33
-            if v34 == 0:
-                v36 = v18[24:].view(cp.int8)
+        del v20
+        v27 = v16[16:].view(cp.int32)
+        v28 = v27[0].item()
+        del v27
+        if v28 == 0:
+            v60 = US1_0()
+        elif v28 == 1:
+            v31 = v16[20:].view(cp.int32)
+            v32 = v31[0].item()
+            del v31
+            if v32 == 0:
+                v34 = v16[24:].view(cp.int8)
+                v35 = v34[0].item()
+                del v34
+                v36 = v16[25:].view(cp.uint8)
                 v37 = v36[0].item()
                 del v36
-                v38 = v18[25:].view(cp.uint8)
+                v38 = v16[28:].view(cp.int32)
                 v39 = v38[0].item()
                 del v38
-                v40 = v18[28:].view(cp.int32)
-                v41 = v40[0].item()
-                del v40
-                if v41 == 0:
-                    v47 = US3_0()
-                elif v41 == 1:
-                    v44 = v18[32:].view(cp.float32)
-                    v45 = v44[0].item()
-                    del v44
-                    v47 = US3_1(v45)
+                if v39 == 0:
+                    v45 = US3_0()
+                elif v39 == 1:
+                    v42 = v16[32:].view(cp.float32)
+                    v43 = v42[0].item()
+                    del v42
+                    v45 = US3_1(v43)
                 else:
                     raise Exception("Invalid tag.")
-                del v41
-                v60 = US2_0(v37, v39, v47)
-            elif v34 == 1:
-                v49 = v18[24:].view(cp.uint16)
+                del v39
+                v58 = US2_0(v35, v37, v45)
+            elif v32 == 1:
+                v47 = v16[24:].view(cp.uint16)
+                v48 = v47[0].item()
+                del v47
+                v49 = v16[28:].view(cp.int32)
                 v50 = v49[0].item()
                 del v49
-                v51 = v18[28:].view(cp.int32)
-                v52 = v51[0].item()
-                del v51
-                if v52 == 0:
-                    v58 = US4_0()
-                elif v52 == 1:
-                    v55 = v18[32:].view(cp.float64)
-                    v56 = v55[0].item()
-                    del v55
-                    v58 = US4_1(v56)
+                if v50 == 0:
+                    v56 = US4_0()
+                elif v50 == 1:
+                    v53 = v16[32:].view(cp.float64)
+                    v54 = v53[0].item()
+                    del v53
+                    v56 = US4_1(v54)
                 else:
                     raise Exception("Invalid tag.")
-                del v52
-                v60 = US2_1(v50, v58)
+                del v50
+                v58 = US2_1(v48, v56)
             else:
                 raise Exception("Invalid tag.")
-            del v34
-            v62 = US1_1(v60)
+            del v32
+            v60 = US1_1(v58)
         else:
             raise Exception("Invalid tag.")
-        del v18, v30
-        v63 = 0 <= v13
-        if v63:
-            v64 = v8[0]
-            v65 = v13 < v64
-            del v64
-            v66 = v65
+        del v16, v28
+        v61 = 0 <= v11
+        if v61:
+            v62 = v7.length
+            v63 = v11 < v62
+            del v62
+            v64 = v63
         else:
-            v66 = False
-        v67 = v66 == False
-        if v67:
-            v68 = "The set index needs to be in range."
-            assert v66, v68
-            del v68
-        else:
-            pass
-        del v66, v67
-        if v63:
-            v69 = v13 < 14
-            v70 = v69
-        else:
-            v70 = False
-        del v63
-        v71 = v70 == False
-        if v71:
-            v72 = "The read index needs to be in range."
-            assert v70, v72
-            del v72
+            v64 = False
+        del v61
+        v65 = v64 == False
+        if v65:
+            v66 = "The set index needs to be in range."
+            assert v64, v66
+            del v66
         else:
             pass
-        del v70, v71
-        v7[v13] = (v20, v28, v62)
-        del v20, v28, v62
-        v13 += 1 
-    del v12, v13
-    v73 = v0[704:].view(cp.uint16)
+        del v64, v65
+        v7[v11] = (v18, v26, v60)
+        del v18, v26, v60
+        v11 += 1 
+    del v10, v11
+    v67 = v0[704:].view(cp.uint16)
     del v0
-    v74 = v73[0].item()
-    del v73
+    v68 = v67[0].item()
+    del v67
     print(v4, end="")
     del v4
-    v75 = ", "
-    print(v75, end="")
+    v69 = ", "
+    print(v69, end="")
     print(v6, end="")
     del v6
-    print(v75, end="")
-    v76 = "["
-    print(v76, end="")
-    del v76
-    v77 = v8[0]
-    v78 = 100 < v77
-    if v78:
-        v79 = 100
+    print(v69, end="")
+    v70 = "["
+    print(v70, end="")
+    del v70
+    v71 = v7.length
+    v72 = 100 < v71
+    if v72:
+        v73 = 100
     else:
-        v79 = v77
-    del v77, v78
-    v80 = 0
-    while method0(v79, v80):
-        v82 = 0 <= v80
-        if v82:
-            v83 = v8[0]
-            v84 = v80 < v83
-            del v83
-            v85 = v84
+        v73 = v71
+    del v71, v72
+    v74 = 0
+    while method0(v73, v74):
+        v76 = 0 <= v74
+        if v76:
+            v77 = v7.length
+            v78 = v74 < v77
+            del v77
+            v79 = v78
         else:
-            v85 = False
-        v86 = v85 == False
-        if v86:
-            v87 = "The read index needs to be in range."
-            assert v85, v87
-            del v87
+            v79 = False
+        del v76
+        v80 = v79 == False
+        if v80:
+            v81 = "The read index needs to be in range."
+            assert v79, v81
+            del v81
         else:
             pass
-        del v85, v86
-        if v82:
-            v88 = v80 < 14
-            v89 = v88
-        else:
-            v89 = False
+        del v79, v80
+        v82, v83, v84 = v7[v74]
+        print(v82, end="")
         del v82
-        v90 = v89 == False
-        if v90:
-            v91 = "The read index needs to be in range."
-            assert v89, v91
-            del v91
-        else:
-            pass
-        del v89, v90
-        v92, v93, v94 = v7[v80]
-        print(v92, end="")
-        del v92
-        print(v75, end="")
-        match v93:
+        print(v69, end="")
+        match v83:
             case US0_0(): # None
-                v95 = "None"
-                print(v95, end="")
-                del v95
-            case US0_1(v96): # Some
-                v97 = "Some"
-                print(v97, end="")
-                del v97
-                v98 = "("
-                print(v98, end="")
-                del v98
-                print(v96, end="")
-                del v96
-                v99 = ")"
-                print(v99, end="")
-                del v99
-        del v93
-        print(v75, end="")
-        match v94:
+                v85 = "None"
+                print(v85, end="")
+                del v85
+            case US0_1(v86): # Some
+                v87 = "Some"
+                print(v87, end="")
+                del v87
+                v88 = "("
+                print(v88, end="")
+                del v88
+                print(v86, end="")
+                del v86
+                v89 = ")"
+                print(v89, end="")
+                del v89
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
+        del v83
+        print(v69, end="")
+        match v84:
             case US1_0(): # None
-                v100 = "None"
-                print(v100, end="")
-                del v100
-            case US1_1(v101): # Some
-                v102 = "Some"
-                print(v102, end="")
-                v103 = "("
-                print(v103, end="")
-                match v101:
-                    case US2_0(v104, v105, v106): # Q
-                        v107 = "Q"
-                        print(v107, end="")
-                        del v107
-                        print(v103, end="")
+                v90 = "None"
+                print(v90, end="")
+                del v90
+            case US1_1(v91): # Some
+                v92 = "Some"
+                print(v92, end="")
+                v93 = "("
+                print(v93, end="")
+                match v91:
+                    case US2_0(v94, v95, v96): # Q
+                        v97 = "Q"
+                        print(v97, end="")
+                        del v97
+                        print(v93, end="")
+                        print(v94, end="")
+                        del v94
+                        print(v69, end="")
+                        print(v95, end="")
+                        del v95
+                        print(v69, end="")
+                        match v96:
+                            case US3_0(): # None
+                                v98 = "None"
+                                print(v98, end="")
+                                del v98
+                            case US3_1(v99): # Some
+                                print(v92, end="")
+                                print(v93, end="")
+                                print("{:.6f}".format(v99), end="")
+                                del v99
+                                v100 = ")"
+                                print(v100, end="")
+                                del v100
+                            case t:
+                                raise Exception(f'Pattern matching miss. Got: {t}')
+                        del v96
+                        v101 = ")"
+                        print(v101, end="")
+                        del v101
+                    case US2_1(v102, v103): # W
+                        v104 = "W"
                         print(v104, end="")
                         del v104
-                        print(v75, end="")
-                        print(v105, end="")
-                        del v105
-                        print(v75, end="")
-                        match v106:
-                            case US3_0(): # None
-                                v108 = "None"
-                                print(v108, end="")
-                                del v108
-                            case US3_1(v109): # Some
-                                print(v102, end="")
-                                print(v103, end="")
-                                print("{:.6f}".format(v109), end="")
-                                del v109
-                                v110 = ")"
-                                print(v110, end="")
-                                del v110
-                        del v106
-                        v111 = ")"
-                        print(v111, end="")
-                        del v111
-                    case US2_1(v112, v113): # W
-                        v114 = "W"
-                        print(v114, end="")
-                        del v114
-                        print(v103, end="")
-                        print(v112, end="")
-                        del v112
-                        print(v75, end="")
-                        match v113:
+                        print(v93, end="")
+                        print(v102, end="")
+                        del v102
+                        print(v69, end="")
+                        match v103:
                             case US4_0(): # None
-                                v115 = "None"
-                                print(v115, end="")
-                                del v115
-                            case US4_1(v116): # Some
-                                print(v102, end="")
-                                print(v103, end="")
-                                print("{:.6f}".format(v116), end="")
-                                del v116
-                                v117 = ")"
-                                print(v117, end="")
-                                del v117
-                        del v113
-                        v118 = ")"
-                        print(v118, end="")
-                        del v118
-                del v101, v102, v103
-                v119 = ")"
-                print(v119, end="")
-                del v119
-        del v94
-        v120 = v80 + 1
-        v121 = v8[0]
-        v122 = v120 < v121
-        del v120, v121
-        if v122:
-            v123 = "; "
-            print(v123, end="")
-            del v123
+                                v105 = "None"
+                                print(v105, end="")
+                                del v105
+                            case US4_1(v106): # Some
+                                print(v92, end="")
+                                print(v93, end="")
+                                print("{:.6f}".format(v106), end="")
+                                del v106
+                                v107 = ")"
+                                print(v107, end="")
+                                del v107
+                            case t:
+                                raise Exception(f'Pattern matching miss. Got: {t}')
+                        del v103
+                        v108 = ")"
+                        print(v108, end="")
+                        del v108
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
+                del v91, v92, v93
+                v109 = ")"
+                print(v109, end="")
+                del v109
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
+        del v84
+        v110 = v74 + 1
+        v111 = v7.length
+        v112 = v110 < v111
+        del v110, v111
+        if v112:
+            v113 = "; "
+            print(v113, end="")
+            del v113
         else:
             pass
-        del v122
-        v80 += 1 
-    del v7, v79, v80
-    v124 = v8[0]
-    del v8
-    v125 = v124 > 100
-    del v124
-    if v125:
-        v126 = "; ..."
-        print(v126, end="")
-        del v126
+        del v112
+        v74 += 1 
+    del v73, v74
+    v114 = v7.length
+    del v7
+    v115 = v114 > 100
+    del v114
+    if v115:
+        v116 = "; ..."
+        print(v116, end="")
+        del v116
     else:
         pass
-    del v125
-    v127 = "]"
-    print(v127, end="")
-    del v127
-    print(v75, end="")
-    del v75
-    print(v74, end="")
-    del v74
+    del v115
+    v117 = "]"
+    print(v117, end="")
+    del v117
+    print(v69, end="")
+    del v69
+    print(v68, end="")
+    del v68
     print()
     return 
 
