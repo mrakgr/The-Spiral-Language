@@ -146,16 +146,16 @@ inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
 open corecuda
 type game_loop_state = 
     {
-        messages : refm.ref messages
+        messages : messages
         pl_type : player_types
-        deck : refm.ref deck
+        deck : deck
     }
 
 let rec play_loop_inner (state : game_loop_state) node =
     console.write_ln "in inner"
     inl f = play_loop_inner state
-    inl push_message = sa_listm.push (refm.local state.messages)
-    inl pop_deck() = pop_deck (refm.local state.deck)
+    inl push_message = sa_listm.push ( state.messages)
+    inl pop_deck() = pop_deck ( state.deck)
     match node with
     | TerminalFold table => 
         inl msg = 
@@ -201,8 +201,8 @@ let rec play_loop_inner (state : game_loop_state) node =
 
 let play_loop (state : state) deck node : state =
     console.write_ln "in play_loop"
-    inl messages = refm.ref state.ui_state.messages
-    inl deck = refm.ref deck
+    inl messages = state.ui_state.messages
+    inl deck = deck
     console.write_ln "before calling play_loop_inner"
     inl result = play_loop_inner {pl_type = state.ui_state.pl_type; messages deck} node
     console.write_ln "after calling play_loop_inner"
@@ -211,16 +211,16 @@ let play_loop (state : state) deck node : state =
         {state with
             ui_state #= fun ui_state => 
                 {ui_state with
-                    messages = refm.deref messages
+                    messages = messages
                     ui_game_state = WaitingForActionFromPlayerId(table)
                 }
-            game_state = Some { game; deck = refm.deref deck }
+            game_state = Some { game; deck =  deck }
             }
     | TerminalCall table | TerminalFold table =>
         {state with
             ui_state #= fun ui_state => 
                 {ui_state with
-                    messages = refm.deref messages
+                    messages = messages
                     ui_game_state = GameOver(table)
                 }
             game_state = None
