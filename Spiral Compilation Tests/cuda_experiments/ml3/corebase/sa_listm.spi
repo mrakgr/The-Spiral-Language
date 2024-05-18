@@ -1,66 +1,65 @@
-open refm
-
 // Resizable arrays based on the static ones. The dim in the type determines their max length.
-nominal sa_list dim el = {
-    array : sam.sa dim el
-    length : ref int
-    }
+// Is intended to be a value type on the Cuda backend, and how it works on the Python backend, is merely a serialization convenience.
+nominal sa_list dim el = $"backend_switch `({Python : $"static_array_list"; Cuda : $"static_array_list<@dim,`el>"})"
 
 // Creates an empty array.
 inl create' forall dim el. : sa_list dim el = 
     assert ((0 : int) <= (real real_core.type_lit_to_lit `dim)) "The dimension of the array has to be positive."
-    sa_list {
-        array = sam.create'
-        length = ref 0
-        }
+    backend_switch {
+        Python = fun () => $"static_array_list(@dim)"
+        Cuda = fun () =>
+            inl ar : sa_list dim el = $"static_array_list<@dim,`el> \v"
+            $"!ar.length = 0"
+            ar
+    }
     
 // Returns the length of an array.
-instance length sa_list dim = fun x => #x.length
+instance length sa_list dim = fun ar => $"!ar.length"
 
 // Sets the array to the specified length. Returns the old one. Doesn't do any checking that the new length is in range.
-inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int -> int) =
-    inl len = length ar
-    ar.length <-# f len
-    len
+inl unsafe_set_length forall dim el. (ar : sa_list dim el) (f : int) = $"!ar.length = !f"
 
 instance create sa_list dim = fun dim =>
     assert ((real real_core.type_lit_to_lit `dim) >= dim) "The type level dimension has to equal the value passed at runtime into create."
     inl ar = create'
-    inl _ = unsafe_set_length ar (const dim)
+    unsafe_set_length ar dim
     ar
 
 // Returns the maximum length of the array.
-inl max_length (ar : sa_list _ _) = length ar.array
+inl max_length forall dim el. (ar : sa_list dim el) : int = real real_core.type_lit_to_lit `dim
     
 // Indexes into an array.
-instance index sa_list dim = fun (sa_list {array length}) i => 
-    assert (0 <= i && i < #length) "The read index needs to be in range."
-    index array i
+instance index sa_list dim = fun ar i => 
+    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    backend_switch {
+        Cuda = fun () => $"!ar.v[!i]"
+        Python = fun () => $"!ar[!i]"
+    }
+
 // Sets the value of an array at the specified index.
-instance set sa_list dim = fun (sa_list {array length}) i v =>
-    assert (0 <= i && i < #length) "The set index needs to be in range."
-    set array i v
+instance set sa_list dim = fun ar i v =>
+    assert (0 <= i && i < length ar) "The set index needs to be in range."
+    backend_switch {
+        Cuda = fun () => $"!ar.v[!i] = !v"
+        Python = fun () => $"!ar[!i] = !v"
+    }
 
-
-// // Sets the array to the specified length. Returns the old one.
-// inl set_length forall dim el. (ar : sa_list dim el) (f : int -> int) =
-//     inl _ = unsafe_set_length ar f
-//     inl i = length ar
-//     assert (0 <= i && i <= max_length ar) "The new length of the array needs to be in valid range."
-
+// Pushes a value into the array.
 inl push forall dim el. (ar : sa_list dim el) (x : el) =
-    inl len = unsafe_set_length ar ((+) 1)
+    inl len = length ar
+    assert (len < max_length ar) "The length has to be less than the maximum length of the array."
+    unsafe_set_length ar (len + 1)
     set ar len x
 
+// Pop a value from the top of the array.
 inl pop forall dim el. (ar : sa_list dim el) : el =
     inl len = length ar - 1
     inl x = index ar len
-    inl _ = unsafe_set_length ar (const len)
+    unsafe_set_length ar len
     x
 
-inl clear forall dim el. (ar : sa_list dim el) : () =
-    inl _ = unsafe_set_length ar (const 0)
-    ()
+// Sets the length of the array to 0.
+inl clear forall dim el. (ar : sa_list dim el) : () = unsafe_set_length ar 0
 
 open arraym
 

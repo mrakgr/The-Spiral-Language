@@ -1,6 +1,6 @@
 open corebase
-open refm
 open corecuda
+open refm
 open tensorm
 
 union rec backpropagation_op = BckOp : list backpropagation_op * (() -> ())

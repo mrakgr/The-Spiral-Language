@@ -1,0 +1,26 @@
+// A lot of trickery is needed to deal with references on the Cuda side.
+
+open corebase
+
+// Base reference type
+nominal ref t = $"`t &"
+
+// Creates a reference from a value type. The reference does not point to the original, the argument is copied by value instead
+// and the reference points to the adress of the copy.
+inl ref forall t. (x : t) : ref t = $"`t \v = !x"
+
+// Sets the reference to a particular value.
+inl (<-#) forall t. (x : ref t) (v : t) : () = $"!x = !v"
+
+// Copies the reference's value on the stack. The newly created value type will have a fresh adress.
+inl (~#) forall t. (x : ref t) : t = $"`t \v = !x"
+
+// Creates a value type pointing to the same adress in memory as the original reference.
+// Note that passing this value through join points afterwards will end up duplicating it unlike references.
+// Is intended to be used for passing value type arrays into functions that mutate them locally while
+// retaining the usual reference semantics.
+inl local forall t. (x : ref t) : t = $"`t & \v = !x"
+
+// Indexes into an array. Returns a reference to the element instead of the actual element.
+prototype ref_index ar el : ar el -> int -> ref el
+instance ref_index array = fun array i => $"`el & \v = !array[!i]"

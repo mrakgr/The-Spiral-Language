@@ -25,8 +25,9 @@ union message =
     | PlayerAction : int * action
     | Showdown : {winner_id : int; chips_won : int; cards_shown : sam.sa 2 card}
 
-type messages = sa_listm.sa_list 32 message
 type deck = sa_listm.sa_list 6 card
+type player_types = sam.sa 2 player_type
+type messages = sa_listm.sa_list 32 message
 
 union ui_game_state =
     | GameNotStarted
@@ -51,7 +52,7 @@ type state =
     {
         ui_state : {
             ui_game_state : ui_game_state
-            pl_type : sam.sa 2 player_type
+            pl_type : player_types
             messages : messages
             }
         game_state : game_state
@@ -115,9 +116,12 @@ inl shuffle forall dim el. (ar : sa_listm.sa_list dim el) : () =
         Cuda = fun _ => corecuda.random.shuffle ar
         Python = fun _ => 
             global "import random"
-            inl x = $"!(ar.array)[:!(length ar)]" : $"object"
-            $"random.shuffle(!x)"
-            $"!(ar.array)[:!(length ar)] = !x"
+            // Knuth shuffle
+            loop.for' {from=0; nearTo=length ar - 1} fun i =>
+                inl j = $"random.randrange(!i, !(length ar))"
+                inl tmp = index ar i
+                set ar i (index ar j)
+                set ar j tmp
     }
 
 inl random_action (table : table) =
@@ -142,8 +146,8 @@ inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
 type game_loop_state = 
     {
         messages : messages
-        pl_type : sam.sa 2 player_type
-        deck : sa_listm.sa_list 6 card
+        pl_type : player_types
+        deck : deck
     }
 
 let rec play_loop_inner (state : game_loop_state) node =
@@ -198,7 +202,7 @@ let rec play_loop (state : state) deck node : state =
                 {ui_state with
                     ui_game_state = WaitingForActionFromPlayerId(table)
                 }
-            game_state = Some {deck game }
+            game_state = Some { game; deck = deck }
             }
     | TerminalCall table | TerminalFold table =>
         {state with
@@ -222,7 +226,7 @@ inl event_loop (msg, state : event * state) : state =
         match state.game_state with
         | Some {deck game} => 
             match game with
-            | Round table => play_loop state deck RoundWithAction(table, action)
+            | Round table => play_loop state (deck) RoundWithAction(table, action)
             | _ => failwith "Unexpected game node in ActionSelected."
         | None => state
 
