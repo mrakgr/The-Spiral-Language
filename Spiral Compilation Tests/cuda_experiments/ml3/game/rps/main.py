@@ -1,5 +1,6 @@
 kernel = r"""
-template <typename el, int dim> struct array { el v[dim]; };
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
 #include <curand_kernel.h>
 struct US1;
 struct US2;
@@ -9,11 +10,11 @@ struct US4;
 struct US5;
 struct Tuple0;
 struct Tuple1;
-__device__ long loop_4(array<float,3l> v0, float v1, long v2);
-__device__ long sample_discrete__3(array<float,3l> v0, curandStatePhilox4_32_10_t * v1);
-__device__ US1 sample_discrete_2(array<Tuple1,3l> v0, curandStatePhilox4_32_10_t * v1);
-__device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l> v2, US4 v3, US5 v4, US2 v5, US2 v6);
-__device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, array<US3,2l> v1, US4 v2, US5 v3, US2 v4, US2 v5, US0 v6);
+__device__ long loop_4(static_array<float,3l> v0, float v1, long v2);
+__device__ long sample_discrete__3(static_array<float,3l> v0, curandStatePhilox4_32_10_t * v1);
+__device__ US1 sample_discrete_2(static_array<Tuple1,3l> v0, curandStatePhilox4_32_10_t * v1);
+__device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, static_array<US3,2l> v2, US4 v3, US5 v4, US2 v5, US2 v6);
+__device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, static_array<US3,2l> v1, US4 v2, US5 v3, US2 v4, US2 v5, US0 v6);
 struct US1 {
     union {
     } v;
@@ -66,12 +67,12 @@ struct US5 {
     unsigned long tag : 2;
 };
 struct Tuple0 {
-    array<US3,2l> v0;
+    static_array<US3,2l> v0;
     US4 v1;
     US5 v2;
     US2 v3;
     US2 v4;
-    __device__ Tuple0(array<US3,2l> t0, US4 t1, US5 t2, US2 t3, US2 t4) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4) {}
+    __device__ Tuple0(static_array<US3,2l> t0, US4 t1, US5 t2, US2 t3, US2 t4) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4) {}
     __device__ Tuple0() = default;
 };
 struct Tuple1 {
@@ -176,7 +177,7 @@ __device__ inline bool while_method_1(long v0){
     v1 = v0 < 3l;
     return v1;
 }
-__device__ inline bool while_method_2(array<float,3l> v0, long v1){
+__device__ inline bool while_method_2(static_array<float,3l> v0, long v1){
     bool v2;
     v2 = v1 < 3l;
     return v2;
@@ -186,7 +187,7 @@ __device__ inline bool while_method_3(long v0, long v1){
     v2 = v1 > v0;
     return v2;
 }
-__device__ long loop_4(array<float,3l> v0, float v1, long v2){
+__device__ long loop_4(static_array<float,3l> v0, float v1, long v2){
     bool v3;
     v3 = v2 < 3l;
     if (v3){
@@ -215,8 +216,8 @@ __device__ long loop_4(array<float,3l> v0, float v1, long v2){
         return 2l;
     }
 }
-__device__ long sample_discrete__3(array<float,3l> v0, curandStatePhilox4_32_10_t * v1){
-    array<float,3l> v2;
+__device__ long sample_discrete__3(static_array<float,3l> v0, curandStatePhilox4_32_10_t * v1){
+    static_array<float,3l> v2;
     long v3;
     v3 = 0l;
     while (while_method_1(v3)){
@@ -332,8 +333,8 @@ __device__ long sample_discrete__3(array<float,3l> v0, curandStatePhilox4_32_10_
     v36 = 0l;
     return loop_4(v2, v35, v36);
 }
-__device__ US1 sample_discrete_2(array<Tuple1,3l> v0, curandStatePhilox4_32_10_t * v1){
-    array<float,3l> v2;
+__device__ US1 sample_discrete_2(static_array<Tuple1,3l> v0, curandStatePhilox4_32_10_t * v1){
+    static_array<float,3l> v2;
     long v3;
     v3 = 0l;
     while (while_method_1(v3)){
@@ -396,7 +397,7 @@ __device__ US1 sample_discrete_2(array<Tuple1,3l> v0, curandStatePhilox4_32_10_t
     v19 = tmp1.v0; v20 = tmp1.v1;
     return v19;
 }
-__device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l> v2, US4 v3, US5 v4, US2 v5, US2 v6){
+__device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, static_array<US3,2l> v2, US4 v3, US5 v4, US2 v5, US2 v6){
     switch (v3.tag) {
         case 0: { // GameNotStarted
             return Tuple0(v2, v3, v4, v5, v6);
@@ -438,7 +439,7 @@ __device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l
                             assert("The computer player should never be receiving an action." && v14);
                         } else {
                         }
-                        array<Tuple1,3l> v16;
+                        static_array<Tuple1,3l> v16;
                         US1 v17;
                         v17 = US1_1();
                         v16.v[0l] = Tuple1(v17, 1.0f);
@@ -452,7 +453,7 @@ __device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l
                         v20 = sample_discrete_2(v16, v0);
                         long v21;
                         v21 = v9 + 1l;
-                        array<US3,2l> v22;
+                        static_array<US3,2l> v22;
                         long v23;
                         v23 = 0l;
                         while (while_method_0(v23)){
@@ -516,7 +517,7 @@ __device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l
                                 US1 v43 = v1.v.case1.v0;
                                 long v44;
                                 v44 = v9 + 1l;
-                                array<US3,2l> v45;
+                                static_array<US3,2l> v45;
                                 long v46;
                                 v46 = 0l;
                                 while (while_method_0(v46)){
@@ -583,7 +584,7 @@ __device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l
                         switch (v87.tag) {
                             case 1: { // Some
                                 US1 v89 = v87.v.case1.v0;
-                                array<US3,2l> v90;
+                                static_array<US3,2l> v90;
                                 long v91;
                                 v91 = 0l;
                                 while (while_method_0(v91)){
@@ -631,8 +632,8 @@ __device__ Tuple0 method_1(curandStatePhilox4_32_10_t * v0, US3 v1, array<US3,2l
         }
     }
 }
-__device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, array<US3,2l> v1, US4 v2, US5 v3, US2 v4, US2 v5, US0 v6){
-    array<US3,2l> v49; US4 v50; US5 v51; US2 v52; US2 v53;
+__device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, static_array<US3,2l> v1, US4 v2, US5 v3, US2 v4, US2 v5, US0 v6){
+    static_array<US3,2l> v49; US4 v50; US5 v51; US2 v52; US2 v53;
     switch (v6.tag) {
         case 0: { // ActionSelected
             US1 v32 = v6.v.case0.v0;
@@ -651,7 +652,7 @@ __device__ Tuple0 method_0(curandStatePhilox4_32_10_t * v0, array<US3,2l> v1, US
             break;
         }
         default: { // StartGame
-            array<US3,2l> v7;
+            static_array<US3,2l> v7;
             long v8;
             v8 = 0l;
             while (while_method_0(v8)){
@@ -793,7 +794,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 asm("exit;");
             }
         }
-        array<US3,2l> v37;
+        static_array<US3,2l> v37;
         long v38;
         v38 = 0l;
         while (while_method_0(v38)){
@@ -1044,7 +1045,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 asm("exit;");
             }
         }
-        array<US3,2l> v116; US4 v117; US5 v118; US2 v119; US2 v120;
+        static_array<US3,2l> v116; US4 v117; US5 v118; US2 v119; US2 v120;
         Tuple0 tmp5 = method_0(v10, v37, v82, v103, v109, v115, v36);
         v116 = tmp5.v0; v117 = tmp5.v1; v118 = tmp5.v2; v119 = tmp5.v3; v120 = tmp5.v4;
         long v121;
@@ -1231,6 +1232,15 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
     }
 }
 """
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = length
 import cupy as cp
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
@@ -1267,31 +1277,31 @@ class US0_1(NamedTuple): # PlayerChanged
 class US0_2(NamedTuple): # StartGame
     tag = 2
 US0 = Union[US0_0, US0_1, US0_2]
-class US3_0(NamedTuple): # None
+class US3_0(NamedTuple): # GameNotStarted
     tag = 0
-class US3_1(NamedTuple): # Some
-    v0 : US1
-    tag = 1
-US3 = Union[US3_0, US3_1]
-class US4_0(NamedTuple): # GameNotStarted
-    tag = 0
-class US4_1(NamedTuple): # GameOver
+class US3_1(NamedTuple): # GameOver
     v0 : US1
     v1 : US1
     tag = 1
-class US4_2(NamedTuple): # WaitingForActionFromPlayerId
+class US3_2(NamedTuple): # WaitingForActionFromPlayerId
     v0 : i32
     tag = 2
-US4 = Union[US4_0, US4_1, US4_2]
-class US5_0(NamedTuple): # GameStarted
+US3 = Union[US3_0, US3_1, US3_2]
+class US4_0(NamedTuple): # GameStarted
     tag = 0
-class US5_1(NamedTuple): # ShowdownResult
+class US4_1(NamedTuple): # ShowdownResult
     v0 : US1
     v1 : US1
     tag = 1
-class US5_2(NamedTuple): # WaitingToStart
+class US4_2(NamedTuple): # WaitingToStart
     tag = 2
-US5 = Union[US5_0, US5_1, US5_2]
+US4 = Union[US4_0, US4_1, US4_2]
+class US5_0(NamedTuple): # None
+    tag = 0
+class US5_1(NamedTuple): # Some
+    v0 : US1
+    tag = 1
+US5 = Union[US5_0, US5_1]
 def Closure0():
     def inner(v0 : object, v1 : object) -> object:
         v2 = method0(v0)
@@ -1323,6 +1333,8 @@ def Closure1():
                         del v12
                     case US1_2(): # Scissors
                         del v12
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
             case US0_1(v15, v16): # PlayerChanged
                 v17 = v15.tag
                 v18 = v2[4:].view(cp.int32)
@@ -1333,6 +1345,8 @@ def Closure1():
                         pass
                     case US2_1(): # Human
                         pass
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
                 del v15
                 v19 = v16.tag
                 v20 = v2[8:].view(cp.int32)
@@ -1343,8 +1357,12 @@ def Closure1():
                         del v16
                     case US2_1(): # Human
                         del v16
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
             case US0_2(): # StartGame
                 pass
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
         del v4
         v21 = 0
         while method11(v21):
@@ -1374,9 +1392,9 @@ def Closure1():
             v33[0] = v32
             del v32, v33
             match v31:
-                case US3_0(): # None
+                case US5_0(): # None
                     pass
-                case US3_1(v34): # Some
+                case US5_1(v34): # Some
                     v35 = v34.tag
                     v36 = v25[4:].view(cp.int32)
                     v36[0] = v35
@@ -1388,6 +1406,10 @@ def Closure1():
                             del v34
                         case US1_2(): # Scissors
                             del v34
+                        case t:
+                            raise Exception(f'Pattern matching miss. Got: {t}')
+                case t:
+                    raise Exception(f'Pattern matching miss. Got: {t}')
             del v25, v31
             v21 += 1 
         del v5, v21
@@ -1396,9 +1418,9 @@ def Closure1():
         v38[0] = v37
         del v37, v38
         match v6:
-            case US4_0(): # GameNotStarted
+            case US3_0(): # GameNotStarted
                 pass
-            case US4_1(v39, v40): # GameOver
+            case US3_1(v39, v40): # GameOver
                 v41 = v39.tag
                 v42 = v3[20:].view(cp.int32)
                 v42[0] = v41
@@ -1410,6 +1432,8 @@ def Closure1():
                         pass
                     case US1_2(): # Scissors
                         pass
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
                 del v39
                 v43 = v40.tag
                 v44 = v3[24:].view(cp.int32)
@@ -1422,19 +1446,23 @@ def Closure1():
                         del v40
                     case US1_2(): # Scissors
                         del v40
-            case US4_2(v45): # WaitingForActionFromPlayerId
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
+            case US3_2(v45): # WaitingForActionFromPlayerId
                 v46 = v3[20:].view(cp.int32)
                 v46[0] = v45
                 del v45, v46
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
         del v6
         v47 = v7.tag
         v48 = v3[28:].view(cp.int32)
         v48[0] = v47
         del v47, v48
         match v7:
-            case US5_0(): # GameStarted
+            case US4_0(): # GameStarted
                 pass
-            case US5_1(v49, v50): # ShowdownResult
+            case US4_1(v49, v50): # ShowdownResult
                 v51 = v49.tag
                 v52 = v3[32:].view(cp.int32)
                 v52[0] = v51
@@ -1446,6 +1474,8 @@ def Closure1():
                         pass
                     case US1_2(): # Scissors
                         pass
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
                 del v49
                 v53 = v50.tag
                 v54 = v3[36:].view(cp.int32)
@@ -1458,8 +1488,12 @@ def Closure1():
                         del v50
                     case US1_2(): # Scissors
                         del v50
-            case US5_2(): # WaitingToStart
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
+            case US4_2(): # WaitingToStart
                 pass
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
         del v7
         v55 = v8.tag
         v56 = v3[40:].view(cp.int32)
@@ -1470,6 +1504,8 @@ def Closure1():
                 pass
             case US2_1(): # Human
                 pass
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
         del v8
         v57 = v9.tag
         v58 = v3[44:].view(cp.int32)
@@ -1480,6 +1516,8 @@ def Closure1():
                 pass
             case US2_1(): # Human
                 pass
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
         del v9
         v59 = 0
         v60 = raw_module.get_function(f"entry{v59}")
@@ -1487,7 +1525,7 @@ def Closure1():
         v60.max_dynamic_shared_size_bytes = 0 
         v60((1,),(512,),(v3, v2),shared_mem=0)
         del v2, v60
-        v61 = [None] * 2
+        v61 = static_array(2)
         v62 = 0
         while method11(v62):
             v64 = u64(v62)
@@ -1499,7 +1537,7 @@ def Closure1():
             v68 = v67[0].item()
             del v67
             if v68 == 0:
-                v79 = US3_0()
+                v79 = US5_0()
             elif v68 == 1:
                 v71 = v66[4:].view(cp.int32)
                 v72 = v71[0].item()
@@ -1513,7 +1551,7 @@ def Closure1():
                 else:
                     raise Exception("Invalid tag.")
                 del v72
-                v79 = US3_1(v77)
+                v79 = US5_1(v77)
             else:
                 raise Exception("Invalid tag.")
             del v66, v68
@@ -1540,7 +1578,7 @@ def Closure1():
         v86 = v85[0].item()
         del v85
         if v86 == 0:
-            v107 = US4_0()
+            v107 = US3_0()
         elif v86 == 1:
             v89 = v3[20:].view(cp.int32)
             v90 = v89[0].item()
@@ -1566,12 +1604,12 @@ def Closure1():
             else:
                 raise Exception("Invalid tag.")
             del v97
-            v107 = US4_1(v95, v102)
+            v107 = US3_1(v95, v102)
         elif v86 == 2:
             v104 = v3[20:].view(cp.int32)
             v105 = v104[0].item()
             del v104
-            v107 = US4_2(v105)
+            v107 = US3_2(v105)
         else:
             raise Exception("Invalid tag.")
         del v86
@@ -1579,7 +1617,7 @@ def Closure1():
         v109 = v108[0].item()
         del v108
         if v109 == 0:
-            v128 = US5_0()
+            v128 = US4_0()
         elif v109 == 1:
             v112 = v3[32:].view(cp.int32)
             v113 = v112[0].item()
@@ -1605,9 +1643,9 @@ def Closure1():
             else:
                 raise Exception("Invalid tag.")
             del v120
-            v128 = US5_1(v118, v125)
+            v128 = US4_1(v118, v125)
         elif v109 == 2:
-            v128 = US5_2()
+            v128 = US4_2()
         else:
             raise Exception("Invalid tag.")
         del v109
@@ -1636,7 +1674,7 @@ def Closure1():
     return inner
 def Closure2():
     def inner() -> object:
-        v0 = [None] * 2
+        v0 = static_array(2)
         v1 = 0
         while method11(v1):
             v3 = 0 <= v1
@@ -1654,20 +1692,20 @@ def Closure2():
             else:
                 pass
             del v5, v6
-            v8 = US3_0()
+            v8 = US5_0()
             v0[v1] = v8
             del v8
             v1 += 1 
         del v1
-        v9 = US4_0()
-        v10 = US5_2()
+        v9 = US3_0()
+        v10 = US4_2()
         v11 = US2_0()
         v12 = US2_1()
         return method18(v0, v9, v10, v11, v12)
     return inner
 def method2(v0 : object) -> US1:
-    v1 = v0[0]
-    v2 = v0[1]
+    v1 = v0[0] # type: ignore
+    v2 = v0[1] # type: ignore
     del v0
     v4 = "Paper" == v1
     if v4:
@@ -1697,8 +1735,8 @@ def method2(v0 : object) -> US1:
                 del v1
                 raise Exception("Error")
 def method3(v0 : object) -> US2:
-    v1 = v0[0]
-    v2 = v0[1]
+    v1 = v0[0] # type: ignore
+    v2 = v0[1] # type: ignore
     del v0
     v4 = "Computer" == v1
     if v4:
@@ -1720,8 +1758,8 @@ def method3(v0 : object) -> US2:
             del v1
             raise Exception("Error")
 def method1(v0 : object) -> US0:
-    v1 = v0[0]
-    v2 = v0[1]
+    v1 = v0[0] # type: ignore
+    v2 = v0[1] # type: ignore
     del v0
     v4 = "ActionSelected" == v1
     if v4:
@@ -1761,16 +1799,16 @@ def method5(v0 : i32, v1 : i32) -> bool:
     v2 = v1 < v0
     del v0, v1
     return v2
-def method6(v0 : object) -> US3:
-    v1 = v0[0]
-    v2 = v0[1]
+def method6(v0 : object) -> US5:
+    v1 = v0[0] # type: ignore
+    v2 = v0[1] # type: ignore
     del v0
     v4 = "None" == v1
     if v4:
         del v1, v4
         assert v2 == [], f'Expected an unit type. Got: {v2}'
         del v2
-        return US3_0()
+        return US5_0()
     else:
         del v4
         v7 = "Some" == v1
@@ -1778,22 +1816,22 @@ def method6(v0 : object) -> US3:
             del v1, v7
             v8 = method2(v2)
             del v2
-            return US3_1(v8)
+            return US5_1(v8)
         else:
             del v2, v7
             raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
             del v1
             raise Exception("Error")
-def method7(v0 : object) -> US4:
-    v1 = v0[0]
-    v2 = v0[1]
+def method7(v0 : object) -> US3:
+    v1 = v0[0] # type: ignore
+    v2 = v0[1] # type: ignore
     del v0
     v4 = "GameNotStarted" == v1
     if v4:
         del v1, v4
         assert v2 == [], f'Expected an unit type. Got: {v2}'
         del v2
-        return US4_0()
+        return US3_0()
     else:
         del v4
         v7 = "GameOver" == v1
@@ -1806,7 +1844,7 @@ def method7(v0 : object) -> US4:
             del v2
             v11 = method2(v10)
             del v10
-            return US4_1(v9, v11)
+            return US3_1(v9, v11)
         else:
             del v7
             v14 = "WaitingForActionFromPlayerId" == v1
@@ -1815,22 +1853,22 @@ def method7(v0 : object) -> US4:
                 assert isinstance(v2,i32), f'The object needs to be the right primitive type. Got: {v2}'
                 v15 = v2
                 del v2
-                return US4_2(v15)
+                return US3_2(v15)
             else:
                 del v2, v14
                 raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
                 del v1
                 raise Exception("Error")
-def method8(v0 : object) -> US5:
-    v1 = v0[0]
-    v2 = v0[1]
+def method8(v0 : object) -> US4:
+    v1 = v0[0] # type: ignore
+    v2 = v0[1] # type: ignore
     del v0
     v4 = "GameStarted" == v1
     if v4:
         del v1, v4
         assert v2 == [], f'Expected an unit type. Got: {v2}'
         del v2
-        return US5_0()
+        return US4_0()
     else:
         del v4
         v7 = "ShowdownResult" == v1
@@ -1843,7 +1881,7 @@ def method8(v0 : object) -> US5:
             del v2
             v11 = method2(v10)
             del v10
-            return US5_1(v9, v11)
+            return US4_1(v9, v11)
         else:
             del v7
             v14 = "WaitingToStart" == v1
@@ -1851,90 +1889,83 @@ def method8(v0 : object) -> US5:
                 del v1, v14
                 assert v2 == [], f'Expected an unit type. Got: {v2}'
                 del v2
-                return US5_2()
+                return US4_2()
             else:
                 del v2, v14
                 raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
                 del v1
                 raise Exception("Error")
-def method4(v0 : object) -> Tuple[list[US3], US4, US5, US2, US2]:
-    v1 = "game_state"
-    v2 = v0[v1]
-    v3 = "past_actions"
-    v4 = v2[v3]
-    del v2, v3
-    assert isinstance(v4,list), f'The object needs to be a Python list. Got: {v4}'
-    v5 = len(v4)
-    v6 = 2 == v5
-    v7 = v6 == False
-    if v7:
-        v8 = "The type level dimension has to equal the value passed at runtime into create."
-        assert v6, v8
-        del v8
+def method4(v0 : object) -> Tuple[static_array, US3, US4, US2, US2]:
+    v1 = v0["game_state"] # type: ignore
+    v2 = v1["past_actions"] # type: ignore
+    del v1
+    assert isinstance(v2,list), f'The object needs to be a Python list. Got: {v2}'
+    v3 = len(v2)
+    v4 = 2 == v3
+    v5 = v4 == False
+    if v5:
+        v6 = "The type level dimension has to equal the value passed at runtime into create."
+        assert v4, v6
+        del v6
     else:
         pass
-    del v6, v7
-    v9 = [None] * 2
-    v10 = 0
-    while method5(v5, v10):
-        v12 = v4[v10]
-        v13 = method6(v12)
-        del v12
-        v14 = 0 <= v10
-        if v14:
-            v15 = v10 < 2
-            v16 = v15
+    del v4, v5
+    v7 = static_array(2)
+    v8 = 0
+    while method5(v3, v8):
+        v10 = v2[v8]
+        v11 = method6(v10)
+        del v10
+        v12 = 0 <= v8
+        if v12:
+            v13 = v8 < 2
+            v14 = v13
         else:
-            v16 = False
-        del v14
-        v17 = v16 == False
-        if v17:
-            v18 = "The read index needs to be in range."
-            assert v16, v18
-            del v18
+            v14 = False
+        del v12
+        v15 = v14 == False
+        if v15:
+            v16 = "The read index needs to be in range."
+            assert v14, v16
+            del v16
         else:
             pass
-        del v16, v17
-        v9[v10] = v13
-        del v13
-        v10 += 1 
-    del v4, v5, v10
-    v19 = "ui_state"
-    v20 = v0[v19]
-    del v0, v19
-    v21 = v20[v1]
-    del v1
-    v22 = method7(v21)
-    del v21
-    v23 = "messages"
-    v24 = v20[v23]
+        del v14, v15
+        v7[v8] = v11
+        del v11
+        v8 += 1 
+    del v2, v3, v8
+    v17 = v0["ui_state"] # type: ignore
+    del v0
+    v18 = v17["game_state"] # type: ignore
+    v19 = method7(v18)
+    del v18
+    v20 = v17["messages"] # type: ignore
+    v21 = method8(v20)
+    del v20
+    v22 = v17["pl_type"] # type: ignore
+    del v17
+    v23 = v22[0]
+    v24 = method3(v23)
     del v23
-    v25 = method8(v24)
-    del v24
-    v26 = "pl_type"
-    v27 = v20[v26]
-    del v20, v26
-    v28 = v27[0]
-    v29 = method3(v28)
-    del v28
-    v30 = v27[1]
-    del v27
-    v31 = method3(v30)
-    del v30
-    return v9, v22, v25, v29, v31
+    v25 = v22[1]
+    del v22
+    v26 = method3(v25)
+    del v25
+    return v7, v19, v21, v24, v26
 def method11(v0 : i32) -> bool:
     v1 = v0 < 2
     del v0
     return v1
-def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -> Tuple[list[US3], US4, US5, US2, US2]:
+def method10(v0 : US5, v1 : static_array, v2 : US3, v3 : US4, v4 : US2, v5 : US2) -> Tuple[static_array, US3, US4, US2, US2]:
     match v2:
-        case US4_0(): # GameNotStarted
+        case US3_0(): # GameNotStarted
             del v0
             return v1, v2, v3, v4, v5
-        case US4_1(_, _): # GameOver
+        case US3_1(_, _): # GameOver
             del v0
             return v1, v2, v3, v4, v5
-        case US4_2(v8): # WaitingForActionFromPlayerId
+        case US3_2(v8): # WaitingForActionFromPlayerId
             v9 = v8 < 2
             if v9:
                 del v9
@@ -1948,9 +1979,9 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                     case US2_0(): # Computer
                         del v2, v11
                         match v0:
-                            case US3_0(): # None
+                            case US5_0(): # None
                                 v13 = True
-                            case _:
+                            case t:
                                 v13 = False
                         del v0
                         v14 = v13 == False
@@ -1967,7 +1998,7 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                         v19 = random.choice([v16, v17, v18])
                         del v16, v17, v18
                         v20 = v8 + 1
-                        v21 = [None] * 2
+                        v21 = static_array(2)
                         v22 = 0
                         while method11(v22):
                             v24 = 0 <= v22
@@ -1987,7 +2018,7 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                             v29 = v1[v22]
                             v30 = v8 == v22
                             if v30:
-                                v32 = US3_1(v19)
+                                v32 = US5_1(v19)
                             else:
                                 v32 = v29
                             del v29, v30
@@ -2009,20 +2040,20 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                             del v32
                             v22 += 1 
                         del v1, v8, v19, v22
-                        v37 = US3_0()
-                        v38 = US4_2(v20)
+                        v37 = US5_0()
+                        v38 = US3_2(v20)
                         del v20
                         return method10(v37, v21, v38, v3, v4, v5)
                     case US2_1(): # Human
                         del v11
                         match v0:
-                            case US3_0(): # None
+                            case US5_0(): # None
                                 del v0, v8
                                 return v1, v2, v3, v4, v5
-                            case US3_1(v44): # Some
+                            case US5_1(v44): # Some
                                 del v0, v2
                                 v45 = v8 + 1
-                                v46 = [None] * 2
+                                v46 = static_array(2)
                                 v47 = 0
                                 while method11(v47):
                                     v49 = 0 <= v47
@@ -2042,7 +2073,7 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                                     v54 = v1[v47]
                                     v55 = v8 == v47
                                     if v55:
-                                        v57 = US3_1(v44)
+                                        v57 = US5_1(v44)
                                     else:
                                         v57 = v54
                                     del v54, v55
@@ -2064,22 +2095,26 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                                     del v57
                                     v47 += 1 
                                 del v1, v8, v44, v47
-                                v62 = US3_0()
-                                v63 = US4_2(v45)
+                                v62 = US5_0()
+                                v63 = US3_2(v45)
                                 del v45
                                 return method10(v62, v46, v63, v3, v4, v5)
+                            case t:
+                                raise Exception(f'Pattern matching miss. Got: {t}')
+                    case t:
+                        raise Exception(f'Pattern matching miss. Got: {t}')
             else:
                 del v0, v2, v3, v8, v9
                 v89 = v1[0]
                 v90 = v1[1]
                 del v1
                 match v89:
-                    case US3_1(v91): # Some
+                    case US5_1(v91): # Some
                         del v89
                         match v90:
-                            case US3_1(v92): # Some
+                            case US5_1(v92): # Some
                                 del v90
-                                v93 = [None] * 2
+                                v93 = static_array(2)
                                 v94 = 0
                                 while method11(v94):
                                     v96 = 0 <= v94
@@ -2097,32 +2132,34 @@ def method10(v0 : US3, v1 : list[US3], v2 : US4, v3 : US5, v4 : US2, v5 : US2) -
                                     else:
                                         pass
                                     del v98, v99
-                                    v101 = US3_0()
+                                    v101 = US5_0()
                                     v93[v94] = v101
                                     del v101
                                     v94 += 1 
                                 del v94
-                                v102 = US4_1(v91, v92)
-                                v103 = US5_1(v91, v92)
+                                v102 = US3_1(v91, v92)
+                                v103 = US4_1(v91, v92)
                                 del v91, v92
                                 return v93, v102, v103, v4, v5
-                            case _:
+                            case t:
                                 del v4, v5, v90, v91
                                 raise Exception("At showdown all the actions have to be selected.")
-                    case _:
+                    case t:
                         del v4, v5, v89, v90
                         raise Exception("At showdown all the actions have to be selected.")
-def method9(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2, v5 : US0) -> Tuple[list[US3], US4, US5, US2, US2]:
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method9(v0 : static_array, v1 : US3, v2 : US4, v3 : US2, v4 : US2, v5 : US0) -> Tuple[static_array, US3, US4, US2, US2]:
     match v5:
         case US0_0(v32): # ActionSelected
-            v33 = US3_1(v32)
+            v33 = US5_1(v32)
             del v32
             v49, v50, v51, v52, v53 = method10(v33, v0, v1, v2, v3, v4)
         case US0_1(v24, v25): # PlayerChanged
-            v26 = US3_0()
+            v26 = US5_0()
             v49, v50, v51, v52, v53 = method10(v26, v0, v1, v2, v24, v25)
         case US0_2(): # StartGame
-            v6 = [None] * 2
+            v6 = static_array(2)
             v7 = 0
             while method11(v7):
                 v9 = 0 <= v7
@@ -2140,17 +2177,19 @@ def method9(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2, v5 : US0) ->
                 else:
                     pass
                 del v11, v12
-                v14 = US3_0()
+                v14 = US5_0()
                 v6[v7] = v14
                 del v14
                 v7 += 1 
             del v7
-            v15 = US3_0()
+            v15 = US5_0()
             v16 = 0
-            v17 = US4_2(v16)
+            v17 = US3_2(v16)
             del v16
-            v18 = US5_0()
+            v18 = US4_0()
             v49, v50, v51, v52, v53 = method10(v15, v6, v17, v18, v3, v4)
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
     del v0, v1, v2, v3, v4, v5
     return v49, v50, v51, v52, v53
 def method14(v0 : US1) -> object:
@@ -2176,16 +2215,18 @@ def method14(v0 : US1) -> object:
             v9 = [v8,v7]
             del v7, v8
             return v9
-def method13(v0 : US3) -> object:
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method13(v0 : US5) -> object:
     match v0:
-        case US3_0(): # None
+        case US5_0(): # None
             del v0
             v1 = []
             v2 = "None"
             v3 = [v2,v1]
             del v1, v2
             return v3
-        case US3_1(v4): # Some
+        case US5_1(v4): # Some
             del v0
             v5 = method14(v4)
             del v4
@@ -2193,16 +2234,18 @@ def method13(v0 : US3) -> object:
             v7 = [v6,v5]
             del v5, v6
             return v7
-def method15(v0 : US4) -> object:
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method15(v0 : US3) -> object:
     match v0:
-        case US4_0(): # GameNotStarted
+        case US3_0(): # GameNotStarted
             del v0
             v1 = []
             v2 = "GameNotStarted"
             v3 = [v2,v1]
             del v1, v2
             return v3
-        case US4_1(v4, v5): # GameOver
+        case US3_1(v4, v5): # GameOver
             del v0
             v6 = []
             v7 = method14(v4)
@@ -2219,7 +2262,7 @@ def method15(v0 : US4) -> object:
             v11 = [v10,v9]
             del v9, v10
             return v11
-        case US4_2(v12): # WaitingForActionFromPlayerId
+        case US3_2(v12): # WaitingForActionFromPlayerId
             del v0
             v13 = v12
             del v12
@@ -2227,16 +2270,18 @@ def method15(v0 : US4) -> object:
             v15 = [v14,v13]
             del v13, v14
             return v15
-def method16(v0 : US5) -> object:
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method16(v0 : US4) -> object:
     match v0:
-        case US5_0(): # GameStarted
+        case US4_0(): # GameStarted
             del v0
             v1 = []
             v2 = "GameStarted"
             v3 = [v2,v1]
             del v1, v2
             return v3
-        case US5_1(v4, v5): # ShowdownResult
+        case US4_1(v4, v5): # ShowdownResult
             del v0
             v6 = []
             v7 = method14(v4)
@@ -2253,13 +2298,15 @@ def method16(v0 : US5) -> object:
             v11 = [v10,v9]
             del v9, v10
             return v11
-        case US5_2(): # WaitingToStart
+        case US4_2(): # WaitingToStart
             del v0
             v12 = []
             v13 = "WaitingToStart"
             v14 = [v13,v12]
             del v12, v13
             return v14
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def method17(v0 : US2) -> object:
     match v0:
         case US2_0(): # Computer
@@ -2276,7 +2323,9 @@ def method17(v0 : US2) -> object:
             v6 = [v5,v4]
             del v4, v5
             return v6
-def method12(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2) -> object:
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method12(v0 : static_array, v1 : US3, v2 : US4, v3 : US2, v4 : US2) -> object:
     v5 = []
     v6 = 0
     while method11(v6):
@@ -2324,7 +2373,7 @@ def method12(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2) -> object:
     v23 = {'game_state': v15, 'ui_state': v22}
     del v15, v22
     return v23
-def method18(v0 : list[US3], v1 : US4, v2 : US5, v3 : US2, v4 : US2) -> object:
+def method18(v0 : static_array, v1 : US3, v2 : US4, v3 : US2, v4 : US2) -> object:
     v5 = []
     v6 = 0
     while method11(v6):

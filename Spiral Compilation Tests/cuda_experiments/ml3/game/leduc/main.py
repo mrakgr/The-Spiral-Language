@@ -19,8 +19,8 @@ __device__ long tag_4(US4 v0);
 __device__ bool is_pair_5(long v0, long v1);
 __device__ Tuple1 order_6(long v0, long v1);
 __device__ US9 compare_hands_3(US6 v0, bool v1, static_array<US4,2l> v2, long v3, static_array<long,2l> v4, long v5);
-__device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array_list<32l,US7,long> v1, static_array<US2,2l> v2, US5 v3);
-__device__ Tuple0 play_loop_0(US3 v0, static_array_list<32l,US7,long> v1, static_array<US2,2l> v2, US8 v3, static_array_list<6l,US4,long> v4, US5 v5);
+__device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US5 v3);
+__device__ Tuple0 play_loop_0(US3 v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US8 v3, static_array_list<US4,6l,long> v4, US5 v5);
 struct US1 {
     union {
     } v;
@@ -104,7 +104,7 @@ struct US5 {
 struct US3 {
     union {
         struct {
-            static_array_list<6l,US4,long> v0;
+            static_array_list<US4,6l,long> v0;
             US5 v1;
         } case1; // Some
     } v;
@@ -154,10 +154,10 @@ struct US8 {
 };
 struct Tuple0 {
     US3 v0;
-    static_array_list<32l,US7,long> v1;
+    static_array_list<US7,32l,long> v1;
     static_array<US2,2l> v2;
     US8 v3;
-    __device__ Tuple0(US3 t0, static_array_list<32l,US7,long> t1, static_array<US2,2l> t2, US8 t3) : v0(t0), v1(t1), v2(t2), v3(t3) {}
+    __device__ Tuple0(US3 t0, static_array_list<US7,32l,long> t1, static_array<US2,2l> t2, US8 t3) : v0(t0), v1(t1), v2(t2), v3(t3) {}
     __device__ Tuple0() = default;
 };
 struct Tuple1 {
@@ -284,7 +284,7 @@ __device__ US3 US3_0() { // None
     x.tag = 0;
     return x;
 }
-__device__ US3 US3_1(static_array_list<6l,US4,long> v0, US5 v1) { // Some
+__device__ US3 US3_1(static_array_list<US4,6l,long> v0, US5 v1) { // Some
     US3 x;
     x.tag = 1;
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
@@ -494,7 +494,7 @@ __device__ US9 compare_hands_3(US6 v0, bool v1, static_array<US4,2l> v2, long v3
         }
     }
 }
-__device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array_list<32l,US7,long> v1, static_array<US2,2l> v2, US5 v3){
+__device__ US5 play_loop_inner_1(static_array_list<US4,6l,long> v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US5 v3){
     switch (v3.tag) {
         case 0: { // ChanceCommunityCard
             US6 v395 = v3.v.case0.v0; bool v396 = v3.v.case0.v1; static_array<US4,2l> v397 = v3.v.case0.v2; long v398 = v3.v.case0.v3; static_array<long,2l> v399 = v3.v.case0.v4; long v400 = v3.v.case0.v5;
@@ -592,7 +592,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                 v421 = v429;
                 v420 += 1l ;
             }
-            array<long,2l> v430;
+            static_array<long,2l> v430;
             long v431;
             v431 = 0l;
             while (while_method_0(v431)){
@@ -747,10 +747,10 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
             v1.v[v468] = v477;
             long v478;
             v478 = 2l;
-            array<long,2l> v479;
+            static_array<long,2l> v479;
             v479.v[0l] = 1l;
             v479.v[1l] = 1l;
-            array<US4,2l> v480;
+            static_array<US4,2l> v480;
             v480.v[0l] = v449;
             v480.v[1l] = v457;
             US6 v481;
@@ -786,7 +786,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
             v65 = v2.v[v58];
             switch (v65.tag) {
                 case 0: { // Computer
-                    static_array_list<3l,US1> v66;
+                    static_array_list<US1,3l,long> v66;
                     v66.length = 0;
                     v66.length = 1l;
                     long v67;
@@ -1116,7 +1116,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                             v222 = v230;
                                             v221 += 1l ;
                                         }
-                                        array<long,2l> v231;
+                                        static_array<long,2l> v231;
                                         long v232;
                                         v232 = 0l;
                                         while (while_method_0(v232)){
@@ -1139,7 +1139,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                             v231.v[v232] = v222;
                                             v232 += 1l ;
                                         }
-                                        array<long,2l> v238;
+                                        static_array<long,2l> v238;
                                         long v239;
                                         v239 = 0l;
                                         while (while_method_0(v239)){
@@ -1245,7 +1245,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                             v154 = v162;
                                             v153 += 1l ;
                                         }
-                                        array<long,2l> v163;
+                                        static_array<long,2l> v163;
                                         long v164;
                                         v164 = 0l;
                                         while (while_method_0(v164)){
@@ -1321,7 +1321,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                             v176 = v184;
                                             v175 += 1l ;
                                         }
-                                        array<long,2l> v185;
+                                        static_array<long,2l> v185;
                                         long v186;
                                         v186 = 0l;
                                         while (while_method_0(v186)){
@@ -1344,7 +1344,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                             v185.v[v186] = v176;
                                             v186 += 1l ;
                                         }
-                                        array<long,2l> v192;
+                                        static_array<long,2l> v192;
                                         long v193;
                                         v193 = 0l;
                                         while (while_method_0(v193)){
@@ -1518,7 +1518,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                     v356 = v364;
                                     v355 += 1l ;
                                 }
-                                array<long,2l> v365;
+                                static_array<long,2l> v365;
                                 long v366;
                                 v366 = 0l;
                                 while (while_method_0(v366)){
@@ -1541,7 +1541,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                     v365.v[v366] = v356;
                                     v366 += 1l ;
                                 }
-                                array<long,2l> v372;
+                                static_array<long,2l> v372;
                                 long v373;
                                 v373 = 0l;
                                 while (while_method_0(v373)){
@@ -1647,7 +1647,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                     v286 = v294;
                                     v285 += 1l ;
                                 }
-                                array<long,2l> v295;
+                                static_array<long,2l> v295;
                                 long v296;
                                 v296 = 0l;
                                 while (while_method_0(v296)){
@@ -1725,7 +1725,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                     v309 = v317;
                                     v308 += 1l ;
                                 }
-                                array<long,2l> v318;
+                                static_array<long,2l> v318;
                                 long v319;
                                 v319 = 0l;
                                 while (while_method_0(v319)){
@@ -1748,7 +1748,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
                                     v318.v[v319] = v309;
                                     v319 += 1l ;
                                 }
-                                array<long,2l> v325;
+                                static_array<long,2l> v325;
                                 long v326;
                                 v326 = 0l;
                                 while (while_method_0(v326)){
@@ -1948,7 +1948,7 @@ __device__ US5 play_loop_inner_1(static_array_list<6l,US4,long> v0, static_array
         }
     }
 }
-__device__ Tuple0 play_loop_0(US3 v0, static_array_list<32l,US7,long> v1, static_array<US2,2l> v2, US8 v3, static_array_list<6l,US4,long> v4, US5 v5){
+__device__ Tuple0 play_loop_0(US3 v0, static_array_list<US7,32l,long> v1, static_array<US2,2l> v2, US8 v3, static_array_list<US4,6l,long> v4, US5 v5){
     US5 v6;
     v6 = play_loop_inner_1(v4, v1, v2, v5);
     switch (v6.tag) {
@@ -2031,7 +2031,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 break;
             }
             case 1: {
-                array<US2,2l> v18;
+                static_array<US2,2l> v18;
                 long v19;
                 v19 = 0l;
                 while (while_method_0(v19)){
@@ -2104,7 +2104,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 break;
             }
             case 1: {
-                static_array_list<6l,US4> v42;
+                static_array_list<US4,6l,long> v42;
                 v42.length = 0;
                 long * v43;
                 v43 = (long *)(v0+4ull);
@@ -2221,7 +2221,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v80 = (bool *)(v0+44ull);
                         bool v81;
                         v81 = v80[0l];
-                        array<US4,2l> v82;
+                        static_array<US4,2l> v82;
                         long v83;
                         v83 = 0l;
                         while (while_method_0(v83)){
@@ -2279,7 +2279,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v100 = (long *)(v0+56ull);
                         long v101;
                         v101 = v100[0l];
-                        array<long,2l> v102;
+                        static_array<long,2l> v102;
                         long v103;
                         v103 = 0l;
                         while (while_method_0(v103)){
@@ -2372,7 +2372,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v132 = (bool *)(v0+44ull);
                         bool v133;
                         v133 = v132[0l];
-                        array<US4,2l> v134;
+                        static_array<US4,2l> v134;
                         long v135;
                         v135 = 0l;
                         while (while_method_0(v135)){
@@ -2430,7 +2430,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v152 = (long *)(v0+56ull);
                         long v153;
                         v153 = v152[0l];
-                        array<long,2l> v154;
+                        static_array<long,2l> v154;
                         long v155;
                         v155 = 0l;
                         while (while_method_0(v155)){
@@ -2519,7 +2519,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v183 = (bool *)(v0+44ull);
                         bool v184;
                         v184 = v183[0l];
-                        array<US4,2l> v185;
+                        static_array<US4,2l> v185;
                         long v186;
                         v186 = 0l;
                         while (while_method_0(v186)){
@@ -2577,7 +2577,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v203 = (long *)(v0+56ull);
                         long v204;
                         v204 = v203[0l];
-                        array<long,2l> v205;
+                        static_array<long,2l> v205;
                         long v206;
                         v206 = 0l;
                         while (while_method_0(v206)){
@@ -2689,7 +2689,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v241 = (bool *)(v0+44ull);
                         bool v242;
                         v242 = v241[0l];
-                        array<US4,2l> v243;
+                        static_array<US4,2l> v243;
                         long v244;
                         v244 = 0l;
                         while (while_method_0(v244)){
@@ -2747,7 +2747,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v261 = (long *)(v0+56ull);
                         long v262;
                         v262 = v261[0l];
-                        array<long,2l> v263;
+                        static_array<long,2l> v263;
                         long v264;
                         v264 = 0l;
                         while (while_method_0(v264)){
@@ -2836,7 +2836,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v292 = (bool *)(v0+44ull);
                         bool v293;
                         v293 = v292[0l];
-                        array<US4,2l> v294;
+                        static_array<US4,2l> v294;
                         long v295;
                         v295 = 0l;
                         while (while_method_0(v295)){
@@ -2894,7 +2894,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         v312 = (long *)(v0+56ull);
                         long v313;
                         v313 = v312[0l];
-                        array<long,2l> v314;
+                        static_array<long,2l> v314;
                         long v315;
                         v315 = 0l;
                         while (while_method_0(v315)){
@@ -2949,7 +2949,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 asm("exit;");
             }
         }
-        static_array_list<32l,US7> v333;
+        static_array_list<US7,32l,long> v333;
         v333.length = 0;
         long * v334;
         v334 = (long *)(v0+76ull);
@@ -3065,7 +3065,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                     break;
                 }
                 case 3: {
-                    array<US4,2l> v374;
+                    static_array<US4,2l> v374;
                     long v375;
                     v375 = 0l;
                     while (while_method_0(v375)){
@@ -3156,7 +3156,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
             v333.v[v337] = v397;
             v337 += 1l ;
         }
-        array<US2,2l> v403;
+        static_array<US2,2l> v403;
         long v404;
         v404 = 0l;
         while (while_method_0(v404)){
@@ -3263,7 +3263,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 v437 = (bool *)(v0+1124ull);
                 bool v438;
                 v438 = v437[0l];
-                array<US4,2l> v439;
+                static_array<US4,2l> v439;
                 long v440;
                 v440 = 0l;
                 while (while_method_0(v440)){
@@ -3321,7 +3321,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 v457 = (long *)(v0+1136ull);
                 long v458;
                 v458 = v457[0l];
-                array<long,2l> v459;
+                static_array<long,2l> v459;
                 long v460;
                 v460 = 0l;
                 while (while_method_0(v460)){
@@ -3410,7 +3410,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 v488 = (bool *)(v0+1124ull);
                 bool v489;
                 v489 = v488[0l];
-                array<US4,2l> v490;
+                static_array<US4,2l> v490;
                 long v491;
                 v491 = 0l;
                 while (while_method_0(v491)){
@@ -3468,7 +3468,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 v508 = (long *)(v0+1136ull);
                 long v509;
                 v509 = v508[0l];
-                array<long,2l> v510;
+                static_array<long,2l> v510;
                 long v511;
                 v511 = 0l;
                 while (while_method_0(v511)){
@@ -3515,7 +3515,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 asm("exit;");
             }
         }
-        US3 v636; static_array_list<32l,US7,long> v637; static_array<US2,2l> v638; US8 v639;
+        US3 v636; static_array_list<US7,32l,long> v637; static_array<US2,2l> v638; US8 v639;
         switch (v37.tag) {
             case 0: { // ActionSelected
                 US1 v598 = v37.v.case0.v0;
@@ -3525,7 +3525,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                         break;
                     }
                     default: { // Some
-                        static_array_list<6l,US4,long> v599 = v332.v.case1.v0; US5 v600 = v332.v.case1.v1;
+                        static_array_list<US4,6l,long> v599 = v332.v.case1.v0; US5 v600 = v332.v.case1.v1;
                         switch (v600.tag) {
                             case 2: { // Round
                                 US6 v601 = v600.v.case2.v0; bool v602 = v600.v.case2.v1; static_array<US4,2l> v603 = v600.v.case2.v2; long v604 = v600.v.case2.v3; static_array<long,2l> v605 = v600.v.case2.v4; long v606 = v600.v.case2.v5;
@@ -3550,20 +3550,20 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 break;
             }
             default: { // StartGame
-                array<US2,2l> v527;
+                static_array<US2,2l> v527;
                 US2 v528;
                 v528 = US2_0();
                 v527.v[0l] = v528;
                 US2 v529;
                 v529 = US2_1();
                 v527.v[1l] = v529;
-                static_array_list<32l,US7> v530;
+                static_array_list<US7,32l,long> v530;
                 v530.length = 0;
                 US3 v531;
                 v531 = US3_0();
                 US8 v532;
                 v532 = US8_0();
-                static_array_list<6l,US4> v533;
+                static_array_list<US4,6l,long> v533;
                 v533.length = 0;
                 v533.length = 6l;
                 long v534;
@@ -3762,7 +3762,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1) {
                 break;
             }
             default: { // Some
-                static_array_list<6l,US4,long> v642 = v636.v.case1.v0; US5 v643 = v636.v.case1.v1;
+                static_array_list<US4,6l,long> v642 = v636.v.case1.v0; US5 v643 = v636.v.case1.v1;
                 long v644;
                 v644 = v642.length;
                 long * v645;
@@ -4924,7 +4924,7 @@ class static_array(list):
 class static_array_list(static_array):
     def __init__(self, length):
         super().__init__(length)
-        self.length = length
+        self.length = 0
 import cupy as cp
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple

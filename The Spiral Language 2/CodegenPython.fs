@@ -481,7 +481,7 @@ class static_array(list):
 class static_array_list(static_array):
     def __init__(self, length):
         super().__init__(length)
-        self.length = length
+        self.length = 0
         """.Trim())
             .Append(python_code).ToString()
 

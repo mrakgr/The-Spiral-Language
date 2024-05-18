@@ -7,7 +7,7 @@ nominal sa dim el = $"backend_switch `({Cuda : $"static_array<`el,@dim>"; Python
 inl create' forall dim el. : sa dim el = 
     assert ((0 : int) <= (real real_core.type_lit_to_lit `dim)) "The dimension of the array has to be positive."
     backend_switch {
-        Cuda = fun () => $"array<`el,@dim> \v"
+        Cuda = fun () => $"static_array<`el,@dim> \v"
         Python = fun () => $"static_array(@dim)" : sa dim el
     }
     
