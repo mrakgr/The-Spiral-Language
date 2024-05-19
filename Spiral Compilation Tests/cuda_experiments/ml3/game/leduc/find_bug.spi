@@ -5,19 +5,28 @@ open main
 inl main() =
     open serializer
 
-    inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
-    inl ptr_msg, ptr_state = create conv(offsets_size offsets_msg), create conv(offsets_size offsets_state)
-    
-    inl ~msg = StartGame
-    inl ~state = init_find_bug()
+    inl seri = {
+        msg = create_serializer
+        game_state = create_serializer
+        ui_state = create_serializer
+    }
 
-    serialize offsets_msg ptr_msg msg
-    serialize offsets_state ptr_state state
+    inl ~msg = StartGame
+    inl ~game_state = init()
+
+    serialize seri.msg msg
+    serialize seri.game_state game_state
 
     run fun () =>
         inl from = rangem.threads_in_grid().from
         if from = 0 then
-            event_loop (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
-            |> serialize offsets_state ptr_state
+            inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+            serialize seri.game_state game_state
+            serialize seri.ui_state (game_to_ui game_state)
 
-    jsonm.serialize (deserialize offsets_state ptr_state)
+    $"cp.cuda.Stream.null.synchronize()"
+
+    {
+        game_state = jsonm.serialize (deserialize seri.game_state)
+        ui_state = jsonm.serialize (deserialize seri.ui_state)
+    }

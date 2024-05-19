@@ -55,7 +55,7 @@ inl uint_ubound rand range s =
 inl u32_ubound range s : u32 = uint_ubound u32 range s
 inl u64_ubound range s : u64 = uint_ubound u64 range s
 
-inl int_range ({from nearTo} : {from : int; nearTo : int}) s = u32_ubound conv(nearTo - from) s - conv from |> conv
+inl int_range ({from nearTo} : {from : int; nearTo : int}) s = u32_ubound conv(nearTo - from) s + conv from |> conv
 
 // Shuffles the array.
 inl shuffle' forall (array : * -> *){index; set; length} el. rng (ar : array el) : () =

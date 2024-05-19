@@ -19,7 +19,7 @@ instance create sa dim = fun dim =>
 instance length sa dim = fun ar => real real_core.type_lit_to_lit `dim : int
 // Indexes into an array.
 instance index sa dim = fun ar i => 
-    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    assert (0 <= i && i < length ar) "The read index needs to be in range for the static array."
     backend_switch {
         Cuda = fun () => $"!ar.v[!i]"
         Python = fun () => $"!ar[!i]"
@@ -28,7 +28,7 @@ instance index sa dim = fun ar i =>
 // Sets the value of an array at the specified index.
 // Should be used with care. The static array should be used in an immutable fashion preferably.
 instance set sa dim = fun ar i v => 
-    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    assert (0 <= i && i < length ar) "The read index needs to be in range for the static array."
     backend_switch {
         Cuda = fun () => $"!ar.v[!i] = !v"
         Python = fun () => $"!ar[!i] = !v"

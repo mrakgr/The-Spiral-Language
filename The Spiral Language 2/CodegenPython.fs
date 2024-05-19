@@ -85,7 +85,7 @@ let cupy_ty x =
             | UInt64T -> "cp.uint64"
             | Float32T -> "cp.float32"
             | Float64T -> "cp.float64"
-            | BoolT -> "cp.int8"
+            | BoolT -> "cp.bool_"
             | _ -> er()
         | _ -> er()
     | _ -> er()

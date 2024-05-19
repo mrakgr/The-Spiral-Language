@@ -4,13 +4,17 @@ open utils
 inl calculate_offsets forall t. : offsets t = offsets (real calculate_offsets `t)
 
 // Serializes the argument into the byte array.
-inl serialize forall el. (offsets : offsets el) (ptr : ptr) (v : el) : () = real serialize `el offsets ptr v
+inl serialize forall el. (offsets, ptr : offsets el * ptr) (v : el) : () = real serialize `el offsets ptr v
 
 // Deserializes the argument from the byte array.
-inl deserialize forall el. (offsets : offsets el) (ptr : ptr) : el = real deserialize `el offsets ptr
+inl deserialize forall el. (offsets, ptr : offsets el * ptr) : el = real deserialize `el offsets ptr
 
 // Returns the total size of the type to be serialized in bytes.
 inl offsets_size forall t. (x : offsets t) : size = real inl (offsets (_,size)) = x in size
+
+// Creates the offsets and the array pointer structures for a particular type.
+inl create_serializer forall el. : offsets el * ptr = inl offsets = calculate_offsets in offsets, create conv(offsets_size offsets)
+
 
 union qwe =
     | A : i32
@@ -21,5 +25,5 @@ type t = i8 * i8 * i32 * qwe * {c : f64; b : f32; a : .hello}
 inl main() = // host only
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
-    serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
-    deserialize offsets ptr
+    serialize (offsets, ptr) (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+    deserialize (offsets, ptr)

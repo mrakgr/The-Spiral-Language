@@ -42,51 +42,38 @@ union game =
     | ChanceCommunityCard : table
     | ChanceInit
 
-type game_state =
-    option {
+type state_small = 
+    {
+        ui_game_state : ui_game_state
+        pl_type : player_types
+        game : option game
+    }
+
+type state_large =
+    {
         deck : deck
-        game : game
+        messages : messages
     }
 
 type state =
     {
-        ui_state : {
-            ui_game_state : ui_game_state
-            pl_type : player_types
-            messages : messages
-            }
-        game_state : game_state
+        small : state_small
+        large : state_large
     }
 
-type outer_loop_state =
+type state_ui =
     {
-        ui_state : {
-            ui_game_state : ui_game_state
-            pl_type : player_types
-            }
-        game_state : game_state
+        ui_game_state : ui_game_state
+        pl_type : player_types
+        messages : messages
     }
 
-inl init() : state = 
+inl game_to_ui (x : state) : state_ui =
     {
-        ui_state = {
-            ui_game_state = GameNotStarted
-            pl_type = arraym.fromList [Computer; Human]
-            messages = sa_listm.create'
-            }
-        game_state = None
+        ui_game_state = x.small.ui_game_state
+        pl_type = x.small.pl_type
+        messages = x.large.messages
     }
-
-inl init_find_bug() : state = 
-    {
-        ui_state = {
-            ui_game_state = GameNotStarted
-            pl_type = arraym.fromList [Computer; Computer]
-            messages = sa_listm.create'
-            }
-        game_state = None
-    }
-
 
 let compare_hands (table : table) =
     let tag = function King => 2 | Queen => 1 | Jack => 0 : int
@@ -160,141 +147,156 @@ inl create_deck() =
 
 inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
     open sa_listm
-    inl x = pop deck
-    x
+    pop deck
 
-open corecuda
-type inner_loop_state = 
+inl init() : state = 
     {
-        messages : refm.ref messages
-        pl_type : player_types
-        deck : refm.ref deck
+        small = {
+            ui_game_state = GameNotStarted
+            pl_type = arraym.fromList [Computer; Human]
+            game = None
+        }
+        large = {
+            deck = create_deck()
+            messages = sa_listm.create'
+        }
     }
 
-union loop_state t =
-    | Done : t
-    | Continue : t
+open corecuda
 
-let play_loop_inner (state : inner_loop_state) node =
-    console.write_ln "in inner"
+type state_large_ref =
+    {
+        deck : refm.ref deck
+        messages : refm.ref messages
+    }
+
+inl large_to_refs (large : state_large) : state_large_ref =
+    {large with
+        deck#=refm.from_local
+        messages#=refm.from_local
+    }
+    
+let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
     inl push_message = sa_listm.push (refm.to_local state.messages)
-    inl pop_deck() = pop_deck (refm.to_local state.deck)
+    inl pop_deck = 
+        inl deck = refm.to_local state.deck
+        fun () => pop_deck deck
+    inl done x = false, x
+    inl continue x = true, x
 
-    inl body = function
-        | Done _ as node => node
-        | Continue node =>
-            match node with
-            | TerminalFold table =>
-                inl msg = 
+    inl body node =
+        match node with
+        | TerminalFold table =>
+            inl msg = 
+                inl chips_won = index table.pot table.player_turn
+                Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn}
+            push_message msg
+            done node
+        | TerminalCall table => 
+            inl msg =
+                inl chips_won, winner_id =
                     inl chips_won = index table.pot table.player_turn
-                    Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn}
-                push_message msg
-                Done node
-            | TerminalCall table => 
-                inl msg =
-                    inl chips_won, winner_id =
-                        inl chips_won = index table.pot table.player_turn
-                        match compare_hands table with
-                        | Gt => chips_won, 0
-                        | Eq => 0, -1
-                        | Lt => chips_won, 1 
-                    Showdown{cards_shown=table.pl_card; chips_won winner_id}
-                push_message msg
-                Done node
-            | Round table => 
-                console.write_ln "in round"
-                match index state.pl_type table.player_turn with
-                | Human => Done node
-                | Computer =>
-                    inl action = random_action table
-                    inl msg = PlayerAction(table.player_turn, action)
-                    push_message msg
-                    Continue (game_round table action)
-            | RoundWithAction(table,action) => 
+                    match compare_hands table with
+                    | Gt => chips_won, 0
+                    | Eq => 0, -1
+                    | Lt => chips_won, 1 
+                Showdown{cards_shown=table.pl_card; chips_won winner_id}
+            push_message msg
+            done node
+        | Round table => 
+            match index pl_type table.player_turn with
+            | Human => 
+                done node
+            | Computer =>
+                inl action = random_action table
                 inl msg = PlayerAction(table.player_turn, action)
                 push_message msg
-                Continue (game_round table action)
-            | ChanceCommunityCard table => 
-                inl card = pop_deck()
-                inl msg = CommunityCardIs card
-                push_message msg
-                Continue (game_chance_community_card table card)
-            | ChanceInit () => 
-                console.write_ln "in chance_init"
-                inl c0,c1 = pop_deck(), pop_deck()
-                push_message PlayerGotCard(0, c0)
-                push_message PlayerGotCard(1, c1)
-                Continue (game_chance_init (c0,c1))
-    loop.while (function Continue _ => true | _ => false) body (Continue node)
-    |> function Done x | Continue x => x
+                continue (game_round table action)
+        | RoundWithAction(table,action) => 
+            inl msg = PlayerAction(table.player_turn, action)
+            push_message msg
+            continue (game_round table action)
+        | ChanceCommunityCard table => 
+            inl card = pop_deck()
+            inl msg = CommunityCardIs card
+            push_message msg
+            continue (game_chance_community_card table card)
+        | ChanceInit () => 
+            inl c0,c1 = pop_deck(), pop_deck()
+            push_message PlayerGotCard(0, c0)
+            push_message PlayerGotCard(1, c1)
+            continue (game_chance_init (c0,c1))
+    
+    loop.while fst (snd >> body) (continue node) |> snd
     
 
-let play_loop (state : outer_loop_state) messages deck node : outer_loop_state =
-    console.write_ln "in play_loop"
-    console.write_ln "before calling play_loop_inner"
-    inl result = play_loop_inner {pl_type = state.ui_state.pl_type; messages deck} node
-    console.write_ln "after calling play_loop_inner"
-    match result with
+let play_loop (small : state_small) (large : state_large_ref) node : state_small =
+    match play_loop_inner large small.pl_type node with
     | Round table as game =>
-        {state with
-            ui_state #= fun ui_state => 
-                {ui_state with
-                    ui_game_state = WaitingForActionFromPlayerId(table)
-                }
-            game_state = Some { game; deck = refm.to_local deck }
+        {small with
+            ui_game_state = WaitingForActionFromPlayerId(table)
+            game = Some game
             }
     | TerminalCall table | TerminalFold table =>
-        {state with
-            ui_state #= fun ui_state => 
-                {ui_state with
-                    ui_game_state = GameOver(table)
-                }
-            game_state = None
+        {small with
+            ui_game_state = GameOver(table)
+            game = None
             }
     | game =>
         failwith "Unexpected node received in play_loop."
 
-inl event_loop (msg, state : event * state) : state =
-    inl messages = refm.from_local state.ui_state.messages
-    match msg with
-    | StartGame =>
-        inl state = init()
-        inl deck = create_deck()
-        inl x = play_loop {state.ui_state without messages} messages (refm.from_local deck) game_init()
-        {x.ui_state with messages = state.ui_state.messages}
-    | PlayerChanged pl_type =>
-        {state with
-            ui_state #= fun ui_state => {ui_state with pl_type}
-            }
-    | ActionSelected action =>
-        match state.game_state with
-        | Some {deck game} => 
-            match game with
-            | Round table => 
-                inl x = play_loop {state.ui_state without messages} messages (refm.from_local deck) RoundWithAction(table, action)
-                {x.ui_state with messages = state.ui_state.messages}
-            | _ => failwith "Unexpected game node in ActionSelected."
-        | None => state
+inl event_loop (msg, {small large} & state : event * state) : state =
+    inl large_refs = large_to_refs large
+    inl small =
+        match msg with
+        | StartGame =>
+            open refm
+            inl ({small large} as state) = init()
+            large_refs.deck <-# large.deck
+            large_refs.messages <-# large.messages
+            play_loop small large_refs game_init()
+        | PlayerChanged pl_type => {small with pl_type}
+        | ActionSelected action =>
+            match small.game with
+            | Some game => 
+                match game with
+                | Round table => play_loop small large_refs RoundWithAction(table, action)
+                | _ => failwith "Unexpected game node in ActionSelected."
+            | None => small
+    {small large}
 
 open corecuda
 open corepython
 inl main() =
     named_tuple "Leduc_Game" {
-        init = fun () => jsonm.serialize init()
-        // event_loop_cpu = fun (msg, state) => event_loop (jsonm.deserialize msg, jsonm.deserialize state) |> jsonm.serialize
-        event_loop_gpu = fun (msg, state) =>
+        init = fun () => 
+            inl x = init()
+            jsonm.serialize {
+                game_state = x
+                ui_state = game_to_ui x
+            }
+            
+        event_loop_gpu = fun (msg, game_state) =>
             open serializer
-            inl offsets_msg, offsets_state = calculate_offsets, calculate_offsets
-            inl ptr_msg, ptr_state = create conv(offsets_size offsets_msg), create conv(offsets_size offsets_state)
-            inl msg, state = jsonm.deserialize msg, jsonm.deserialize state
-            serialize offsets_msg ptr_msg msg
-            serialize offsets_state ptr_state state
+            inl seri = {
+                msg = create_serializer
+                game_state = create_serializer
+                ui_state = create_serializer
+            }
+            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
+            serialize seri.msg msg
+            serialize seri.game_state game_state
 
             run fun () =>
                 inl from = rangem.threads_in_grid().from
                 if from = 0 then
-                    event_loop (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
-                    |> serialize offsets_state ptr_state
+                    inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+                    serialize seri.game_state game_state
+                    serialize seri.ui_state (game_to_ui game_state)
 
-            jsonm.serialize (deserialize offsets_state ptr_state)
+            jsonm.serialize {
+                game_state = deserialize seri.game_state
+                ui_state = deserialize seri.ui_state
+            }
+            
     }

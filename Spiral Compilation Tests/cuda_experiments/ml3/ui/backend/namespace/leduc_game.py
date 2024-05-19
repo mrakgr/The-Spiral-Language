@@ -24,6 +24,6 @@ class Leduc_Namespace(Namespace):
 
     def on_update(self, msg : Any):
         state = Leduc_Namespace.user_state[self.sid()]
-        state = spiral_game.event_loop_gpu(msg,state)
+        state = spiral_game.event_loop_gpu(msg,state["game_state"])
         Leduc_Namespace.user_state[self.sid()] = state
         self.emit_update(state["ui_state"])

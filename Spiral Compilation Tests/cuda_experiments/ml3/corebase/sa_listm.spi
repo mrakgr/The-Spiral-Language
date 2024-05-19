@@ -30,7 +30,7 @@ inl max_length forall dim el. (ar : sa_list dim el) : int = real real_core.type_
     
 // Indexes into an array.
 instance index sa_list dim = fun ar i => 
-    assert (0 <= i && i < length ar) "The read index needs to be in range."
+    assert (0 <= i && i < length ar) "The read index needs to be in range for the static array list."
     backend_switch {
         Cuda = fun () => $"!ar.v[!i]"
         Python = fun () => $"!ar[!i]"
@@ -38,7 +38,7 @@ instance index sa_list dim = fun ar i =>
 
 // Sets the value of an array at the specified index.
 instance set sa_list dim = fun ar i v =>
-    assert (0 <= i && i < length ar) "The set index needs to be in range."
+    assert (0 <= i && i < length ar) "The set index needs to be in range for the static array list."
     backend_switch {
         Cuda = fun () => $"!ar.v[!i] = !v"
         Python = fun () => $"!ar[!i] = !v"
@@ -54,6 +54,7 @@ inl push forall dim el. (ar : sa_list dim el) (x : el) =
 // Pop a value from the top of the array.
 inl pop forall dim el. (ar : sa_list dim el) : el =
     inl len = length ar - 1
+    assert (len >= 0) "The length before popping has to be greater than 0."
     inl x = index ar len
     unsafe_set_length ar len
     x

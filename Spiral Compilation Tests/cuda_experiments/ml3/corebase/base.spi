@@ -56,7 +56,7 @@ nominal cupy_type t = `(
     | u64 =>  ``($"cp.uint64")
     | f32 =>  ``($"cp.float32")
     | f64 =>  ``($"cp.float64")
-    | bool => ``($"cp.int8")
+    | bool => ``($"cp.bool_")
     )
 
 nominal arg x = x

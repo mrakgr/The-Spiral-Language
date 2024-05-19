@@ -12,8 +12,8 @@ inl test1() = // gpu only
         if rangem.threads_in_grid().from = 0 then
             inl offsets = calculate_offsets
             inl ptr = create conv(offsets_size offsets)
-            serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
-            deserialize offsets ptr
+            serialize (offsets, ptr) (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+            deserialize (offsets, ptr)
             |> console.write_ln
 
 inl test2() = // host to gpu
@@ -22,12 +22,12 @@ inl test2() = // host to gpu
     inl print() =
         loop.for' {from=0; nearTo=offsets_size offsets} fun i =>
             index ptr (conv i) |> console.write_ln
-    serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
-    deserialize offsets ptr
+    serialize (offsets, ptr) (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+    deserialize (offsets, ptr)
     |> console.write_ln
     run fun () =>
         if rangem.threads_in_grid().from = 0 then
-            deserialize offsets ptr
+            deserialize (offsets, ptr)
             |> console.write_ln
 
 inl test3() = // gpu to host
@@ -35,11 +35,11 @@ inl test3() = // gpu to host
     inl ptr = create conv(offsets_size offsets)
     run fun () =>
         if rangem.threads_in_grid().from = 0 then
-            serialize offsets ptr (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
-            deserialize offsets ptr
+            serialize (offsets, ptr) (1, 2, 4, C, {a = .hello; b = 234.5; c = 12} : t)
+            deserialize (offsets, ptr)
             |> console.write_ln
 
-    deserialize offsets ptr
+    deserialize (offsets, ptr)
     |> console.write_ln
 
 
@@ -57,27 +57,27 @@ inl test4() = // gpu only
         if rangem.threads_in_grid().from = 0 then
             inl offsets = calculate_offsets
             inl ptr = create conv(offsets_size offsets)
-            serialize offsets ptr data()
-            deserialize offsets ptr
+            serialize (offsets, ptr) data()
+            deserialize (offsets, ptr)
             |> console.write_ln
     ()
 
 inl test5() = // gpu only
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
-    serialize offsets ptr data()
-    deserialize offsets ptr
+    serialize (offsets, ptr) data()
+    deserialize (offsets, ptr)
     |> console.write_ln
 
 inl test6() = // host to gpu
     inl offsets = calculate_offsets
     inl ptr = create conv(offsets_size offsets)
-    serialize offsets ptr data()
-    deserialize offsets ptr
+    serialize (offsets, ptr) data()
+    deserialize (offsets, ptr)
     |> console.write_ln
     run fun () =>
         if rangem.threads_in_grid().from = 0 then
-            deserialize offsets ptr
+            deserialize (offsets, ptr)
             |> console.write_ln
 
 inl test7() = // gpu to host
@@ -88,11 +88,11 @@ inl test7() = // gpu to host
             index ptr (conv i) |> console.write_ln
     run fun () =>
         if rangem.threads_in_grid().from = 0 then
-            serialize offsets ptr data()
-            deserialize offsets ptr
+            serialize (offsets, ptr) data()
+            deserialize (offsets, ptr)
             |> console.write_ln
 
-    deserialize offsets ptr
+    deserialize (offsets, ptr)
     |> console.write_ln
 
 inl main() = test7()

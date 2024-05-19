@@ -353,13 +353,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             |> sprintf "switch (%s) {" |> line s
             let _ =
                 let s = indent s
-                let _,on_succs = Map.foldBack (fun k v (is_last, m) -> false, Map.add k (is_last,v) m) on_succs (on_fail.IsNone, Map.empty)
-                Map.iter (fun k (is_last,(a,b)) ->
+                Map.iter (fun k (a,b) ->
                     let union_i = case_tags.[k]
-
-                    if is_last then line s $"default: {{ // {k}"
-                    else line s $"case {union_i}: {{ // {k}"
-
+                    line s (sprintf "case %i: { // %s" union_i k)
                     List.iter2 (fun (L(data_i,_)) a ->
                         let a, s = data_free_vars a, indent s
                         let qs = ResizeArray(a.Length)
@@ -369,14 +365,18 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         line' s qs
                         ) is a
                     binds (indent s) ret b
-                    if not is_last then line (indent s) "break;"
+                    line (indent s) "break;"
                     line s "}"
                     ) on_succs
-                on_fail |> Option.iter (fun b ->
-                    line s "default: {"
-                    binds (indent s) ret b
-                    line s "}"
-                    )
+                line s "default: {"
+                let _ =
+                    let s = indent s
+                    match on_fail with
+                    | Some b ->
+                        binds s ret b
+                    | None ->
+                        line s "assert(\"Invalid tag.\" && false);"
+                line s "}"
             line s "}"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
