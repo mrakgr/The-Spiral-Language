@@ -25,7 +25,11 @@ inl deref forall t. (x : ref t) : t = #x
 // Note that passing this value through join points afterwards will end up duplicating it unlike references.
 // Is intended to be used for passing value type arrays into functions that mutate them locally while
 // retaining the usual reference semantics.
-inl local forall t. (x : ref t) : t = $"`t & \v = !x"
+inl to_local forall t. (x : ref t) : t = $"`t & \v = !x"
+
+// Creates a reference from a local value. The reference points to the adress of the original value.
+inl from_local forall t. (x : t) : ref t = $"`t & \v = !x"
+
 
 // Indexes into an array. Returns a reference to the element instead of the actual element.
 prototype ref_index ar el : ar el -> int -> ref el

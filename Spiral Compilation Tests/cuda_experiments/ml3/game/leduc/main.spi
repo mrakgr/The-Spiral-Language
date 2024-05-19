@@ -58,6 +58,15 @@ type state =
         game_state : game_state
     }
 
+type outer_loop_state =
+    {
+        ui_state : {
+            ui_game_state : ui_game_state
+            pl_type : player_types
+            }
+        game_state : game_state
+    }
+
 inl init() : state = 
     {
         ui_state = {
@@ -68,7 +77,6 @@ inl init() : state =
         game_state = None
     }
 
-
 inl init_find_bug() : state = 
     {
         ui_state = {
@@ -78,6 +86,7 @@ inl init_find_bug() : state =
             }
         game_state = None
     }
+
 
 let compare_hands (table : table) =
     let tag = function King => 2 | Queen => 1 | Jack => 0 : int
@@ -155,65 +164,73 @@ inl pop_deck (deck : sa_listm.sa_list 6 card) : card =
     x
 
 open corecuda
-type game_loop_state = 
+type inner_loop_state = 
     {
-        messages : messages
+        messages : refm.ref messages
         pl_type : player_types
-        deck : deck
+        deck : refm.ref deck
     }
 
-let rec play_loop_inner (state : game_loop_state) node =
-    console.write_ln "in inner"
-    inl f = play_loop_inner state
-    inl push_message = sa_listm.push ( state.messages)
-    inl pop_deck() = pop_deck ( state.deck)
-    match node with
-    | TerminalFold table => 
-        inl msg = 
-            inl chips_won = index table.pot table.player_turn
-            Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn}
-        push_message msg
-        node
-    | TerminalCall table => 
-        inl msg =
-            inl chips_won, winner_id =
-                inl chips_won = index table.pot table.player_turn
-                match compare_hands table with
-                | Gt => chips_won, 0
-                | Eq => 0, -1
-                | Lt => chips_won, 1 
-            Showdown{cards_shown=table.pl_card; chips_won winner_id}
-        push_message msg
-        node
-    | Round table => 
-        console.write_ln "in round"
-        match index state.pl_type table.player_turn with
-        | Human => node
-        | Computer =>
-            inl action = random_action table
-            inl msg = PlayerAction(table.player_turn, action)
-            push_message msg
-            f (game_round table action)
-    | RoundWithAction(table,action) => 
-        inl msg = PlayerAction(table.player_turn, action)
-        push_message msg
-        f (game_round table action)
-    | ChanceCommunityCard table => 
-        inl card = pop_deck()
-        inl msg = CommunityCardIs card
-        push_message msg
-        f (game_chance_community_card table card)
-    | ChanceInit () => 
-        console.write_ln "in chance_init"
-        inl c0,c1 = pop_deck(), pop_deck()
-        push_message PlayerGotCard(0, c0)
-        push_message PlayerGotCard(1, c1)
-        f (game_chance_init (c0,c1))
+union loop_state t =
+    | Done : t
+    | Continue : t
 
-let play_loop (state : state) deck node : state =
+let play_loop_inner (state : inner_loop_state) node =
+    console.write_ln "in inner"
+    inl push_message = sa_listm.push (refm.to_local state.messages)
+    inl pop_deck() = pop_deck (refm.to_local state.deck)
+
+    inl body = function
+        | Done _ as node => node
+        | Continue node =>
+            match node with
+            | TerminalFold table =>
+                inl msg = 
+                    inl chips_won = index table.pot table.player_turn
+                    Showdown{cards_shown=table.pl_card; chips_won winner_id=toggle table.player_turn}
+                push_message msg
+                Done node
+            | TerminalCall table => 
+                inl msg =
+                    inl chips_won, winner_id =
+                        inl chips_won = index table.pot table.player_turn
+                        match compare_hands table with
+                        | Gt => chips_won, 0
+                        | Eq => 0, -1
+                        | Lt => chips_won, 1 
+                    Showdown{cards_shown=table.pl_card; chips_won winner_id}
+                push_message msg
+                Done node
+            | Round table => 
+                console.write_ln "in round"
+                match index state.pl_type table.player_turn with
+                | Human => Done node
+                | Computer =>
+                    inl action = random_action table
+                    inl msg = PlayerAction(table.player_turn, action)
+                    push_message msg
+                    Continue (game_round table action)
+            | RoundWithAction(table,action) => 
+                inl msg = PlayerAction(table.player_turn, action)
+                push_message msg
+                Continue (game_round table action)
+            | ChanceCommunityCard table => 
+                inl card = pop_deck()
+                inl msg = CommunityCardIs card
+                push_message msg
+                Continue (game_chance_community_card table card)
+            | ChanceInit () => 
+                console.write_ln "in chance_init"
+                inl c0,c1 = pop_deck(), pop_deck()
+                push_message PlayerGotCard(0, c0)
+                push_message PlayerGotCard(1, c1)
+                Continue (game_chance_init (c0,c1))
+    loop.while (function Continue _ => true | _ => false) body (Continue node)
+    |> function Done x | Continue x => x
+    
+
+let play_loop (state : outer_loop_state) messages deck node : outer_loop_state =
     console.write_ln "in play_loop"
-    inl messages = state.ui_state.messages
-    inl deck = deck
     console.write_ln "before calling play_loop_inner"
     inl result = play_loop_inner {pl_type = state.ui_state.pl_type; messages deck} node
     console.write_ln "after calling play_loop_inner"
@@ -222,16 +239,14 @@ let play_loop (state : state) deck node : state =
         {state with
             ui_state #= fun ui_state => 
                 {ui_state with
-                    messages = messages
                     ui_game_state = WaitingForActionFromPlayerId(table)
                 }
-            game_state = Some { game; deck =  deck }
+            game_state = Some { game; deck = refm.to_local deck }
             }
     | TerminalCall table | TerminalFold table =>
         {state with
             ui_state #= fun ui_state => 
                 {ui_state with
-                    messages = messages
                     ui_game_state = GameOver(table)
                 }
             game_state = None
@@ -240,8 +255,13 @@ let play_loop (state : state) deck node : state =
         failwith "Unexpected node received in play_loop."
 
 inl event_loop (msg, state : event * state) : state =
+    inl messages = refm.from_local state.ui_state.messages
     match msg with
-    | StartGame => play_loop init() create_deck() game_init()
+    | StartGame =>
+        inl state = init()
+        inl deck = create_deck()
+        inl x = play_loop {state.ui_state without messages} messages (refm.from_local deck) game_init()
+        {x.ui_state with messages = state.ui_state.messages}
     | PlayerChanged pl_type =>
         {state with
             ui_state #= fun ui_state => {ui_state with pl_type}
@@ -250,7 +270,9 @@ inl event_loop (msg, state : event * state) : state =
         match state.game_state with
         | Some {deck game} => 
             match game with
-            | Round table => play_loop state deck RoundWithAction(table, action)
+            | Round table => 
+                inl x = play_loop {state.ui_state without messages} messages (refm.from_local deck) RoundWithAction(table, action)
+                {x.ui_state with messages = state.ui_state.messages}
             | _ => failwith "Unexpected game node in ActionSelected."
         | None => state
 

@@ -2,7 +2,7 @@ open corebase
 type warp_size = 32
 inl threads_per_warp() : int = real real_core.type_lit_to_lit `warp_size
 inl sms_per_gpu() : int = 24
-inl threads_per_block() : int = 512
+inl threads_per_block() : int = 1 // TODO: Set this back to 512 when done debugging the Leduc stack overflow error.
 inl blocks_per_grid() : int = 1
 // inl blocks_per_grid() : int = sms_per_gpu()
 
@@ -10,8 +10,8 @@ inl blocks_per_grid() : int = 1
 nominal ptr t = $'`t *'
 inl ptr forall t. (~x : t) : ptr t = $"`t * \v = &!x"
 // Sets the pointer to a specified value.
-inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
-// Dereferences a point.
+inl (<-*) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+// Dereferences a pointer.
 inl (~*) forall t. (x : ptr t) : t = $"`t \v = *!x"
 
 type run_config = {
@@ -37,16 +37,18 @@ inl run' ({shared_mem} : run_config) f =
     // global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
 
     // global "options.append('--extra-device-vectorization')"
-    // global "options.append('--ptxas-options=-v')"
+    global "options.append('--ptxas-options=-v')"
     match threads_per_block with
     | 1024 => global "options.append('--maxrregcount=64')"
     | 512 => global "options.append('--maxrregcount=128')"
     | 256 => global "options.append('--maxrregcount=255')"
     | _ => ()
     // global "options.append('--device-debug')"
-    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    // global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
-        // global "#include <assert.h>"
+        global "#include <assert.h>"
+        global "#include <stdio.h>"
         f () : ()
     inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
     $'!entry.max_dynamic_shared_size_bytes = !shared_mem '

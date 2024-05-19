@@ -48,7 +48,7 @@ instance action random_player_env = fun (pl0,pl1,pid) cards config (random_playe
 
 instance draw random_player_env = fun (random_player_env {rng deck=d}) => 
     inl card,d' = deck.draw_card rng *d
-    d <-. d'
+    d <-* d'
     card
 
 union betting = TurnOf : {pid : pid; call_skip : i8} | Done
