@@ -6,12 +6,14 @@ import '@shoelace-style/shoelace/dist/components/tab-panel/tab-panel.js';
 import '@shoelace-style/shoelace/dist/components/icon/icon.js';
 import '@shoelace-style/shoelace/dist/components/select/select.js';
 import '@shoelace-style/shoelace/dist/components/option/option.js';
+import '@shoelace-style/shoelace/dist/components/range/range.js';
 import { setBasePath } from '@shoelace-style/shoelace/dist/utilities/base-path.js';
 
 setBasePath('/bundles/shoelace/');
 
 import "./rps"; // Needed to import the rps web components.
 import "./leduc";
+import "./nl_holdem";
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
@@ -47,12 +49,16 @@ class Games_UI extends LitElement {
         return html`
             <sl-tab-group>
                 <sl-tab slot="nav" panel="rps">RPS</sl-tab>
-                <sl-tab slot="nav" panel="leduc" active>Leduc</sl-tab>
+                <sl-tab slot="nav" panel="leduc">Leduc</sl-tab>
+                <sl-tab slot="nav" panel="nl-holdem" active>NL Holdem</sl-tab>
                 <sl-tab-panel name="rps">
                     <rps-ui></rps-ui>
                 </sl-tab-panel>
                 <sl-tab-panel name="leduc">
                     <leduc-ui></leduc-ui>
+                </sl-tab-panel>
+                <sl-tab-panel name="nl-holdem">
+                    <nl-holdem-ui></nl-holdem-ui>
                 </sl-tab-panel>
             </sl-tab-group>
         `

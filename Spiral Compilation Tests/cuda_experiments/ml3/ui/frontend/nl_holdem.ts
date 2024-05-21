@@ -4,20 +4,98 @@ import { map } from 'lit/directives/map.js';
 import { io } from 'socket.io-client'
 
 const assert_tag_is_never = (tag : never): never => { throw new Error(`Invalid tag. Got: ${tag}`)};
+const min = (a : number,b : number) => a < b ? a : b;
+const max = (a : number,b : number) => a >= b ? a : b;
+const clamp = (x : number, _min : number, _max : number) => 
+    _min <= _max && !isNaN(x) && !isNaN(_min) && !isNaN(_max) 
+    ? min(max(_min,x), _max) 
+    : (() => {throw Error(`Invalid args in clamp. Got: ${[x,_min,_max]}`)})();
 
-type Option<t> = ["Some",t] | ["None",[]]
-type Card = ["King",[]] | ["Queen",[]] | ["Jack",[]]
-const card : Card[] = [["King",[]], ["Queen",[]], ["Jack",[]]]
-type Action = ["Raise",[]] | ["Call",[]] | ["Fold",[]]
+type Hand =
+    | ["Straight_Flush", Card[]]
+    | ["Quas", Card[]]
+    | ["Full_House", Card[]]
+    | ["Flush", Card[]]
+    | ["Straight", Card[]]
+    | ["Triple", Card[]]
+    | ["Two_Pair", Card[]]
+    | ["Pair", Card[]]
+    | ["High_Card", Card[]]
+
+type Card_Rank = 
+    | ["Ace",[]] 
+    | ["King",[]] 
+    | ["Queen",[]] 
+    | ["Jack",[]]
+    | ["Ten",[]]
+    | ["Nine",[]]
+    | ["Eight",[]]
+    | ["Seven",[]]
+    | ["Six",[]]
+    | ["Five",[]]
+    | ["Four",[]]
+    | ["Three",[]]
+    | ["Two",[]]
+const card_rank : Card_Rank[] = [
+    ["Ace",[]],
+    ["King",[]], 
+    ["Queen",[]], 
+    ["Jack",[]],
+    ["Ten",[]],
+    ["Nine",[]],
+    ["Eight",[]],
+    ["Seven",[]],
+    ["Six",[]],
+    ["Five",[]],
+    ["Four",[]],
+    ["Three",[]],
+    ["Two",[]],
+]
+type Card_Suit = 
+    | ["Spades",[]]
+    | ["Hearts",[]]
+    | ["Diamonds",[]]
+    | ["Clubs",[]]
+const card_suit : Card_Suit[] = [
+    ["Spades",[]],
+    ["Hearts",[]],
+    ["Diamonds",[]],
+    ["Clubs",[]],
+    ]
+
+type Card = [Card_Rank, Card_Suit]
+const card = (() => {
+    const ar : Card[] = []
+    for (const rank of card_rank) {
+        for (const suit of card_suit) {
+            ar.push([rank,suit])
+        }
+    }
+    return ar
+})();
+
+type Action = ["Raise",number] | ["Call",[]] | ["Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
 const players : Players[] = [["Computer",[]], ["Human",[]]]
+
+type Street =
+    | ["Preflop", []]
+    | ["Flop", Card[]]
+    | ["Turn", Card[]]
+    | ["River", Card[]]
+
+type Game_Config = {
+    min_raise : number
+}
+
 type Table = {
-    pot: [number, number]
-    community_card: Option<Card>,
-    pl_card: [Card, Card],
-    raises_left: number,
+    pot: [number, number],
+    stack: [number, number],
+    street: Street,
+    pl_card: [Card[], Card[]],
     is_button_s_first_move: boolean,
-    player_turn: number
+    player_turn: number,
+    config : Game_Config,
 }
 
 type Game_Events =
@@ -31,10 +109,10 @@ type Game_State =
     | ["GameOver", Table]
     
 type Message =
-    | ["PlayerGotCard", [number, Card]]
-    | ["CommunityCardIs", Card]
+    | ["PlayerGotCards", [number, Card[]]]
+    | ["CommunityCardsAre", Card[]]
     | ["PlayerAction", [number, Action]]
-    | ["Showdown", {winner_id : number; chips_won : number; cards_shown : [Card, Card]}]
+    | ["Showdown", {winner_id : number; chips_won : number; hands_shown : [Hand, Hand]}]
 
 type UI_State = {
     pl_type : Players[];
@@ -45,15 +123,15 @@ type UI_State = {
 // Creates a span with the specified gap in pixels.
 const gap = (pixels : number) => html`<span style="flex-basis: ${pixels}px;"></span>`
 
-@customElement('leduc-ui')
-class Leduc_UI extends LitElement {
+@customElement('nl-holdem-ui')
+class UI extends LitElement {
     @property({type: Object}) state : UI_State = {
         pl_type: players,
         ui_game_state: ["GameNotStarted", []],
         messages: []
     };
 
-    socket = io('/leduc_game')
+    socket = io('/nl_holdem_game')
 
     constructor(){
         super()
@@ -75,7 +153,7 @@ class Leduc_UI extends LitElement {
             height: 100%;
         }
         
-        leduc-menu {
+        nl-holdem-menu {
             flex: 1;
         }
         
@@ -85,23 +163,25 @@ class Leduc_UI extends LitElement {
             flex: 5;
         }
 
-        leduc-game {
+        nl-holdem-game {
             flex: 4;
         }
         
-        leduc-history {
+        nl-holdem-history {
             flex: 1;
         }
     `
 
-    render(){
+    render(){ 
+
+        // .state=${this.state.ui_game_state}
         return html`
-            <leduc-menu .pl_type=${this.state.pl_type}></leduc-menu>
+            <nl-holdem-menu .pl_type=${this.state.pl_type}></nl-holdem-menu>
             ${gap(10)}
             <div class="game_area">
-                <leduc-game .state=${this.state.ui_game_state}></leduc-game>
+                <nl-holdem-game ></nl-holdem-game>
                 ${gap(10)}
-                <leduc-history .messages=${this.state.messages}></leduc-history>
+                <nl-holdem-history .messages=${this.state.messages}></nl-holdem-history>
             </div>
         `
     }
@@ -113,8 +193,8 @@ class GameElement extends LitElement {
     }
 }
 
-@customElement('leduc-menu')
-class Leduc_Menu extends GameElement {
+@customElement('nl-holdem-menu')
+class Menu extends GameElement {
     static styles = css`
         :host {
             display: flex;
@@ -181,8 +261,8 @@ class Leduc_Menu extends GameElement {
     }
 }
 
-@customElement('leduc-history')
-class Leduc_History extends GameElement {
+@customElement('nl-holdem-history')
+class History extends GameElement {
     static styles = css`
         :host {
             display: flex;
@@ -199,6 +279,10 @@ class Leduc_History extends GameElement {
         div {
             color: gray;
         }
+
+        .red {
+            color: red;
+        }
     `
 
     @property({type: Array}) messages : Message[] = []
@@ -208,32 +292,35 @@ class Leduc_History extends GameElement {
         this.scrollTo({top: this.scrollHeight});
     }
 
-    print_card = (x : Card) => x[0]
-    print_action = (x : Action) => {
-        switch (x[0]) {
-            case 'Raise': return "raises"
+    print_card = ([rank,suit] : Card) => `${print_rank(rank)}${print_suit(suit)}`
+    print_cards = (x : Card[]) => x.map(this.print_card).join(" ")
+    print_action = ([tag,arg] : Action) => {
+        switch (tag) {
+            case 'Raise': return `raises ${arg} chips`
             case 'Call': return "calls"
             case 'Fold': return "folds"
         }
     }
+    print_hand_score = ([tag,cards] : Hand) => tag.replace("_"," ")
+    print_hand = ([tag,cards] : Hand) => this.print_cards(cards)
 
     print_message = (x : Message) : string[] => {
         const [tag,arg] = x
         switch (tag) {
-            case 'PlayerGotCard': {
-                return [`Player ${arg[0]} got ${this.print_card(arg[1])}`]
+            case 'PlayerGotCards': {
+                return [`Player ${arg[0]} got ${this.print_cards(arg[1])}`]
             }
-            case 'CommunityCardIs': {
-                return [`The community card is ${this.print_card(arg)}`]
+            case 'CommunityCardsAre': {
+                return [`Table: ${this.print_cards(arg)}`]
             }
             case 'PlayerAction': {
                 return [`Player ${arg[0]} ${this.print_action(arg[1])}.`]
             }
             case 'Showdown': {
-                const {winner_id, chips_won, cards_shown} = arg
+                const {winner_id, chips_won, hands_shown} = arg
                 return [
-                    `Player 0 shows ${this.print_card(cards_shown[0])}.`,
-                    `Player 1 shows ${this.print_card(cards_shown[1])}.`,
+                    `Player 0 shows a ${this.print_hand_score(hands_shown[0])} - ${this.print_hand(hands_shown[0])}.`,
+                    `Player 1 shows a ${this.print_hand_score(hands_shown[1])} - ${this.print_hand(hands_shown[1])}'.`,
                     winner_id === -1
                     ? "The game is a tie."
                     : `Player ${winner_id} wins ${chips_won} chips!`,
@@ -253,8 +340,8 @@ class Leduc_History extends GameElement {
     }
 }
 
-@customElement('leduc-pot')
-class Leduc_Pot extends LitElement {
+@customElement('nl-holdem-pot')
+class UI_Pot extends LitElement {
     @property({type: Number}) pot = 0;
 
     static styles = css`
@@ -272,10 +359,38 @@ class Leduc_Pot extends LitElement {
     }
 }
 
-@customElement('leduc-card')
-class Leduc_Card extends LitElement {
-    @property({type: Array}) card : Option<Card> = ["Some", card[0]];
-    @property({type: Boolean}) card_visible = true;
+const color_of_suit = ([tag, []] : Card_Suit) => {
+    switch (tag) {
+        case 'Spades': return "black"
+        case 'Hearts': return "red"
+        case 'Diamonds': return "blue"
+        case 'Clubs': return "green"
+    }
+}
+
+const print_suit = ([tag,[]] : Card_Suit) => html`<span style="color: ${color_of_suit};">${tag[0]}</span>`
+const print_rank = ([tag,arg] : Card_Rank) => {
+    switch (tag) {
+        case 'Ace': return "A"
+        case 'King': return "K"
+        case 'Queen': return "Q"
+        case 'Jack': return "J"
+        case 'Ten': return "T"
+        case 'Nine': return "9"
+        case 'Eight': return "8"
+        case 'Seven': return "7"
+        case 'Six': return "6"
+        case 'Five': return "5"
+        case 'Four': return "4"
+        case 'Three': return "3"
+        case 'Two': return "2"
+    }
+}
+
+@customElement('poker-card')
+class Poker_Card extends LitElement {
+    @property({type: Array}) card : Card = [["King", []], ["Hearts",[]]]
+    @property({type: Boolean}) is_visible = true;
 
     static styles = css`
         :host {
@@ -299,20 +414,48 @@ class Leduc_Card extends LitElement {
         }
     `
 
+    print_card = ([rank,suit] : Card) => html`<span style="color: ${color_of_suit(suit)}">${print_rank(rank)}</span>`
+    render() {
+        return html`${this.is_visible ? this.print_card(this.card) : " "}`
+    }
+
+}
+
+@customElement('poker-cards')
+class Poker_Cards extends LitElement {
+    static styles = css`
+        :host {
+            display: flex;
+            flex-direction: row;
+        }
+
+        div {
+            white-space: pre;
+        }
+`
+    @property({type: Array}) cards : Card[] = [];
+    @property({type: Boolean}) is_visible = true;
+
+    print_card = ([rank,suit] : Card) => `${print_rank(rank)}${print_suit(suit)}`
+    print_cards = (x : Card[]) => x.map(this.print_card).join(" ")
+
     render(){
-        return html`<div>${this.card_visible && this.card[0] === "Some" ? this.card[1][0][0] : " "}</div>`
+        return this.cards.map(card => html`<poker-card .card=${card} ?is_visible=${this.is_visible}></poker-card>`)
     }
 }
 
-@customElement('leduc-game')
-class Leduc_Game extends GameElement {
+@customElement('nl-holdem-game')
+class Game extends GameElement {
     @property({type: Array}) state : Game_State = ["WaitingForActionFromPlayerId", {
-        community_card: ["None",[]],
-        pl_card: [card[0], card[1]],
+        pl_card: [[card[0],card[1]], [card[11],card[12]]],
+        stack: [96,97],
         pot: [4,3],
         is_button_s_first_move: true,
         player_turn: 0,
-        raises_left: 0
+        street: ["Flop",[card[2],card[3],card[4]]],
+        config: {
+            min_raise: 2
+        }
     }]
 
     static styles = css`
@@ -337,7 +480,9 @@ class Leduc_Game extends GameElement {
         }
 
         .flex-1 {
+            display: flex;
             flex: 1;
+            justify-content: center;
         }
 
         .flex-pot {
@@ -359,10 +504,12 @@ class Leduc_Game extends GameElement {
             justify-content: flex-start;
         }
 
-        button {
-            font-size: inherit;
+        sl-range {
+            width: 100%;
         }
         `
+
+    @property({type: Number}) raise_amount : number | undefined;
 
     on_action = (action : Action) => () => {
         this.dispatch_game_event(["ActionSelected", action])
@@ -370,23 +517,40 @@ class Leduc_Game extends GameElement {
 
     render_state(){
         const [tag,arg] = this.state
-        const some = (x : Card) : Option<Card> => ["Some", x]
         const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => {
+            const is_raise_disabled = table.stack.every(x => x === 0)
+            const max_raise = table.stack.reduce(min,Infinity)
+            const min_raise = table.stack.reduce(min,table.config.min_raise)
+            const pot_btn = (raise_amount : number) => {
+                raise_amount = clamp(Math.floor(raise_amount),min_raise,max_raise)
+                return html`
+                    <sl-button size="small" ?disabled=${is_raise_disabled} @click=${this.on_action(["Raise",raise_amount])}>
+                        Raise ${raise_amount}
+                    </sl-button>`
+                    }
+            const raise_amount = this.raise_amount ?? min_raise
+            const pot = table.pot.reduce((a,b) => a+b,0)
             return html`
                 <div class="row">
-                    <div class="flex-pot">
-                        <leduc-pot .pot=${table.pot[id]}></leduc-pot>
-                    </div>
                     <div class="flex-card">
-                        <leduc-card .card=${some(table.pl_card[id])} ?card_visible=${card_visible}></leduc-card>
+                        <nl-holdem-pot .pot=${table.pot[id]}></nl-holdem-pot>
+                        <poker-cards .cards=${table.pl_card[id]} ?card_visible=${card_visible}></poker-cards>
                     </div>
                     ${
                         is_current
                         ? html`
                             <div class="flex-actions">
-                                <sl-button ?disabled=${table.pot[0] === table.pot[1]} @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
-                                <sl-button @click=${this.on_action(["Call",[]])}>Call</sl-button>
-                                <sl-button ?disabled=${!(table.raises_left > 0)} @click=${this.on_action(["Raise",[]])}>Raise</sl-button>
+                                <sl-button size="small" ?disabled=${table.pot[0] === table.pot[1]} @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
+                                <sl-button size="small" @click=${this.on_action(["Call",[]])}>Call</sl-button>
+                                ${pot_btn(pot / 2)}
+                                ${pot_btn(pot)}
+                                ${pot_btn(raise_amount)}
+                                <sl-range 
+                                    ?disabled=${is_raise_disabled} 
+                                    .value=${raise_amount} 
+                                    .min=${min_raise} .max=${max_raise} .step=${table.config.min_raise}
+                                    @sl-input=${(x : any) => { this.raise_amount = x.target.value}}
+                                    ></sl-range>
                             </div>
                             `
                         : html`
@@ -407,8 +571,9 @@ class Leduc_Game extends GameElement {
                 const f_ = (c : number) => f(table.player_turn === c, table.player_turn === c, c, table)
                 return html`
                     ${f_(0)}
-                    <div>
-                        <leduc-card .card=${table.community_card}></leduc-card>
+                    <div class="row">
+                        <poker-cards class="flex-1" .cards=${table.street[1]}></poker-cards>
+                        <div class="flex-1"></div>
                     </div>
                     ${f_(1)}
                     `
@@ -418,7 +583,7 @@ class Leduc_Game extends GameElement {
                 return html`
                     ${f(false, true, 0, table)}
                     <div>
-                        <leduc-card .card=${table.community_card}></leduc-card>
+                        <poker-cards .cards=${table.street[1]}></poker-cards>
                     </div>
                     ${f(false, true, 1, table)}
                 `
