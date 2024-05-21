@@ -79,6 +79,4 @@ modules:
 
         leduc/
             main
-            find_bug
-
-    closure
+            
