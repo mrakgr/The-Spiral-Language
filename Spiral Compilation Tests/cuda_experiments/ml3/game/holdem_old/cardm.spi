@@ -3,8 +3,7 @@ open corecuda
 
 type card_t = u8
 
-inl globals() = global "struct Card { uint8_t rank : 4; uint8_t suit : 2; };"
-
+inl globals() = global "struct Card { unsigned char rank : 4; unsigned char suit : 2; };"
 nominal card = $"Card"
 inl card {suit=(suit : card_t) rank=(rank : card_t)} : card = globals() . $"{!rank, !suit}"
 

@@ -183,6 +183,9 @@ inl fromList forall (ar : * -> *) {index; length; create; set} el. (l : list el)
 // Same as fold, but also passes the array index into the body.
 inl foldi f s ar = for {from=0; nearTo=length ar} (fun i s => f i s (index ar i)) s
 
+// Updates the array immutably at an index.
+inl update i f = mapi (fun i' x' => if i = i' then f x' else x')
+
 // Generic equable function that data structures other than regular arrays can reuse.
 inl generic_equable a b =
     if length a = length b then

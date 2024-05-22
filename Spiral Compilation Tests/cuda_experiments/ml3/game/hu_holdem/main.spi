@@ -1,0 +1,155 @@
+open corebase
+
+union card_rank = 
+    | Ace
+    | King
+    | Queen
+    | Jack
+    | Ten
+    | Nine
+    | Eight
+    | Seven
+    | Six
+    | Five
+    | Four
+    | Three
+    | Two
+
+union card_suit = 
+    | Spades
+    | Hearts
+    | Diamonds
+    | Clubs
+
+type card = card_rank * card_suit
+
+union hand =
+    | Straight_Flush : card
+    | Quas : card
+    | Full_House : card
+    | Flush : card
+    | Straight : card
+    | Triple : card
+    | Two_Pair : card
+    | Pair : card
+    | High_card : card
+
+union action =
+    | Raise : int
+    | Call
+    | Fold
+
+union player_type = 
+    | Computer 
+    | Human
+
+union street =
+    | Preflop
+    | Flop : sam.sa 3 card
+    | Turn : sam.sa 4 card
+    | River : sam.sa 5 card
+
+type table =
+    {
+        pot : sam.sa 2 int
+        stack : sam.sa 2 int
+        street : street
+        pl_card : sam.sa 2 (sam.sa 2 card)
+        is_button_s_first_move : bool
+        player_turn : int
+        config : {
+            min_raise : int
+        }
+    }
+
+union message =
+    | PlayerGotCards : int * sam.sa 2 card
+    | CommunityCardsAre : sa_listm.sa_list 5 card
+    | PlayerAction : int * action
+    | Showdown : {winner_id : int; chips_won : int; hands_shown : sam.sa 2 hand}
+
+type deck = lib.deckm.deck
+type player_types = sam.sa 2 player_type
+type messages = sa_listm.sa_list 128 message
+
+union ui_game_state =
+    | GameNotStarted
+    | WaitingForActionFromPlayerId : table
+    | GameOver : table
+
+inl init_table (pl_card : sam.sa 2 (sam.sa 2 card)) : table =
+    inl min_raise = 2
+    inl pot = arraym.fromList [min_raise; min_raise/2]
+    inl stack_size = 100
+    {
+        pot
+        stack = arraym.map (fun x => stack_size - x) pot
+        street = Preflop
+        pl_card
+        is_button_s_first_move = true
+        player_turn = 0
+        config = {
+            min_raise
+        }
+    }
+
+inl rec round (table : table) (action : action) =
+    inl toggle (player_turn : int) : int = if player_turn = 0 then 1 else 0
+    inl go_next_street (table : table) =
+        match table.street with
+        | Preflop => flop table (failwith "TODO") 
+        | Flop => turn table (failwith "TODO") 
+        | Turn => river table (failwith "TODO") 
+        | River => showdown table (failwith "TODO") 
+    match action with
+    | Fold => fold table
+    | Call =>
+        inl full_stack = arraym.map2 (+) table.stack table.pot
+        inl pot = 
+            inl pot_size_needed_to_call = arraym.reduce max table.pot
+            arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
+        inl stack = arraym.map2 (-) full_stack pot
+        if table.is_button_s_first_move then
+            round {table with 
+                pot stack
+                is_button_s_first_move=false
+                player_turn#=toggle
+                } (failwith "TODO")
+        else go_next_street {table with pot stack}
+    | Raise raise_amount =>
+        inl full_stack = arraym.map2 (+) table.stack table.pot
+        inl pot = 
+            inl pot_size_needed_to_call = arraym.reduce max table.pot
+            arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
+        inl stack = arraym.map2 (-) full_stack pot
+        if index stack 1 > 0 then // As long as the opponent has money left in his stack, continue betting.
+            round {table with 
+                pot stack
+                is_button_s_first_move=false
+                player_turn#=toggle
+                } (failwith "TODO")
+        else go_next_street {table with pot stack}
+and inl flop (table : table) (cards : sam.sa 3 card) =
+    round {table with 
+        is_button_s_first_move = true; player_turn = 0
+        street #= function Preflop => Flop cards | _ => failwith "Invalid street in flop."
+        }
+        (failwith "TODO") 
+and inl turn (table : table) (cards : sam.sa 1 card) =
+    round {table with 
+        is_button_s_first_move = true; player_turn = 0
+        street #= function Flop x => Turn (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in turn."
+        }
+        (failwith "TODO") 
+and inl river (table : table) (cards : sam.sa 1 card) =
+    round {table with 
+        is_button_s_first_move = true; player_turn = 0
+        street #= function Turn x => River (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in river."
+        }
+        (failwith "TODO") 
+and inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) =
+    round (init_table pl_card) (failwith "TODO")
+and inl fold (table : table) =
+    failwith "TODO"
+and inl showdown (table : table) =
+    failwith "TODO"

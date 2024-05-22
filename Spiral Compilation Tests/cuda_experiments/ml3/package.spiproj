@@ -60,7 +60,7 @@ modules:
     //     backprop
 
     game/
-        holdem/
+        holdem_old/
             cardm
             deck/
                 type- 
@@ -72,6 +72,13 @@ modules:
             hand_scorer_old
             hand_scorer
 
+            main
+            
+        hu_holdem/
+            lib/
+                cardm
+                deckm
+                hand_rankerm
             main
 
         rps/

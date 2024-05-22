@@ -34,7 +34,7 @@ type state = {
 nominal backend_state = state
 
 union backend = 
-    | GPU : ptr random.philox_state
+    | GPU : refm.ref random.philox_state
     | CPU
 
 inl rec game_step backend ~(action : option action) ~(state : state) : state = join

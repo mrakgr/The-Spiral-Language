@@ -32,7 +32,7 @@ type messages = sa_listm.sa_list 32 message
 union ui_game_state =
     | GameNotStarted
     | WaitingForActionFromPlayerId : table
-    | GameOver : table 
+    | GameOver : table
 
 union game =
     | TerminalFold : table

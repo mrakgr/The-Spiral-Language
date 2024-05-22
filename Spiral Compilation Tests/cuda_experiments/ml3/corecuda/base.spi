@@ -6,13 +6,13 @@ inl threads_per_block() : int = 512
 inl blocks_per_grid() : int = 1
 // inl blocks_per_grid() : int = sms_per_gpu()
 
-// Base pointer type
-nominal ptr t = $'`t *'
-inl ptr forall t. (~x : t) : ptr t = $"`t * \v = &!x"
-// Sets the pointer to a specified value.
-inl (<-*) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
-// Dereferences a pointer.
-inl (~*) forall t. (x : ptr t) : t = $"`t \v = *!x"
+// // Base pointer type
+// nominal ptr t = $'`t *'
+// inl ptr forall t. (~x : t) : ptr t = $"`t * \v = &!x"
+// // Sets the pointer to a specified value.
+// inl (<-*) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+// // Dereferences a pointer.
+// inl (~*) forall t. (x : ptr t) : t = $"`t \v = *!x"
 
 type run_config = {
     shared_mem : int

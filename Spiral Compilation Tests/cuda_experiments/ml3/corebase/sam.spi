@@ -103,11 +103,16 @@ inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_oute
 
     loop (map id ar)
 
+open type_arith
+
+// Concatenates two arrays together.
+// Should be used with nominal_recreate to evaluate the type arithmentic at compile time.
+inl merge forall a b el. (a : sa a el) (b : sa b el) : sa (add a b) el =
+    open arraym
+    inl out = create'
+    inl f ar offset = (if 0 < length ar then iteri (fun i x => set out (offset + i) x) ar) . offset + length ar
+    0 |> f a |> f b |> ignore
+    out
+
 open console
-
 instance printable sa dim el = array_print 100
-
-inl main() = 
-    inl x : sa 10 int = create'
-    set x 0 234
-    index x 0
