@@ -15,7 +15,6 @@ inl offsets_size forall t. (x : offsets t) : size = real inl (offsets (_,size)) 
 // Creates the offsets and the array pointer structures for a particular type.
 inl create_serializer forall el. : offsets el * ptr = inl offsets = calculate_offsets in offsets, create conv(offsets_size offsets)
 
-
 union qwe =
     | A : i32
     | B : i8 * i8 * i32

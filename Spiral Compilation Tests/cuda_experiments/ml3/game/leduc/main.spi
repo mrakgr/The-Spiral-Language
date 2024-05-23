@@ -34,7 +34,7 @@ union ui_game_state =
     | WaitingForActionFromPlayerId : table
     | GameOver : table
 
-union game =
+union game_node =
     | TerminalFold : table
     | TerminalCall : table
     | RoundWithAction : table * action
@@ -46,7 +46,7 @@ type state_small =
     {
         ui_game_state : ui_game_state
         pl_type : player_types
-        game : option game
+        game : option game_node
     }
 
 type state_large =
@@ -228,7 +228,6 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
             continue (game_chance_init (c0,c1))
     
     loop.while fst (snd >> body) (continue node) |> snd
-    
 
 let play_loop (small : state_small) (large : state_large_ref) node : state_small =
     match play_loop_inner large small.pl_type node with

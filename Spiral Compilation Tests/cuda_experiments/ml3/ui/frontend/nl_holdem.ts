@@ -13,7 +13,7 @@ const clamp = (x : number, _min : number, _max : number) =>
 
 type Hand =
     | ["Straight_Flush", Card[]]
-    | ["Quas", Card[]]
+    | ["Quads", Card[]]
     | ["Full_House", Card[]]
     | ["Flush", Card[]]
     | ["Straight", Card[]]
@@ -74,7 +74,7 @@ const card = (() => {
     return ar
 })();
 
-type Action = ["Raise",number] | ["Call",[]] | ["Fold",[]]
+type Action = ["A_Raise",number] | ["A_Call",[]] | ["A_Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
 const players : Players[] = [["Computer",[]], ["Human",[]]]
 
@@ -296,9 +296,9 @@ class History extends GameElement {
     print_cards = (x : Card[]) => x.map(this.print_card).join(" ")
     print_action = ([tag,arg] : Action) => {
         switch (tag) {
-            case 'Raise': return `raises ${arg} chips`
-            case 'Call': return "calls"
-            case 'Fold': return "folds"
+            case 'A_Raise': return `raises ${arg} chips`
+            case 'A_Call': return "calls"
+            case 'A_Fold': return "folds"
         }
     }
     print_hand_score = ([tag,cards] : Hand) => tag.replace("_"," ")
@@ -524,7 +524,7 @@ class Game extends GameElement {
             const pot_btn = (raise_amount : number) => {
                 raise_amount = clamp(Math.floor(raise_amount),min_raise,max_raise)
                 return html`
-                    <sl-button size="small" ?disabled=${is_raise_disabled} @click=${this.on_action(["Raise",raise_amount])}>
+                    <sl-button size="small" ?disabled=${is_raise_disabled} @click=${this.on_action(["A_Raise",raise_amount])}>
                         Raise ${raise_amount}
                     </sl-button>`
                     }
@@ -540,8 +540,8 @@ class Game extends GameElement {
                         is_current
                         ? html`
                             <div class="flex-actions">
-                                <sl-button size="small" ?disabled=${table.pot[0] === table.pot[1]} @click=${this.on_action(["Fold",[]])}>Fold</sl-button>
-                                <sl-button size="small" @click=${this.on_action(["Call",[]])}>Call</sl-button>
+                                <sl-button size="small" ?disabled=${table.pot[0] === table.pot[1]} @click=${this.on_action(["A_Fold",[]])}>Fold</sl-button>
+                                <sl-button size="small" @click=${this.on_action(["A_Call",[]])}>Call</sl-button>
                                 ${pot_btn(pot / 2)}
                                 ${pot_btn(pot)}
                                 ${pot_btn(raise_amount)}

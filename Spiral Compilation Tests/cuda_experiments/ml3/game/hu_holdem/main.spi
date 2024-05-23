@@ -15,29 +15,88 @@ union card_rank =
     | Three
     | Two
 
+inl card_rank_tag = function
+    | Ace => 12
+    | King => 11
+    | Queen => 10
+    | Jack => 9
+    | Ten => 8
+    | Nine => 7
+    | Eight => 6
+    | Seven => 5
+    | Six => 4
+    | Five => 3
+    | Four => 2
+    | Three => 1
+    | Two => 0
+
+inl card_rank_untag = function
+    | 12 => Ace
+    | 11 => King 
+    | 10 => Queen
+    | 9 => Jack 
+    | 8 => Ten 
+    | 7 => Nine 
+    | 6 => Eight 
+    | 5 => Seven 
+    | 4 => Six
+    | 3 => Five 
+    | 2 => Four
+    | 1 => Three
+    | 0 => Two
+    | _ => failwith "Invalid tag in card_rank_untag"
+
 union card_suit = 
-    | Spades
     | Hearts
-    | Diamonds
+    | Spades
     | Clubs
+    | Diamonds
+
+inl card_suit_tag = function
+    | Hearts => 3
+    | Spades => 2
+    | Clubs => 1 
+    | Diamonds => 0 
+
+inl card_suit_untag = function
+    | 3 => Hearts
+    | 2 => Spades
+    | 1 => Clubs
+    | 0 => Diamonds
+    | _ => failwith "Invalid tag in card_suit_untag"
 
 type card = card_rank * card_suit
 
 union hand =
-    | Straight_Flush : card
-    | Quas : card
-    | Full_House : card
-    | Flush : card
-    | Straight : card
-    | Triple : card
-    | Two_Pair : card
-    | Pair : card
-    | High_card : card
+    | Straight_Flush : sam.sa 5 card
+    | Quads : sam.sa 5 card
+    | Full_House : sam.sa 5 card
+    | Flush : sam.sa 5 card
+    | Straight : sam.sa 5 card
+    | Triple : sam.sa 5 card
+    | Two_Pair : sam.sa 5 card
+    | Pair : sam.sa 5 card
+    | High_Card : sam.sa 5 card
+
+inl card_from_lib_card (card : lib.cardm.card) = card_rank_untag (lib.cardm.rank card), card_suit_untag (lib.cardm.suit card)
+inl hand_from_lib_hand_score (lib.hand_rankerm.hand_score {score hand}) =
+    inl hand = arraym.map card_from_lib_card hand
+    match score with
+    | 8 => Straight_Flush hand
+    | 7 => Quads hand
+    | 6 => Full_House hand
+    | 5 => Flush hand
+    | 4 => Straight hand
+    | 3 => Triple hand
+    | 2 => Two_Pair hand
+    | 1 => Pair hand
+    | 0 => High_Card hand
+    | _ => failwith "Invalid tag in hand_from_lib_hand_score"
 
 union action =
-    | Raise : int
-    | Call
-    | Fold
+    | A_Raise : int
+    | A_Call
+    | A_Fold
 
 union player_type = 
     | Computer 
@@ -66,6 +125,7 @@ union message =
     | PlayerGotCards : int * sam.sa 2 card
     | CommunityCardsAre : sa_listm.sa_list 5 card
     | PlayerAction : int * action
+    | Fold : {winner_id : int; chips_won : int}
     | Showdown : {winner_id : int; chips_won : int; hands_shown : sam.sa 2 hand}
 
 type deck = lib.deckm.deck
@@ -93,63 +153,303 @@ inl init_table (pl_card : sam.sa 2 (sam.sa 2 card)) : table =
         }
     }
 
-inl rec round (table : table) (action : action) =
-    inl toggle (player_turn : int) : int = if player_turn = 0 then 1 else 0
+union game_node =
+    | G_Preflop
+    | G_Flop : table
+    | G_Turn : table
+    | G_River : table
+    | G_Showdown : table
+    | G_Round : table
+    | G_Round' : table * action
+    | G_Fold : table
+
+// Toggles the player turn.
+inl toggle (player_turn : int) : int = player_turn ^^^ 1
+
+inl round (table : table) (action : action) =
     inl go_next_street (table : table) =
         match table.street with
-        | Preflop => flop table (failwith "TODO") 
-        | Flop => turn table (failwith "TODO") 
-        | Turn => river table (failwith "TODO") 
-        | River => showdown table (failwith "TODO") 
+        | Preflop => G_Flop table
+        | Flop => G_Turn table
+        | Turn => G_River table
+        | River => G_Showdown table
     match action with
-    | Fold => fold table
-    | Call =>
+    | A_Fold => G_Fold table
+    | A_Call =>
         inl full_stack = arraym.map2 (+) table.stack table.pot
-        inl pot = 
+        inl pot =
             inl pot_size_needed_to_call = arraym.reduce max table.pot
             arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
         inl stack = arraym.map2 (-) full_stack pot
         if table.is_button_s_first_move then
-            round {table with 
+            G_Round {table with 
                 pot stack
                 is_button_s_first_move=false
                 player_turn#=toggle
-                } (failwith "TODO")
+                }
         else go_next_street {table with pot stack}
-    | Raise raise_amount =>
+    | A_Raise raise_amount =>
         inl full_stack = arraym.map2 (+) table.stack table.pot
         inl pot = 
             inl pot_size_needed_to_call = arraym.reduce max table.pot
             arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
         inl stack = arraym.map2 (-) full_stack pot
-        if index stack 1 > 0 then // As long as the opponent has money left in his stack, continue betting.
-            round {table with 
+        if index stack (toggle table.player_turn) > 0 then // As long as the opponent has money left in his stack, continue betting.
+            G_Round {table with 
                 pot stack
                 is_button_s_first_move=false
                 player_turn#=toggle
-                } (failwith "TODO")
+                }
         else go_next_street {table with pot stack}
-and inl flop (table : table) (cards : sam.sa 3 card) =
-    round {table with 
+inl flop (table : table) (cards : sam.sa 3 card) =
+    G_Round {table with 
         is_button_s_first_move = true; player_turn = 0
         street #= function Preflop => Flop cards | _ => failwith "Invalid street in flop."
         }
-        (failwith "TODO") 
-and inl turn (table : table) (cards : sam.sa 1 card) =
-    round {table with 
+inl turn (table : table) (cards : sam.sa 1 card) =
+    G_Round {table with 
         is_button_s_first_move = true; player_turn = 0
         street #= function Flop x => Turn (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in turn."
         }
-        (failwith "TODO") 
-and inl river (table : table) (cards : sam.sa 1 card) =
-    round {table with 
+inl river (table : table) (cards : sam.sa 1 card) =
+    G_Round {table with 
         is_button_s_first_move = true; player_turn = 0
         street #= function Turn x => River (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in river."
         }
-        (failwith "TODO") 
-and inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) =
-    round (init_table pl_card) (failwith "TODO")
-and inl fold (table : table) =
-    failwith "TODO"
-and inl showdown (table : table) =
-    failwith "TODO"
+inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) = G_Round (init_table pl_card)
+inl fold (table : table) = G_Fold table
+inl showdown (table : table) = G_Showdown table
+inl start () = G_Preflop
+
+type state_small = 
+    {
+        ui_game_state : ui_game_state
+        pl_type : player_types
+        game : option game_node
+    }
+
+type state_large =
+    {
+        deck : deck
+        messages : messages
+    }
+
+type state =
+    {
+        small : state_small
+        large : state_large
+    }
+
+type state_ui =
+    {
+        ui_game_state : ui_game_state
+        pl_type : player_types
+        messages : messages
+    }
+
+inl game_to_ui (x : state) : state_ui =
+    {
+        ui_game_state = x.small.ui_game_state
+        pl_type = x.small.pl_type
+        messages = x.large.messages
+    }
+
+
+inl init() : state = 
+    {
+        small = {
+            ui_game_state = GameNotStarted
+            pl_type = arraym.fromList [Computer; Human]
+            game = None
+        }
+        large = {
+            deck = lib.deckm.create()
+            messages = sa_listm.create'
+        }
+    }
+
+open corecuda
+
+type state_large_ref =
+    {
+        deck : refm.ref deck
+        messages : refm.ref messages
+        rng : refm.ref random.philox_state
+    }
+
+inl large_to_refs (large : state_large) : state_large_ref =
+    {large with
+        deck#=refm.from_local
+        messages#=refm.from_local
+        rng=random.init {seed = $"clock64()"; subsequence=conv corecuda.rangem.threads_in_grid().from; offset=0}
+    }
+
+inl random_action = fun rng (table : table) =>
+    inl full_stack = arraym.map2 (+) table.stack table.pot
+    inl pot_size_needed_to_call = arraym.reduce max table.pot
+    inl pot_after_calling = arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
+    inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
+    inl pot_bet_size = arraym.reduce (+) pot_after_calling
+    inl raise x = // Only do the raise if there are enough chips in the stack after calling.
+        inl prob = if x <= index stack_after_calling table.player_turn then 1 else 0
+        A_Raise x, prob
+    inl actions : sam.sa 8 (action * f32) = arraym.fromList [
+        A_Fold, if index table.pot table.player_turn < index table.pot (toggle table.player_turn) then 1 else 0
+        A_Call, 2
+        raise (pot_bet_size / 4)
+        raise (pot_bet_size / 3)
+        raise (pot_bet_size / 2)
+        raise pot_bet_size
+        raise (pot_bet_size * 3 / 2)
+        raise (index stack_after_calling table.player_turn) // all-in bet
+        ]
+    random.sample_discrete actions rng
+    
+let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
+    inl push_message = sa_listm.push (refm.to_local state.messages)
+    inl deck = refm.to_local state.deck
+    inl pop_deck () = 
+        open random
+        inl cards, deck = lib.deckm.draw_cards state.rng deck
+        refm.setref state.deck deck
+        arraym.map card_from_lib_card cards
+    inl done x = false, x
+    inl continue x = true, x
+    inl to_lib_cards (x : sam.sa _ _) = arraym.map (fun rank, suit => lib.cardm.card {rank=card_rank_tag rank; suit=card_suit_tag suit}) x
+    let get_community_cards street new_cards = 
+        inl ar = sa_listm.create'
+        inl push cards = arraym.iter (sa_listm.push ar) cards 
+        match street with
+        | Preflop => ()
+        | Flop cards => push cards
+        | Turn cards => push cards
+        | River cards => push cards
+        push new_cards
+        ar : sa_listm.sa_list 5 _
+    inl go_street (table : table) flop =
+        inl new_cards = pop_deck()
+        inl msg = CommunityCardsAre (get_community_cards table.street new_cards)
+        push_message msg
+        continue (flop table new_cards)
+
+    inl body node =
+        match node with
+        | G_Fold table =>
+            inl msg = 
+                inl chips_won = index table.pot table.player_turn
+                Fold {chips_won winner_id=toggle table.player_turn}
+            push_message msg
+            done node
+        | G_Showdown table => 
+            inl msg =
+                inl community_cards = match table.street with River cards => to_lib_cards cards | _ => failwith "Invalid street in showdown."
+                inl h i : sam.sa 7 lib.cardm.card = sam.merge (index table.pl_card i |> to_lib_cards) community_cards |> nominal_recreate
+                inl s0, s1 = lib.hand_rankerm.score (h 0), lib.hand_rankerm.score (h 1)
+                inl chips_won, winner_id =
+                    inl chips_won = index table.pot table.player_turn
+                    match comp s0 s1 with
+                    | Gt => chips_won, 0
+                    | Eq => 0, -1
+                    | Lt => chips_won, 1
+                inl hands_shown = arraym.fromList [hand_from_lib_hand_score s0; hand_from_lib_hand_score s1]
+                Showdown {hands_shown chips_won winner_id}
+            push_message msg
+            done node
+        | G_Round table =>
+            match index pl_type table.player_turn with
+            | Human =>
+                done node
+            | Computer =>
+                inl action = random_action state.rng table
+                inl msg = PlayerAction(table.player_turn, action)
+                push_message msg
+                continue (round table action)
+        | G_Round'(table,action) =>
+            inl msg = PlayerAction(table.player_turn, action)
+            push_message msg
+            continue (round table action)
+        | G_Flop table => go_street table flop
+        | G_Turn table => go_street table turn
+        | G_River table => go_street table river
+        | G_Preflop => 
+            inl c0,c1 = pop_deck(), pop_deck()
+            push_message PlayerGotCards(0, c0)
+            push_message PlayerGotCards(1, c1)
+            continue (preflop (arraym.fromList [c0; c1]))
+    
+    loop.while fst (snd >> body) (continue node) |> snd
+
+let play_loop (small : state_small) (large : state_large_ref) node : state_small =
+    match play_loop_inner large small.pl_type node with
+    | G_Round table as game =>
+        {small with
+            ui_game_state = WaitingForActionFromPlayerId(table)
+            game = Some game
+            }
+    | G_Showdown table | G_Fold table =>
+        {small with
+            ui_game_state = GameOver(table)
+            game = None
+            }
+    | game =>
+        failwith "Unexpected node received in play_loop."
+
+union event = 
+    | StartGame
+    | PlayerChanged : sam.sa 2 player_type
+    | ActionSelected : action
+
+inl event_loop (msg, {small large} & state : event * state) : state =
+    inl large_refs = large_to_refs large
+    inl small =
+        match msg with
+        | StartGame =>
+            open refm
+            inl ({small large} as state) = init()
+            large_refs.deck <-# large.deck
+            large_refs.messages <-# large.messages
+            play_loop small large_refs start()
+        | PlayerChanged pl_type => {small with pl_type}
+        | ActionSelected action =>
+            match small.game with
+            | Some game => 
+                match game with
+                | G_Round table => play_loop small large_refs G_Round'(table, action)
+                | _ => failwith "Unexpected game node in ActionSelected."
+            | None => small
+    {small large}
+
+open corepython
+inl main() =
+    named_tuple "HU_Holdem_Game" {
+        init = fun () => 
+            inl x = init()
+            jsonm.serialize {
+                game_state = x
+                ui_state = game_to_ui x
+            }
+            
+        event_loop_gpu = fun (msg, game_state) =>
+            open serializer
+            inl seri = {
+                msg = create_serializer
+                game_state = create_serializer
+                ui_state = create_serializer
+            }
+            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
+            serialize seri.msg msg
+            serialize seri.game_state game_state
+
+            run fun () =>
+                inl from = rangem.threads_in_grid().from
+                if from = 0 then
+                    inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+                    serialize seri.game_state game_state
+                    serialize seri.ui_state (game_to_ui game_state)
+
+            jsonm.serialize {
+                game_state = deserialize seri.game_state
+                ui_state = deserialize seri.ui_state
+            }
+            
+    }
