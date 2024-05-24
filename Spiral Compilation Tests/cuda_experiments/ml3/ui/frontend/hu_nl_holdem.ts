@@ -131,7 +131,7 @@ class UI extends LitElement {
         messages: []
     };
 
-    socket = io('/nl_holdem_game')
+    socket = io('/hu_nl_holdem_game')
 
     constructor(){
         super()
@@ -173,13 +173,11 @@ class UI extends LitElement {
     `
 
     render(){ 
-
-        // .state=${this.state.ui_game_state}
         return html`
             <nl-holdem-menu .pl_type=${this.state.pl_type}></nl-holdem-menu>
             ${gap(10)}
             <div class="game_area">
-                <nl-holdem-game ></nl-holdem-game>
+                <nl-holdem-game .state=${this.state.ui_game_state}></nl-holdem-game>
                 ${gap(10)}
                 <nl-holdem-history .messages=${this.state.messages}></nl-holdem-history>
             </div>

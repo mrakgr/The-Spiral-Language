@@ -13,7 +13,7 @@ setBasePath('/bundles/shoelace/');
 
 import "./rps"; // Needed to import the rps web components.
 import "./leduc";
-import "./nl_holdem";
+import "./hu_nl_holdem";
 import { LitElement, PropertyValueMap, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 

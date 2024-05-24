@@ -27,3 +27,7 @@ let draw_cards forall dim. rng deck : sam.sa dim card * deck =
         set out i card
         deck
         ) deck
+
+open console
+
+instance printable deck = fun (deck d) => write d

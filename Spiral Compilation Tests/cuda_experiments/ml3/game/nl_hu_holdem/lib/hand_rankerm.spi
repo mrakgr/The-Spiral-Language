@@ -116,7 +116,12 @@ instance merge_hands2 sa = fun ar ar' ar'' =>
     0 |> f ar |> f ar' |> f ar'' |> ignore
     out
 
-instance merge_hands sa = fun ar ar' => merge_hands2 ar ar' (sam.create' : _ 0 _) |> nominal_recreate
+instance merge_hands sa = fun ar ar' =>
+    open arraym
+    inl out = sam.create'
+    inl f ar offset = (if 0 < length ar then iteri (fun i x => set out (offset + i) x) ar) . offset + length ar
+    0 |> f ar |> f ar' |> ignore
+    out
 
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
 instance sort sa =

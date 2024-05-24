@@ -15,7 +15,7 @@ union card_rank =
     | Three
     | Two
 
-inl card_rank_tag = function
+let card_rank_tag = function
     | Ace => 12
     | King => 11
     | Queen => 10
@@ -30,7 +30,7 @@ inl card_rank_tag = function
     | Three => 1
     | Two => 0
 
-inl card_rank_untag = function
+let card_rank_untag = function
     | 12 => Ace
     | 11 => King 
     | 10 => Queen
@@ -52,13 +52,13 @@ union card_suit =
     | Clubs
     | Diamonds
 
-inl card_suit_tag = function
+let card_suit_tag = function
     | Hearts => 3
     | Spades => 2
     | Clubs => 1 
     | Diamonds => 0 
 
-inl card_suit_untag = function
+let card_suit_untag = function
     | 3 => Hearts
     | 2 => Spades
     | 1 => Clubs
@@ -78,8 +78,8 @@ union hand =
     | Pair : sam.sa 5 card
     | High_Card : sam.sa 5 card
 
-inl card_from_lib_card (card : lib.cardm.card) = card_rank_untag (lib.cardm.rank card), card_suit_untag (lib.cardm.suit card)
-inl hand_from_lib_hand_score (lib.hand_rankerm.hand_score {score hand}) =
+let card_from_lib_card (card : lib.cardm.card) = card_rank_untag (lib.cardm.rank card), card_suit_untag (lib.cardm.suit card)
+let hand_from_lib_hand_score (lib.hand_rankerm.hand_score {score hand}) =
     inl hand = arraym.map card_from_lib_card hand
     match score with
     | 8 => Straight_Flush hand
@@ -400,6 +400,7 @@ union event =
     | ActionSelected : action
 
 inl event_loop (msg, {small large} & state : event * state) : state =
+    console.write_ln "in event_loop"
     inl large_refs = large_to_refs large
     inl small =
         match msg with
@@ -428,28 +429,38 @@ inl main() =
                 game_state = x
                 ui_state = game_to_ui x
             }
-            
-        event_loop_gpu = fun (msg, game_state) =>
+
+        event_loop_gpu = fun (msg, game_state : jsonm.json event * jsonm.json state) =>
             open serializer
             inl seri = {
                 msg = create_serializer
                 game_state = create_serializer
-                ui_state = create_serializer
-            }
-            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
-            serialize seri.msg msg
-            serialize seri.game_state game_state
-
-            run fun () =>
-                inl from = rangem.threads_in_grid().from
-                if from = 0 then
-                    inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
-                    serialize seri.game_state game_state
-                    serialize seri.ui_state (game_to_ui game_state)
-
-            jsonm.serialize {
-                game_state = deserialize seri.game_state
-                ui_state = deserialize seri.ui_state
+                // ui_state = create_serializer
             }
             
+            console.write_ln "Deserializing the message and game_state from JSON."
+            inl dup forall e. (jsonm.json x : jsonm.json e) : jsonm.json (e * e) = jsonm.json $"!x, !x"
+            inl msg, game_state = dup msg, dup game_state
+            inl msg, game_state = dup msg, dup game_state
+            inl msg, game_state = dup msg, dup game_state
+            inl msg, game_state = dup msg, dup game_state
+            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
+            console.write_ln "Serializing the message and game_state to the GPU."
+            serialize seri.msg msg
+            serialize seri.game_state game_state
+            console.write_ln "Done serializing the gpu state"
+
+            // run fun () =>
+            //     inl from = rangem.threads_in_grid().from
+            //     if from = 0 then
+            //         console.write_ln "going to run the event loop"
+            //         inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+            //         console.write_ln game_state
+            //         serialize seri.game_state game_state
+            //         serialize seri.ui_state (game_to_ui game_state)
+
+            // jsonm.serialize {
+            //     game_state = deserialize seri.game_state
+            //     ui_state = deserialize seri.ui_state
+            // }
     }

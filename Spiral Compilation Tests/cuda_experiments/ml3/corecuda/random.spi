@@ -16,7 +16,9 @@ prototype poisson s : {lambda : f32} -> ref s -> u32
 prototype skipahead s : {steps : u64} -> ref s -> ()
 prototype skipahead_sequence s : {steps : u64} -> ref s -> ()
 
-instance init' philox_state = fun {seed subsequence offset} s => $'curand_init(!seed,!subsequence,!offset,&!s)'
+instance init' philox_state = fun {seed subsequence offset} s => 
+    globals()
+    $'curand_init(!seed,!subsequence,!offset,&!s)'
 inl init forall s {init'}. args : ref s =
     inl s = $"`s \v"
     init' args s

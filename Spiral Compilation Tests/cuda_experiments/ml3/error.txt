@@ -1,151 +1,46 @@
-Error trace on line: 247, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
-            run fun () =>
-                    ^
-Error trace on line: 248, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
-                inl from = rangem.threads_in_grid().from
+Error trace on line: 424, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+inl main() =
+        ^
+Error trace on line: 425, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    named_tuple "HU_Holdem_Game" {
+    ^
+Error trace on line: 433, column: 31 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+        event_loop_gpu = fun (msg, game_state : jsonm.json event * jsonm.json state) =>
+                              ^
+Error trace on line: 435, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            inl seri = {
+            ^
+Error trace on line: 441, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            console.write_ln "Deserializing the message and game_state from JSON."
+            ^
+Error trace on line: 442, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
+            ^
+Error trace on line: 442, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
                 ^
-Error trace on line: 249, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
-                if from = 0 then
-                ^
-Error trace on line: 250, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
-                    event_loop (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
-                    ^
-Error trace on line: 250, column: 66 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\leduc\main.spi.
-                    event_loop (deserialize offsets_msg ptr_msg, deserialize offsets_state ptr_state)
-                                                                 ^
-Error trace on line: 10, column: 75 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\seriazer_main.spi.
-inl deserialize forall el. (offsets : offsets el) (ptr : ptr) : el = real deserialize `el offsets ptr
+Error trace on line: 443, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            console.write_ln "Serializing the message and game_state to the GPU."
+            ^
+Error trace on line: 444, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            serialize seri.msg msg
+            ^
+Error trace on line: 7, column: 81 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\seriazer_main.spi.
+inl serialize forall el. (offsets, ptr : offsets el * ptr) (v : el) : () = real serialize `el offsets ptr v
+                                                                                ^
+Error trace on line: 71, column: 75 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
+inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
                                                                           ^
-Error trace on line: 101, column: 65 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el = 
-                                                                ^
-Error trace on line: 102, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-    inl rec f ptr =
+Error trace on line: 72, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
+    let rec f ptr offsets : () =
     ^
-Error trace on line: 139, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-    f ptr offsets
+Error trace on line: 99, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
+    f ptr offsets v
     ^
-Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-    inl rec f = function
-                ^
-Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | a, b => f a, f b
-          ^
-Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-          ^
-Error trace on line: 56, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                ^
-Error trace on line: 56, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                      ^
-Error trace on line: 56, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                                      ^
-Error trace on line: 56, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                                                 ^
-Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-    inl rec f = function
-                ^
-Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | a, b => f a, f b
-          ^
-Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-          ^
-Error trace on line: 57, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | ar => index ar
-          ^
-Error trace on line: 57, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | ar => index ar
-                ^
-Error trace on line: 104, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-        map (fun (exists el. offset) =>
+Error trace on line: 72, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
+    let rec f ptr offsets : () =
                   ^
-Error trace on line: 105, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            inl deserialize_sa forall array el. ar =
-            ^
-Error trace on line: 110, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
-            ^
-Error trace on line: 121, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                if singleton_type_is `el then
-                ^
-Error trace on line: 125, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif union_type_is `el then
-                ^
-Error trace on line: 126, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl { tag_offset union_fields } = offset
-                    ^
-Error trace on line: 126, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl { tag_offset union_fields } = offset
-                        ^
-Error trace on line: 127, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl tag = f ptr tag_offset
-                    ^
-Error trace on line: 128, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    union_untag `el tag
-                    ^
-Error trace on line: 129, column: 48 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                        (fun k => forall v. => nominal_create `el (k, f ptr (union_fields k))) 
-                                               ^
-Error trace on line: 129, column: 71 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                        (fun k => forall v. => nominal_create `el (k, f ptr (union_fields k))) 
-                                                                      ^
-Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-    inl rec f = function
-                ^
-Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | a, b => f a, f b
-          ^
-Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-          ^
-Error trace on line: 56, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                ^
-Error trace on line: 56, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                      ^
-Error trace on line: 56, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                                      ^
-Error trace on line: 56, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-                                                 ^
-Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-    inl rec f = function
-                ^
-Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | a, b => f a, f b
-          ^
-Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-          ^
-Error trace on line: 57, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | ar => index ar
-          ^
-Error trace on line: 57, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | ar => index ar
-                ^
-Error trace on line: 104, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-        map (fun (exists el. offset) =>
-                  ^
-Error trace on line: 105, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            inl deserialize_sa forall array el. ar =
-            ^
-Error trace on line: 110, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
-            ^
-Error trace on line: 116, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl ar = sa_listm.create' `dim `el'
-                ^
-Error trace on line: 117, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl _ = sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
-                ^
-Error trace on line: 117, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl _ = sa_listm.unsafe_set_length `dim `el' ar (const (f ptr offset.dim_offset))
-                        ^
-Cannot apply a forall with a term.
+Error trace on line: 73, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
+        open struct
+        ^
+Cannot convert a function that is not annotated into a type.

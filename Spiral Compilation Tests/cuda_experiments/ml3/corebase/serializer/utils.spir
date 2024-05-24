@@ -69,7 +69,7 @@ inl ptr_at_offset (ptr : ptr) (exists t. offset) =
 
 nominal offsets t = `(calculate_offsets `t)
 inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
-    inl rec f ptr offsets =
+    inl rec f ptr offsets ~v = join
         open struct
         iter2 (fun (exists el. offset) v =>
             inl serialize_sa forall array el. =
@@ -95,11 +95,11 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
                 else
                     !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
                     error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
-            ) offsets
+            ) offsets v
     f ptr offsets v
 
 inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el = 
-    inl rec f ptr =
+    inl rec f ptr offsets = join
         open struct
         map (fun (exists el. offset) =>
             inl deserialize_sa forall array el. ar =
@@ -135,5 +135,5 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                 else
                     !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
                     error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
-            )
+            ) offsets
     f ptr offsets
