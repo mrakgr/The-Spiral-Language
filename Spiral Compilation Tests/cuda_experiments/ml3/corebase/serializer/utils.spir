@@ -40,13 +40,14 @@ inl calculate_offsets forall el. =
                 if singleton_type_is `el then (exists [el] s), s
                 elif union_type_is `el then
                     inl tag_offset, s = f `tag s
-                    inl union_fields, s =
+                    inl union_fields, union_size =
                         union_to_record `el forall r. =>
                         record_type_fold (fun (m,max_offset) key => forall value. =>
-                            inl value, new_offset = f `value s
+                            inl value, new_offset = f `value (conv `size 0)
                             {m with $key=value}, max max_offset new_offset
-                            ) ({}, s) `r
-                    (exists [el] { tag_offset union_fields }), s
+                            ) ({}, conv `size 0) `r
+                    inl s, union_size = align_array s union_size
+                    (exists [el] { tag_offset union_fields base_offset = s}), s + union_size
                 elif prim_type_is `el then
                     inl s = align `el s
                     (exists [el] s), s + sizeof `el
@@ -85,8 +86,9 @@ inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el
             | _ =>
                 if singleton_type_is `el then ()
                 elif union_type_is `el then
-                    inl { tag_offset union_fields } = offset
+                    inl { tag_offset union_fields base_offset } = offset
                     f ptr tag_offset (union_tag v)
+                    inl ptr = ptr_at_offset ptr (exists [u8] base_offset)
                     !!!!Unbox(v,fun k,v => f ptr (union_fields k) v)
                 elif prim_type_is `el then
                     set `array `el (ptr_at_offset ptr (exists [el] offset)) 0 v // We need to use `ptr_at_offset` instead of setting the array directly in order to cast it to the correct type.
@@ -123,8 +125,9 @@ inl deserialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) : el 
                     | () => ()
                     | _ => type_lit_to_lit `el
                 elif union_type_is `el then
-                    inl { tag_offset union_fields } = offset
+                    inl { tag_offset union_fields base_offset } = offset
                     inl tag = f ptr tag_offset
+                    inl ptr = ptr_at_offset ptr (exists [u8] base_offset)
                     union_untag `el tag
                         (fun k => forall v. => nominal_create `el (k, f ptr (union_fields k))) 
                         (fun _ => failwith `el "Invalid tag.")
