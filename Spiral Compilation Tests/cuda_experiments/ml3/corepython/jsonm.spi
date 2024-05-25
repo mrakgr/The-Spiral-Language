@@ -12,7 +12,7 @@ let deserialize forall t. (json x : json t) : t = real
     let rec f forall t'. (x : obj) : t' = 
         inl deserialize_sa forall array el. =
             $"assert isinstance(!x,list), f'The object needs to be a Python list. Got: {!x}'" : ()
-            inl len : int = $"len(!x)"
+            inl len : int = $"len(!x) # type: ignore"
             inl ar = create `array `el len
             loop.for' `int {from=0; nearTo=len} fun i =>
                 set `array `el ar i (f `el ($"!x[!i]" : obj))
@@ -29,7 +29,7 @@ let deserialize forall t. (json x : json t) : t = real
         | sam.sa ~dim ~el => deserialize_sa `(sam.sa dim) `el
         | sa_listm.sa_list ~dim ~el => 
             inl dim = type_lit_to_lit `dim
-            inl len : int = $"len(!x)"
+            inl len : int = $"len(!x) # type: ignore"
             $"assert (!dim >= !len), f'The length of the original object has to be greater than or equal to the static array dimension.\\nExpected: !dim\\nGot: {!len} '" : ()
             deserialize_sa `(sa_listm.sa_list dim) `el
         | _ -> _ => $"!x" : t'
@@ -60,8 +60,8 @@ let deserialize forall t. (json x : json t) : t = real
                     $"!x" : t'
     and inl f_tuple forall t'. (i : int) x : t' =
         typecase t' with
-        | ~a * ~b => f `a ($"!x[!i]" : obj), f_tuple `b (i+1) x
-        | _ => f `t' ($"!x[!i]" : obj)
+        | ~a * ~b => f `a ($"!x[!i] # type: ignore" : obj), f_tuple `b (i+1) x
+        | _ => f `t' ($"!x[!i] # type: ignore" : obj)
     f `t x
 
 let serialize forall t. (x : t) : json t = json real

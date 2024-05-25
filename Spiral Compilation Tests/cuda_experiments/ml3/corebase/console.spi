@@ -9,7 +9,7 @@ inl prim x = real
 prototype printable t : t -> ()
 
 inl rec write forall t. (x : t) : () = real
-    inl rec write x = 
+    let rec write x = 
         open real_core
         inl p (a,b) = 
             backend_switch `(()) {
@@ -40,16 +40,13 @@ inl rec write forall t. (x : t) : () = real
         | x when symbol_is x => write (symbol_to_string x)
         | x => 
             if union_is x then
-                inl body () = 
-                    if prototype_has `(`x) printable then printable `(`x) x
-                    else unbox x (fun (k,v) => 
-                        write k
-                        match v with
-                        | () => ()
-                        | _ => write "(" . write v . write ")"
-                        )
-                if heap_union_is x && var_is x then (join body()) : () 
-                else body()
+                if prototype_has `(`x) printable then printable `(`x) x
+                else unbox x (fun (k,v) => 
+                    write k
+                    match v with
+                    | () => ()
+                    | _ => write "(" . write v . write ")"
+                    )
             elif nominal_is x && prototype_has `(`x) printable then printable `(`x) x
             // elif layout_is x then write *x // TODO: Deal with all the layout type cases.
             else error_type "Unsupported type."

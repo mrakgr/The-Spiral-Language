@@ -199,7 +199,7 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
                     match compare_hands table with
                     | Gt => chips_won, 0
                     | Eq => 0, -1
-                    | Lt => chips_won, 1 
+                    | Lt => chips_won, 1
                 Showdown{cards_shown=table.pl_card; chips_won winner_id}
             push_message msg
             done node
