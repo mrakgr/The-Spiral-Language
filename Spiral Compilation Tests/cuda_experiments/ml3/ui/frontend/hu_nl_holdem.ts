@@ -11,68 +11,44 @@ const clamp = (x : number, _min : number, _max : number) =>
     ? min(max(_min,x), _max) 
     : (() => {throw Error(`Invalid args in clamp. Got: ${[x,_min,_max]}`)})();
 
-type Hand =
-    | ["Straight_Flush", Card[]]
-    | ["Quads", Card[]]
-    | ["Full_House", Card[]]
-    | ["Flush", Card[]]
-    | ["Straight", Card[]]
-    | ["Triple", Card[]]
-    | ["Two_Pair", Card[]]
-    | ["Pair", Card[]]
-    | ["High_Card", Card[]]
+enum Hand_Rank {
+    High_Card,
+    Pair,
+    Two_Pair,
+    Triple,
+    Straight,
+    Flush,
+    Full_House,
+    Quads,
+    Straight_Flush
+}
 
-type Card_Rank = 
-    | ["Ace",[]] 
-    | ["King",[]] 
-    | ["Queen",[]] 
-    | ["Jack",[]]
-    | ["Ten",[]]
-    | ["Nine",[]]
-    | ["Eight",[]]
-    | ["Seven",[]]
-    | ["Six",[]]
-    | ["Five",[]]
-    | ["Four",[]]
-    | ["Three",[]]
-    | ["Two",[]]
-const card_rank : Card_Rank[] = [
-    ["Ace",[]],
-    ["King",[]], 
-    ["Queen",[]], 
-    ["Jack",[]],
-    ["Ten",[]],
-    ["Nine",[]],
-    ["Eight",[]],
-    ["Seven",[]],
-    ["Six",[]],
-    ["Five",[]],
-    ["Four",[]],
-    ["Three",[]],
-    ["Two",[]],
-]
-type Card_Suit = 
-    | ["Spades",[]]
-    | ["Hearts",[]]
-    | ["Diamonds",[]]
-    | ["Clubs",[]]
-const card_suit : Card_Suit[] = [
-    ["Spades",[]],
-    ["Hearts",[]],
-    ["Diamonds",[]],
-    ["Clubs",[]],
-    ]
+type Hand = [Hand_Rank, Card[]]
+
+enum Card_Rank {
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Jack,
+    Queen,
+    King,
+    Ace
+}
+
+enum Card_Suit {
+    Clubs,
+    Diamonds,
+    Hearts,
+    Spades
+}
 
 type Card = [Card_Rank, Card_Suit]
-const card = (() => {
-    const ar : Card[] = []
-    for (const rank of card_rank) {
-        for (const suit of card_suit) {
-            ar.push([rank,suit])
-        }
-    }
-    return ar
-})();
 
 type Action = ["A_Raise",number] | ["A_Call",[]] | ["A_Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
@@ -299,7 +275,9 @@ class History extends GameElement {
             case 'A_Fold': return "folds"
         }
     }
-    print_hand_score = ([tag,cards] : Hand) => tag.replace("_"," ")
+    print_hand_score = (tag : Hand) => {
+
+    }
     print_hand = ([tag,cards] : Hand) => this.print_cards(cards)
 
     print_message = (x : Message) : string[] => {
@@ -357,37 +335,37 @@ class UI_Pot extends LitElement {
     }
 }
 
-const color_of_suit = ([tag, []] : Card_Suit) => {
+const color_of_suit = (tag : Card_Suit) => {
     switch (tag) {
-        case 'Spades': return "black"
-        case 'Hearts': return "red"
-        case 'Diamonds': return "blue"
-        case 'Clubs': return "green"
+        case Card_Suit.Spades: return "black"
+        case Card_Suit.Hearts: return "red"
+        case Card_Suit.Diamonds: return "blue"
+        case Card_Suit.Clubs: return "green"
     }
 }
 
-const print_suit = ([tag,[]] : Card_Suit) => html`<span style="color: ${color_of_suit};">${tag[0]}</span>`
-const print_rank = ([tag,arg] : Card_Rank) => {
+const print_suit = (tag : Card_Suit) => html`<span style="color: ${color_of_suit};">${Card_Suit[tag]}</span>`
+const print_rank = (tag : Card_Rank) => {
     switch (tag) {
-        case 'Ace': return "A"
-        case 'King': return "K"
-        case 'Queen': return "Q"
-        case 'Jack': return "J"
-        case 'Ten': return "T"
-        case 'Nine': return "9"
-        case 'Eight': return "8"
-        case 'Seven': return "7"
-        case 'Six': return "6"
-        case 'Five': return "5"
-        case 'Four': return "4"
-        case 'Three': return "3"
-        case 'Two': return "2"
+        case Card_Rank.Ace: return "A"
+        case Card_Rank.King: return "K"
+        case Card_Rank.Queen: return "Q"
+        case Card_Rank.Jack: return "J"
+        case Card_Rank.Ten: return "T"
+        case Card_Rank.Nine: return "9"
+        case Card_Rank.Eight: return "8"
+        case Card_Rank.Seven: return "7"
+        case Card_Rank.Six: return "6"
+        case Card_Rank.Five: return "5"
+        case Card_Rank.Four: return "4"
+        case Card_Rank.Three: return "3"
+        case Card_Rank.Two: return "2"
     }
 }
 
 @customElement('poker-card')
 class Poker_Card extends LitElement {
-    @property({type: Array}) card : Card = [["King", []], ["Hearts",[]]]
+    @property({type: Array}) card : Card = [Card_Rank.King, Card_Suit.Hearts]
     @property({type: Boolean}) is_visible = true;
 
     static styles = css`
@@ -445,12 +423,12 @@ class Poker_Cards extends LitElement {
 @customElement('nl-holdem-game')
 class Game extends GameElement {
     @property({type: Array}) state : Game_State = ["WaitingForActionFromPlayerId", {
-        pl_card: [[card[0],card[1]], [card[11],card[12]]],
+        pl_card: [[[Card_Rank.King, Card_Suit.Clubs],[Card_Rank.Eight,Card_Suit.Diamonds]], [[Card_Rank.Five,Card_Suit.Spades],[Card_Rank.Nine,Card_Suit.Hearts]]],
         stack: [96,97],
         pot: [4,3],
         is_button_s_first_move: true,
         player_turn: 0,
-        street: ["Flop",[card[2],card[3],card[4]]],
+        street: ["Flop",[[Card_Rank.Six,Card_Suit.Clubs],[Card_Rank.Ace,Card_Suit.Clubs],[Card_Rank.Nine,Card_Suit.Spades]]],
         config: {
             min_raise: 2
         }
