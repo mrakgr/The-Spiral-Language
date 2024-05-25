@@ -449,8 +449,9 @@ inl main() =
                 inl from = rangem.threads_in_grid().from
                 if from = 0 then
                     console.write_ln "going to run the event loop"
-                    inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
-                    console.write_ln game_state
+                    // inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+                    inl game_state = deserialize seri.game_state
+                    // console.write_ln game_state
                     serialize seri.game_state game_state
                     serialize seri.ui_state (game_to_ui game_state)
 
