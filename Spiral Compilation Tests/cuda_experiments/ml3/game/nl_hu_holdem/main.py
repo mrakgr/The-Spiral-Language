@@ -10,8 +10,7 @@ struct US0;
 __device__ long f_2(unsigned char * v0);
 __device__ void f_4(unsigned char * v0);
 __device__ US1 f_3(unsigned char * v0);
-__device__ US2 f_7(unsigned char * v0);
-__device__ void method_6(unsigned char * v0, static_array<US2,2l> v1, unsigned long long v2);
+__device__ US2 f_6(unsigned char * v0);
 __device__ static_array<US2,2l> f_5(unsigned char * v0);
 __device__ US0 f_1(unsigned char * v0);
 struct US4;
@@ -24,67 +23,58 @@ struct US8;
 struct US7;
 struct US10;
 struct Tuple1;
-__device__ unsigned long long f_9(unsigned char * v0);
-__device__ long f_10(unsigned char * v0);
-__device__ long f_16(unsigned char * v0);
-__device__ Tuple0 f_15(unsigned char * v0);
-__device__ void method_14(unsigned char * v0, static_array_list<Tuple0,5l,long> v1, unsigned long long v2);
-__device__ static_array_list<Tuple0,5l,long> f_13(unsigned char * v0);
+__device__ unsigned long long f_8(unsigned char * v0);
+__device__ long f_9(unsigned char * v0);
+__device__ long f_13(unsigned char * v0);
+__device__ Tuple0 f_12(unsigned char * v0);
+__device__ static_array_list<Tuple0,5l,long> f_11(unsigned char * v0);
 struct Tuple2;
-__device__ Tuple2 f_17(unsigned char * v0);
+__device__ Tuple2 f_14(unsigned char * v0);
 struct Tuple3;
-__device__ Tuple3 f_18(unsigned char * v0);
+__device__ Tuple3 f_15(unsigned char * v0);
 struct Tuple4;
-__device__ void method_20(unsigned char * v0, static_array<Tuple0,2l> v1, unsigned long long v2);
-__device__ Tuple4 f_19(unsigned char * v0);
+__device__ Tuple4 f_16(unsigned char * v0);
 struct Tuple5;
-__device__ void method_25(unsigned char * v0, static_array<Tuple0,5l> v1, unsigned long long v2);
-__device__ static_array<Tuple0,5l> f_24(unsigned char * v0);
-__device__ US6 f_23(unsigned char * v0);
-__device__ void method_22(unsigned char * v0, static_array<US6,2l> v1, unsigned long long v2);
-__device__ Tuple5 f_21(unsigned char * v0);
-__device__ US3 f_12(unsigned char * v0);
-__device__ void method_11(unsigned char * v0, static_array_list<US3,128l,long> v1, unsigned long long v2);
-__device__ long f_26(unsigned char * v0);
+__device__ static_array<Tuple0,5l> f_19(unsigned char * v0);
+__device__ US6 f_18(unsigned char * v0);
+__device__ Tuple5 f_17(unsigned char * v0);
+__device__ US3 f_10(unsigned char * v0);
+__device__ long f_20(unsigned char * v0);
 struct Tuple6;
-__device__ static_array<Tuple0,2l> f_30(unsigned char * v0);
-__device__ void method_29(unsigned char * v0, static_array<static_array<Tuple0,2l>,2l> v1, unsigned long long v2);
-__device__ void method_31(unsigned char * v0, static_array<long,2l> v1, unsigned long long v2);
-__device__ long f_32(unsigned char * v0);
-__device__ void method_34(unsigned char * v0, static_array<Tuple0,3l> v1, unsigned long long v2);
-__device__ static_array<Tuple0,3l> f_33(unsigned char * v0);
-__device__ void method_36(unsigned char * v0, static_array<Tuple0,4l> v1, unsigned long long v2);
-__device__ static_array<Tuple0,4l> f_35(unsigned char * v0);
-__device__ Tuple6 f_28(unsigned char * v0);
+__device__ static_array<Tuple0,2l> f_23(unsigned char * v0);
+__device__ long f_24(unsigned char * v0);
+__device__ static_array<Tuple0,3l> f_25(unsigned char * v0);
+__device__ static_array<Tuple0,4l> f_26(unsigned char * v0);
+__device__ Tuple6 f_22(unsigned char * v0);
 struct Tuple7;
-__device__ long f_38(unsigned char * v0);
-__device__ Tuple7 f_37(unsigned char * v0);
-__device__ US8 f_27(unsigned char * v0);
-__device__ long f_39(unsigned char * v0);
-__device__ Tuple1 f_8(unsigned char * v0);
+__device__ long f_28(unsigned char * v0);
+__device__ Tuple7 f_27(unsigned char * v0);
+__device__ US8 f_21(unsigned char * v0);
+__device__ long f_29(unsigned char * v0);
+__device__ Tuple1 f_7(unsigned char * v0);
 struct Tuple8;
 struct Tuple9;
 struct Tuple10;
 struct Tuple11;
 struct Tuple12;
-__device__ unsigned long loop_44(unsigned long v0, curandStatePhilox4_32_10_t & v1);
-__device__ Tuple12 draw_card_43(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
-__device__ Tuple10 draw_cards_42(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
-__device__ US4 card_rank_untag_46(unsigned char v0);
-__device__ US5 card_suit_untag_47(unsigned char v0);
-__device__ Tuple0 card_from_lib_card_45(Card v0);
-__device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, static_array<Tuple0,3l> v1);
+__device__ unsigned long loop_34(unsigned long v0, curandStatePhilox4_32_10_t & v1);
+__device__ Tuple12 draw_card_33(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
+__device__ Tuple10 draw_cards_32(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
+__device__ US4 card_rank_untag_36(unsigned char v0);
+__device__ US5 card_suit_untag_37(unsigned char v0);
+__device__ Tuple0 card_from_lib_card_35(Card v0);
+__device__ static_array_list<Tuple0,5l,long> get_community_cards_38(US9 v0, static_array<Tuple0,3l> v1);
 struct Tuple13;
-__device__ Tuple13 draw_cards_49(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
+__device__ Tuple13 draw_cards_39(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
 struct Tuple14;
-__device__ Tuple14 draw_cards_50(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
-__device__ static_array_list<Tuple0,5l,long> get_community_cards_51(US9 v0, static_array<Tuple0,1l> v1);
+__device__ Tuple14 draw_cards_40(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
+__device__ static_array_list<Tuple0,5l,long> get_community_cards_41(US9 v0, static_array<Tuple0,1l> v1);
 struct Tuple15;
-__device__ long loop_54(static_array<float,8l> v0, float v1, long v2);
-__device__ long sample_discrete__53(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1);
-__device__ US1 sample_discrete_52(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1);
-__device__ unsigned char card_rank_tag_55(US4 v0);
-__device__ unsigned char card_suit_tag_56(US5 v0);
+__device__ long loop_44(static_array<float,8l> v0, float v1, long v2);
+__device__ long sample_discrete__43(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1);
+__device__ US1 sample_discrete_42(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1);
+__device__ unsigned char card_rank_tag_45(US4 v0);
+__device__ unsigned char card_suit_tag_46(US5 v0);
 struct Tuple16;
 struct Tuple17;
 struct Tuple18;
@@ -98,138 +88,128 @@ struct US14;
 struct US15;
 struct US16;
 struct US17;
-__device__ Tuple16 score_57(static_array<Card,7l> v0);
-__device__ US6 hand_from_lib_hand_score_58(static_array<Card,5l> v0, char v1);
-__device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3,128l,long> & v1, curandStatePhilox4_32_10_t & v2, static_array<US2,2l> v3, US8 v4);
-__device__ Tuple8 play_loop_40(US7 v0, static_array<US2,2l> v1, US10 v2, unsigned long long & v3, static_array_list<US3,128l,long> & v4, curandStatePhilox4_32_10_t & v5, US8 v6);
-__device__ void write_60(char v0);
+__device__ Tuple16 score_47(static_array<Card,7l> v0);
+__device__ US6 hand_from_lib_hand_score_48(static_array<Card,5l> v0, char v1);
+__device__ US8 play_loop_inner_31(unsigned long long & v0, static_array_list<US3,128l,long> & v1, curandStatePhilox4_32_10_t & v2, static_array<US2,2l> v3, US8 v4);
+__device__ Tuple8 play_loop_30(US7 v0, static_array<US2,2l> v1, US10 v2, unsigned long long & v3, static_array_list<US3,128l,long> & v4, curandStatePhilox4_32_10_t & v5, US8 v6);
+__device__ void write_50(char v0);
+__device__ void write_51();
+__device__ void write_54(unsigned long long v0);
+__device__ void write_53(unsigned long long v0);
+__device__ void write_57();
 __device__ void write_61();
-__device__ void write_64(unsigned long long v0);
-__device__ void write_63(unsigned long long v0);
+__device__ void write_62();
+__device__ void write_63();
+__device__ void write_64();
+__device__ void write_65();
+__device__ void write_66();
 __device__ void write_67();
+__device__ void write_68();
+__device__ void write_69();
+__device__ void write_70();
 __device__ void write_71();
 __device__ void write_72();
 __device__ void write_73();
-__device__ void write_74();
+__device__ void write_60(US4 v0);
 __device__ void write_75();
 __device__ void write_76();
 __device__ void write_77();
 __device__ void write_78();
+__device__ void write_74(US5 v0);
+__device__ void write_59(US4 v0, US5 v1);
+__device__ void write_58(static_array_list<Tuple0,5l,long> v0);
 __device__ void write_79();
-__device__ void write_80();
-__device__ void write_81();
+__device__ void write_81(long v0);
+__device__ void write_80(long v0, long v1);
 __device__ void write_82();
-__device__ void write_83();
-__device__ void write_70(US4 v0);
 __device__ void write_85();
 __device__ void write_86();
 __device__ void write_87();
+__device__ void write_84(US1 v0);
+__device__ void write_83(long v0, US1 v1);
 __device__ void write_88();
-__device__ void write_84(US5 v0);
-__device__ void write_69(US4 v0, US5 v1);
-__device__ void write_68(static_array_list<Tuple0,5l,long> v0);
-__device__ void write_89();
-__device__ void write_91(long v0);
-__device__ void write_90(long v0, long v1);
-__device__ void write_92();
+__device__ void write_90(static_array<Tuple0,2l> v0);
+__device__ void write_89(long v0, static_array<Tuple0,2l> v1);
+__device__ void write_91();
 __device__ void write_95();
-__device__ void write_96();
+__device__ void write_96(static_array<Tuple0,5l> v0);
 __device__ void write_97();
-__device__ void write_94(US1 v0);
-__device__ void write_93(long v0, US1 v1);
 __device__ void write_98();
-__device__ void write_100(static_array<Tuple0,2l> v0);
-__device__ void write_99(long v0, static_array<Tuple0,2l> v1);
+__device__ void write_99();
+__device__ void write_100();
 __device__ void write_101();
-__device__ void write_105();
-__device__ void write_106(static_array<Tuple0,5l> v0);
+__device__ void write_102();
+__device__ void write_103();
+__device__ void write_104();
+__device__ void write_94(US6 v0);
+__device__ void write_93(static_array<US6,2l> v0);
+__device__ void write_92(long v0, static_array<US6,2l> v1, long v2);
+__device__ void write_56(US3 v0);
+__device__ void write_55(static_array_list<US3,128l,long> v0);
+__device__ void write_52(unsigned long long v0, static_array_list<US3,128l,long> v1);
 __device__ void write_107();
 __device__ void write_108();
-__device__ void write_109();
 __device__ void write_110();
-__device__ void write_111();
-__device__ void write_112();
-__device__ void write_113();
-__device__ void write_114();
-__device__ void write_104(US6 v0);
-__device__ void write_103(static_array<US6,2l> v0);
-__device__ void write_102(long v0, static_array<US6,2l> v1, long v2);
-__device__ void write_66(US3 v0);
-__device__ void write_65(static_array_list<US3,128l,long> v0);
-__device__ void write_62(unsigned long long v0, static_array_list<US3,128l,long> v1);
+__device__ void write_112(long v0);
+__device__ void write_113(bool v0);
+__device__ void write_114(static_array<static_array<Tuple0,2l>,2l> v0);
+__device__ void write_115(static_array<long,2l> v0);
 __device__ void write_117();
-__device__ void write_118();
+__device__ void write_118(static_array<Tuple0,3l> v0);
+__device__ void write_119();
 __device__ void write_120();
-__device__ void write_122(long v0);
-__device__ void write_123(bool v0);
-__device__ void write_124(static_array<static_array<Tuple0,2l>,2l> v0);
-__device__ void write_125(static_array<long,2l> v0);
+__device__ void write_121();
+__device__ void write_122(static_array<Tuple0,4l> v0);
+__device__ void write_116(US9 v0);
+__device__ void write_111(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6);
+__device__ void write_123();
+__device__ void write_124();
+__device__ void write_125();
+__device__ void write_126();
 __device__ void write_127();
-__device__ void write_128(static_array<Tuple0,3l> v0);
+__device__ void write_128(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6, US1 v7);
 __device__ void write_129();
 __device__ void write_130();
-__device__ void write_131();
-__device__ void write_132(static_array<Tuple0,4l> v0);
-__device__ void write_126(US9 v0);
-__device__ void write_121(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6);
+__device__ void write_109(US8 v0);
+__device__ void write_106(US7 v0);
 __device__ void write_133();
 __device__ void write_134();
-__device__ void write_135();
+__device__ void write_132(US2 v0);
+__device__ void write_131(static_array<US2,2l> v0);
 __device__ void write_136();
 __device__ void write_137();
-__device__ void write_138(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6, US1 v7);
-__device__ void write_139();
-__device__ void write_140();
-__device__ void write_119(US8 v0);
-__device__ void write_116(US7 v0);
-__device__ void write_143();
-__device__ void write_144();
-__device__ void write_142(US2 v0);
-__device__ void write_141(static_array<US2,2l> v0);
-__device__ void write_146();
-__device__ void write_147();
-__device__ void write_148();
-__device__ void write_145(US10 v0);
-__device__ void write_115(US7 v0, static_array<US2,2l> v1, US10 v2);
-__device__ void write_59(unsigned long long v0, static_array_list<US3,128l,long> v1, US7 v2, static_array<US2,2l> v3, US10 v4);
-__device__ void f_150(unsigned char * v0, unsigned long long v1);
-__device__ void f_151(unsigned char * v0, long v1);
+__device__ void write_138();
+__device__ void write_135(US10 v0);
+__device__ void write_105(US7 v0, static_array<US2,2l> v1, US10 v2);
+__device__ void write_49(unsigned long long v0, static_array_list<US3,128l,long> v1, US7 v2, static_array<US2,2l> v3, US10 v4);
+__device__ void f_140(unsigned char * v0, unsigned long long v1);
+__device__ void f_141(unsigned char * v0, long v1);
+__device__ void f_143(unsigned char * v0, long v1);
+__device__ void f_146(unsigned char * v0);
+__device__ void f_147(unsigned char * v0, long v1);
+__device__ void f_145(unsigned char * v0, US4 v1, US5 v2);
+__device__ void f_144(unsigned char * v0, static_array_list<Tuple0,5l,long> v1);
+__device__ void f_148(unsigned char * v0, long v1, long v2);
+__device__ void f_149(unsigned char * v0, long v1, US1 v2);
+__device__ void f_150(unsigned char * v0, long v1, static_array<Tuple0,2l> v2);
+__device__ void f_153(unsigned char * v0, static_array<Tuple0,5l> v1);
+__device__ void f_152(unsigned char * v0, US6 v1);
+__device__ void f_151(unsigned char * v0, long v1, static_array<US6,2l> v2, long v3);
+__device__ void f_142(unsigned char * v0, US3 v1);
 __device__ void f_154(unsigned char * v0, long v1);
-__device__ void f_158(unsigned char * v0);
-__device__ void f_159(unsigned char * v0, long v1);
-__device__ void f_157(unsigned char * v0, US4 v1, US5 v2);
-__device__ void method_156(unsigned char * v0, static_array_list<Tuple0,5l,long> v1, unsigned long long v2);
-__device__ void f_155(unsigned char * v0, static_array_list<Tuple0,5l,long> v1);
-__device__ void f_160(unsigned char * v0, long v1, long v2);
-__device__ void f_161(unsigned char * v0, long v1, US1 v2);
-__device__ void method_163(unsigned char * v0, static_array<Tuple0,2l> v1, unsigned long long v2);
-__device__ void f_162(unsigned char * v0, long v1, static_array<Tuple0,2l> v2);
-__device__ void method_168(unsigned char * v0, static_array<Tuple0,5l> v1, unsigned long long v2);
-__device__ void f_167(unsigned char * v0, static_array<Tuple0,5l> v1);
-__device__ void f_166(unsigned char * v0, US6 v1);
-__device__ void method_165(unsigned char * v0, static_array<US6,2l> v1, unsigned long long v2);
-__device__ void f_164(unsigned char * v0, long v1, static_array<US6,2l> v2, long v3);
-__device__ void f_153(unsigned char * v0, US3 v1);
-__device__ void method_152(unsigned char * v0, static_array_list<US3,128l,long> v1, unsigned long long v2);
-__device__ void f_169(unsigned char * v0, long v1);
-__device__ void f_173(unsigned char * v0, static_array<Tuple0,2l> v1);
-__device__ void method_172(unsigned char * v0, static_array<static_array<Tuple0,2l>,2l> v1, unsigned long long v2);
-__device__ void method_174(unsigned char * v0, static_array<long,2l> v1, unsigned long long v2);
-__device__ void f_175(unsigned char * v0, long v1);
-__device__ void method_177(unsigned char * v0, static_array<Tuple0,3l> v1, unsigned long long v2);
-__device__ void f_176(unsigned char * v0, static_array<Tuple0,3l> v1);
-__device__ void method_179(unsigned char * v0, static_array<Tuple0,4l> v1, unsigned long long v2);
-__device__ void f_178(unsigned char * v0, static_array<Tuple0,4l> v1);
-__device__ void f_171(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7);
-__device__ void f_181(unsigned char * v0, long v1);
-__device__ void f_180(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7, US1 v8);
-__device__ void f_170(unsigned char * v0, US8 v1);
-__device__ void f_183(unsigned char * v0, US2 v1);
-__device__ void method_182(unsigned char * v0, static_array<US2,2l> v1, unsigned long long v2);
-__device__ void f_184(unsigned char * v0, long v1);
-__device__ void f_149(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US7 v3, static_array<US2,2l> v4, US10 v5);
-__device__ void f_186(unsigned char * v0, long v1);
-__device__ void f_185(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US10 v3);
+__device__ void f_157(unsigned char * v0, static_array<Tuple0,2l> v1);
+__device__ void f_158(unsigned char * v0, long v1);
+__device__ void f_159(unsigned char * v0, static_array<Tuple0,3l> v1);
+__device__ void f_160(unsigned char * v0, static_array<Tuple0,4l> v1);
+__device__ void f_156(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7);
+__device__ void f_162(unsigned char * v0, long v1);
+__device__ void f_161(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7, US1 v8);
+__device__ void f_155(unsigned char * v0, US8 v1);
+__device__ void f_163(unsigned char * v0, US2 v1);
+__device__ void f_164(unsigned char * v0, long v1);
+__device__ void f_139(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US7 v3, static_array<US2,2l> v4, US10 v5);
+__device__ void f_166(unsigned char * v0, long v1);
+__device__ void f_165(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US10 v3);
 struct US1 {
     union {
         struct {
@@ -737,7 +717,7 @@ __device__ inline bool while_method_0(long v0){
     v1 = v0 < 2l;
     return v1;
 }
-__device__ US2 f_7(unsigned char * v0){
+__device__ US2 f_6(unsigned char * v0){
     long v1;
     v1 = f_2(v0);
     unsigned char * v2;
@@ -759,46 +739,38 @@ __device__ US2 f_7(unsigned char * v0){
         }
     }
 }
-__device__ void method_6(unsigned char * v0, static_array<US2,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 4ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        US2 v9;
-        v9 = f_7(v8);
-        bool v10;
-        v10 = 0l <= v3;
-        bool v12;
-        if (v10){
-            bool v11;
-            v11 = v3 < 2l;
-            v12 = v11;
-        } else {
-            v12 = false;
-        }
-        bool v13;
-        v13 = v12 == false;
-        if (v13){
-            assert("The read index needs to be in range for the static array." && v12);
-        } else {
-        }
-        v1.v[v3] = v9;
-        v3 += 1l ;
-    }
-    return ;
-}
 __device__ static_array<US2,2l> f_5(unsigned char * v0){
     static_array<US2,2l> v1;
-    unsigned long long v2;
-    v2 = 0ull;
-    method_6(v0, v1, v2);
+    long v2;
+    v2 = 0l;
+    while (while_method_0(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
+        unsigned long long v5;
+        v5 = v4 * 4ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        US2 v7;
+        v7 = f_6(v6);
+        bool v8;
+        v8 = 0l <= v2;
+        bool v10;
+        if (v8){
+            bool v9;
+            v9 = v2 < 2l;
+            v10 = v9;
+        } else {
+            v10 = false;
+        }
+        bool v11;
+        v11 = v10 == false;
+        if (v11){
+            assert("The read index needs to be in range for the static array." && v10);
+        } else {
+        }
+        v1.v[v2] = v7;
+        v2 += 1l ;
+    }
     return v1;
 }
 __device__ US0 f_1(unsigned char * v0){
@@ -1097,14 +1069,14 @@ __device__ US10 US10_2(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l
     x.v.case2.v0 = v0; x.v.case2.v1 = v1; x.v.case2.v2 = v2; x.v.case2.v3 = v3; x.v.case2.v4 = v4; x.v.case2.v5 = v5; x.v.case2.v6 = v6;
     return x;
 }
-__device__ unsigned long long f_9(unsigned char * v0){
+__device__ unsigned long long f_8(unsigned char * v0){
     unsigned long long * v1;
     v1 = (unsigned long long *)(v0+0ull);
     unsigned long long v2;
     v2 = v1[0l];
     return v2;
 }
-__device__ long f_10(unsigned char * v0){
+__device__ long f_9(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+8ull);
     long v2;
@@ -1116,14 +1088,14 @@ __device__ inline bool while_method_1(long v0, long v1){
     v2 = v1 < v0;
     return v2;
 }
-__device__ long f_16(unsigned char * v0){
+__device__ long f_13(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+4ull);
     long v2;
     v2 = v1[0l];
     return v2;
 }
-__device__ Tuple0 f_15(unsigned char * v0){
+__device__ Tuple0 f_12(unsigned char * v0){
     long v1;
     v1 = f_2(v0);
     unsigned char * v2;
@@ -1201,7 +1173,7 @@ __device__ Tuple0 f_15(unsigned char * v0){
         }
     }
     long v18;
-    v18 = f_16(v0);
+    v18 = f_13(v0);
     unsigned char * v19;
     v19 = (unsigned char *)(v0+8ull);
     US5 v25;
@@ -1233,7 +1205,12 @@ __device__ Tuple0 f_15(unsigned char * v0){
     }
     return Tuple0(v17, v25);
 }
-__device__ void method_14(unsigned char * v0, static_array_list<Tuple0,5l,long> v1, unsigned long long v2){
+__device__ static_array_list<Tuple0,5l,long> f_11(unsigned char * v0){
+    static_array_list<Tuple0,5l,long> v1;
+    v1.length = 0;
+    long v2;
+    v2 = f_2(v0);
+    v1.length = v2;
     long v3;
     v3 = v1.length;
     long v4;
@@ -1244,11 +1221,11 @@ __device__ void method_14(unsigned char * v0, static_array_list<Tuple0,5l,long> 
         unsigned long long v7;
         v7 = v6 * 8ull;
         unsigned long long v8;
-        v8 = v2 + v7;
+        v8 = 8ull + v7;
         unsigned char * v9;
         v9 = (unsigned char *)(v0+v8);
         US4 v10; US5 v11;
-        Tuple0 tmp0 = f_15(v9);
+        Tuple0 tmp0 = f_12(v9);
         v10 = tmp0.v0; v11 = tmp0.v1;
         bool v12;
         v12 = 0l <= v4;
@@ -1271,20 +1248,9 @@ __device__ void method_14(unsigned char * v0, static_array_list<Tuple0,5l,long> 
         v1.v[v4] = Tuple0(v10, v11);
         v4 += 1l ;
     }
-    return ;
-}
-__device__ static_array_list<Tuple0,5l,long> f_13(unsigned char * v0){
-    static_array_list<Tuple0,5l,long> v1;
-    v1.length = 0;
-    long v2;
-    v2 = f_2(v0);
-    v1.length = v2;
-    unsigned long long v3;
-    v3 = 8ull;
-    method_14(v0, v1, v3);
     return v1;
 }
-__device__ Tuple2 f_17(unsigned char * v0){
+__device__ Tuple2 f_14(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+0ull);
     long v2;
@@ -1295,13 +1261,13 @@ __device__ Tuple2 f_17(unsigned char * v0){
     v4 = v3[0l];
     return Tuple2(v2, v4);
 }
-__device__ Tuple3 f_18(unsigned char * v0){
+__device__ Tuple3 f_15(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+0ull);
     long v2;
     v2 = v1[0l];
     long v3;
-    v3 = f_16(v0);
+    v3 = f_13(v0);
     unsigned char * v4;
     v4 = (unsigned char *)(v0+8ull);
     US1 v10;
@@ -1329,51 +1295,45 @@ __device__ Tuple3 f_18(unsigned char * v0){
     }
     return Tuple3(v2, v10);
 }
-__device__ void method_20(unsigned char * v0, static_array<Tuple0,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        US4 v9; US5 v10;
-        Tuple0 tmp3 = f_15(v8);
-        v9 = tmp3.v0; v10 = tmp3.v1;
-        bool v11;
-        v11 = 0l <= v3;
-        bool v13;
-        if (v11){
-            bool v12;
-            v12 = v3 < 2l;
-            v13 = v12;
-        } else {
-            v13 = false;
-        }
-        bool v14;
-        v14 = v13 == false;
-        if (v14){
-            assert("The read index needs to be in range for the static array." && v13);
-        } else {
-        }
-        v1.v[v3] = Tuple0(v9, v10);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ Tuple4 f_19(unsigned char * v0){
+__device__ Tuple4 f_16(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+0ull);
     long v2;
     v2 = v1[0l];
     static_array<Tuple0,2l> v3;
-    unsigned long long v4;
-    v4 = 8ull;
-    method_20(v0, v3, v4);
+    long v4;
+    v4 = 0l;
+    while (while_method_0(v4)){
+        unsigned long long v6;
+        v6 = (unsigned long long)v4;
+        unsigned long long v7;
+        v7 = v6 * 8ull;
+        unsigned long long v8;
+        v8 = 8ull + v7;
+        unsigned char * v9;
+        v9 = (unsigned char *)(v0+v8);
+        US4 v10; US5 v11;
+        Tuple0 tmp3 = f_12(v9);
+        v10 = tmp3.v0; v11 = tmp3.v1;
+        bool v12;
+        v12 = 0l <= v4;
+        bool v14;
+        if (v12){
+            bool v13;
+            v13 = v4 < 2l;
+            v14 = v13;
+        } else {
+            v14 = false;
+        }
+        bool v15;
+        v15 = v14 == false;
+        if (v15){
+            assert("The read index needs to be in range for the static array." && v14);
+        } else {
+        }
+        v3.v[v4] = Tuple0(v10, v11);
+        v4 += 1l ;
+    }
     return Tuple4(v2, v3);
 }
 __device__ inline bool while_method_2(long v0){
@@ -1381,50 +1341,42 @@ __device__ inline bool while_method_2(long v0){
     v1 = v0 < 5l;
     return v1;
 }
-__device__ void method_25(unsigned char * v0, static_array<Tuple0,5l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_2(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        US4 v9; US5 v10;
-        Tuple0 tmp5 = f_15(v8);
-        v9 = tmp5.v0; v10 = tmp5.v1;
-        bool v11;
-        v11 = 0l <= v3;
-        bool v13;
-        if (v11){
-            bool v12;
-            v12 = v3 < 5l;
-            v13 = v12;
-        } else {
-            v13 = false;
-        }
-        bool v14;
-        v14 = v13 == false;
-        if (v14){
-            assert("The read index needs to be in range for the static array." && v13);
-        } else {
-        }
-        v1.v[v3] = Tuple0(v9, v10);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ static_array<Tuple0,5l> f_24(unsigned char * v0){
+__device__ static_array<Tuple0,5l> f_19(unsigned char * v0){
     static_array<Tuple0,5l> v1;
-    unsigned long long v2;
-    v2 = 0ull;
-    method_25(v0, v1, v2);
+    long v2;
+    v2 = 0l;
+    while (while_method_2(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
+        unsigned long long v5;
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        US4 v7; US5 v8;
+        Tuple0 tmp5 = f_12(v6);
+        v7 = tmp5.v0; v8 = tmp5.v1;
+        bool v9;
+        v9 = 0l <= v2;
+        bool v11;
+        if (v9){
+            bool v10;
+            v10 = v2 < 5l;
+            v11 = v10;
+        } else {
+            v11 = false;
+        }
+        bool v12;
+        v12 = v11 == false;
+        if (v12){
+            assert("The read index needs to be in range for the static array." && v11);
+        } else {
+        }
+        v1.v[v2] = Tuple0(v7, v8);
+        v2 += 1l ;
+    }
     return v1;
 }
-__device__ US6 f_23(unsigned char * v0){
+__device__ US6 f_18(unsigned char * v0){
     long v1;
     v1 = f_2(v0);
     unsigned char * v2;
@@ -1432,55 +1384,55 @@ __device__ US6 f_23(unsigned char * v0){
     switch (v1) {
         case 0: {
             static_array<Tuple0,5l> v4;
-            v4 = f_24(v2);
+            v4 = f_19(v2);
             return US6_0(v4);
             break;
         }
         case 1: {
             static_array<Tuple0,5l> v6;
-            v6 = f_24(v2);
+            v6 = f_19(v2);
             return US6_1(v6);
             break;
         }
         case 2: {
             static_array<Tuple0,5l> v8;
-            v8 = f_24(v2);
+            v8 = f_19(v2);
             return US6_2(v8);
             break;
         }
         case 3: {
             static_array<Tuple0,5l> v10;
-            v10 = f_24(v2);
+            v10 = f_19(v2);
             return US6_3(v10);
             break;
         }
         case 4: {
             static_array<Tuple0,5l> v12;
-            v12 = f_24(v2);
+            v12 = f_19(v2);
             return US6_4(v12);
             break;
         }
         case 5: {
             static_array<Tuple0,5l> v14;
-            v14 = f_24(v2);
+            v14 = f_19(v2);
             return US6_5(v14);
             break;
         }
         case 6: {
             static_array<Tuple0,5l> v16;
-            v16 = f_24(v2);
+            v16 = f_19(v2);
             return US6_6(v16);
             break;
         }
         case 7: {
             static_array<Tuple0,5l> v18;
-            v18 = f_24(v2);
+            v18 = f_19(v2);
             return US6_7(v18);
             break;
         }
         case 8: {
             static_array<Tuple0,5l> v20;
-            v20 = f_24(v2);
+            v20 = f_19(v2);
             return US6_8(v20);
             break;
         }
@@ -1490,57 +1442,51 @@ __device__ US6 f_23(unsigned char * v0){
         }
     }
 }
-__device__ void method_22(unsigned char * v0, static_array<US6,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 64ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        US6 v9;
-        v9 = f_23(v8);
-        bool v10;
-        v10 = 0l <= v3;
-        bool v12;
-        if (v10){
-            bool v11;
-            v11 = v3 < 2l;
-            v12 = v11;
-        } else {
-            v12 = false;
-        }
-        bool v13;
-        v13 = v12 == false;
-        if (v13){
-            assert("The read index needs to be in range for the static array." && v12);
-        } else {
-        }
-        v1.v[v3] = v9;
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ Tuple5 f_21(unsigned char * v0){
+__device__ Tuple5 f_17(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+0ull);
     long v2;
     v2 = v1[0l];
     static_array<US6,2l> v3;
-    unsigned long long v4;
-    v4 = 16ull;
-    method_22(v0, v3, v4);
-    long * v5;
-    v5 = (long *)(v0+144ull);
-    long v6;
-    v6 = v5[0l];
-    return Tuple5(v2, v3, v6);
+    long v4;
+    v4 = 0l;
+    while (while_method_0(v4)){
+        unsigned long long v6;
+        v6 = (unsigned long long)v4;
+        unsigned long long v7;
+        v7 = v6 * 64ull;
+        unsigned long long v8;
+        v8 = 16ull + v7;
+        unsigned char * v9;
+        v9 = (unsigned char *)(v0+v8);
+        US6 v10;
+        v10 = f_18(v9);
+        bool v11;
+        v11 = 0l <= v4;
+        bool v13;
+        if (v11){
+            bool v12;
+            v12 = v4 < 2l;
+            v13 = v12;
+        } else {
+            v13 = false;
+        }
+        bool v14;
+        v14 = v13 == false;
+        if (v14){
+            assert("The read index needs to be in range for the static array." && v13);
+        } else {
+        }
+        v3.v[v4] = v10;
+        v4 += 1l ;
+    }
+    long * v15;
+    v15 = (long *)(v0+144ull);
+    long v16;
+    v16 = v15[0l];
+    return Tuple5(v2, v3, v16);
 }
-__device__ US3 f_12(unsigned char * v0){
+__device__ US3 f_10(unsigned char * v0){
     long v1;
     v1 = f_2(v0);
     unsigned char * v2;
@@ -1548,34 +1494,34 @@ __device__ US3 f_12(unsigned char * v0){
     switch (v1) {
         case 0: {
             static_array_list<Tuple0,5l,long> v4;
-            v4 = f_13(v2);
+            v4 = f_11(v2);
             return US3_0(v4);
             break;
         }
         case 1: {
             long v6; long v7;
-            Tuple2 tmp1 = f_17(v2);
+            Tuple2 tmp1 = f_14(v2);
             v6 = tmp1.v0; v7 = tmp1.v1;
             return US3_1(v6, v7);
             break;
         }
         case 2: {
             long v9; US1 v10;
-            Tuple3 tmp2 = f_18(v2);
+            Tuple3 tmp2 = f_15(v2);
             v9 = tmp2.v0; v10 = tmp2.v1;
             return US3_2(v9, v10);
             break;
         }
         case 3: {
             long v12; static_array<Tuple0,2l> v13;
-            Tuple4 tmp4 = f_19(v2);
+            Tuple4 tmp4 = f_16(v2);
             v12 = tmp4.v0; v13 = tmp4.v1;
             return US3_3(v12, v13);
             break;
         }
         case 4: {
             long v15; static_array<US6,2l> v16; long v17;
-            Tuple5 tmp6 = f_21(v2);
+            Tuple5 tmp6 = f_17(v2);
             v15 = tmp6.v0; v16 = tmp6.v1; v17 = tmp6.v2;
             return US3_4(v15, v16, v17);
             break;
@@ -1586,130 +1532,49 @@ __device__ US3 f_12(unsigned char * v0){
         }
     }
 }
-__device__ void method_11(unsigned char * v0, static_array_list<US3,128l,long> v1, unsigned long long v2){
-    long v3;
-    v3 = v1.length;
-    long v4;
-    v4 = 0l;
-    while (while_method_1(v3, v4)){
-        unsigned long long v6;
-        v6 = (unsigned long long)v4;
-        unsigned long long v7;
-        v7 = v6 * 176ull;
-        unsigned long long v8;
-        v8 = v2 + v7;
-        unsigned char * v9;
-        v9 = (unsigned char *)(v0+v8);
-        US3 v10;
-        v10 = f_12(v9);
-        bool v11;
-        v11 = 0l <= v4;
-        bool v14;
-        if (v11){
-            long v12;
-            v12 = v1.length;
-            bool v13;
-            v13 = v4 < v12;
-            v14 = v13;
-        } else {
-            v14 = false;
-        }
-        bool v15;
-        v15 = v14 == false;
-        if (v15){
-            assert("The set index needs to be in range for the static array list." && v14);
-        } else {
-        }
-        v1.v[v4] = v10;
-        v4 += 1l ;
-    }
-    return ;
-}
-__device__ long f_26(unsigned char * v0){
+__device__ long f_20(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+22544ull);
     long v2;
     v2 = v1[0l];
     return v2;
 }
-__device__ static_array<Tuple0,2l> f_30(unsigned char * v0){
+__device__ static_array<Tuple0,2l> f_23(unsigned char * v0){
     static_array<Tuple0,2l> v1;
-    unsigned long long v2;
-    v2 = 0ull;
-    method_20(v0, v1, v2);
+    long v2;
+    v2 = 0l;
+    while (while_method_0(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
+        unsigned long long v5;
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        US4 v7; US5 v8;
+        Tuple0 tmp7 = f_12(v6);
+        v7 = tmp7.v0; v8 = tmp7.v1;
+        bool v9;
+        v9 = 0l <= v2;
+        bool v11;
+        if (v9){
+            bool v10;
+            v10 = v2 < 2l;
+            v11 = v10;
+        } else {
+            v11 = false;
+        }
+        bool v12;
+        v12 = v11 == false;
+        if (v12){
+            assert("The read index needs to be in range for the static array." && v11);
+        } else {
+        }
+        v1.v[v2] = Tuple0(v7, v8);
+        v2 += 1l ;
+    }
     return v1;
 }
-__device__ void method_29(unsigned char * v0, static_array<static_array<Tuple0,2l>,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 16ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        static_array<Tuple0,2l> v9;
-        v9 = f_30(v8);
-        bool v10;
-        v10 = 0l <= v3;
-        bool v12;
-        if (v10){
-            bool v11;
-            v11 = v3 < 2l;
-            v12 = v11;
-        } else {
-            v12 = false;
-        }
-        bool v13;
-        v13 = v12 == false;
-        if (v13){
-            assert("The read index needs to be in range for the static array." && v12);
-        } else {
-        }
-        v1.v[v3] = v9;
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ void method_31(unsigned char * v0, static_array<long,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 4ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        long v9;
-        v9 = f_2(v8);
-        bool v10;
-        v10 = 0l <= v3;
-        bool v12;
-        if (v10){
-            bool v11;
-            v11 = v3 < 2l;
-            v12 = v11;
-        } else {
-            v12 = false;
-        }
-        bool v13;
-        v13 = v12 == false;
-        if (v13){
-            assert("The read index needs to be in range for the static array." && v12);
-        } else {
-        }
-        v1.v[v3] = v9;
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ long f_32(unsigned char * v0){
+__device__ long f_24(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+68ull);
     long v2;
@@ -1721,47 +1586,39 @@ __device__ inline bool while_method_3(long v0){
     v1 = v0 < 3l;
     return v1;
 }
-__device__ void method_34(unsigned char * v0, static_array<Tuple0,3l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_3(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        US4 v9; US5 v10;
-        Tuple0 tmp7 = f_15(v8);
-        v9 = tmp7.v0; v10 = tmp7.v1;
-        bool v11;
-        v11 = 0l <= v3;
-        bool v13;
-        if (v11){
-            bool v12;
-            v12 = v3 < 3l;
-            v13 = v12;
-        } else {
-            v13 = false;
-        }
-        bool v14;
-        v14 = v13 == false;
-        if (v14){
-            assert("The read index needs to be in range for the static array." && v13);
-        } else {
-        }
-        v1.v[v3] = Tuple0(v9, v10);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ static_array<Tuple0,3l> f_33(unsigned char * v0){
+__device__ static_array<Tuple0,3l> f_25(unsigned char * v0){
     static_array<Tuple0,3l> v1;
-    unsigned long long v2;
-    v2 = 0ull;
-    method_34(v0, v1, v2);
+    long v2;
+    v2 = 0l;
+    while (while_method_3(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
+        unsigned long long v5;
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        US4 v7; US5 v8;
+        Tuple0 tmp8 = f_12(v6);
+        v7 = tmp8.v0; v8 = tmp8.v1;
+        bool v9;
+        v9 = 0l <= v2;
+        bool v11;
+        if (v9){
+            bool v10;
+            v10 = v2 < 3l;
+            v11 = v10;
+        } else {
+            v11 = false;
+        }
+        bool v12;
+        v12 = v11 == false;
+        if (v12){
+            assert("The read index needs to be in range for the static array." && v11);
+        } else {
+        }
+        v1.v[v2] = Tuple0(v7, v8);
+        v2 += 1l ;
+    }
     return v1;
 }
 __device__ inline bool while_method_4(long v0){
@@ -1769,50 +1626,42 @@ __device__ inline bool while_method_4(long v0){
     v1 = v0 < 4l;
     return v1;
 }
-__device__ void method_36(unsigned char * v0, static_array<Tuple0,4l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_4(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        US4 v9; US5 v10;
-        Tuple0 tmp8 = f_15(v8);
-        v9 = tmp8.v0; v10 = tmp8.v1;
-        bool v11;
-        v11 = 0l <= v3;
-        bool v13;
-        if (v11){
-            bool v12;
-            v12 = v3 < 4l;
-            v13 = v12;
-        } else {
-            v13 = false;
-        }
-        bool v14;
-        v14 = v13 == false;
-        if (v14){
-            assert("The read index needs to be in range for the static array." && v13);
-        } else {
-        }
-        v1.v[v3] = Tuple0(v9, v10);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ static_array<Tuple0,4l> f_35(unsigned char * v0){
+__device__ static_array<Tuple0,4l> f_26(unsigned char * v0){
     static_array<Tuple0,4l> v1;
-    unsigned long long v2;
-    v2 = 0ull;
-    method_36(v0, v1, v2);
+    long v2;
+    v2 = 0l;
+    while (while_method_4(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
+        unsigned long long v5;
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        US4 v7; US5 v8;
+        Tuple0 tmp9 = f_12(v6);
+        v7 = tmp9.v0; v8 = tmp9.v1;
+        bool v9;
+        v9 = 0l <= v2;
+        bool v11;
+        if (v9){
+            bool v10;
+            v10 = v2 < 4l;
+            v11 = v10;
+        } else {
+            v11 = false;
+        }
+        bool v12;
+        v12 = v11 == false;
+        if (v12){
+            assert("The read index needs to be in range for the static array." && v11);
+        } else {
+        }
+        v1.v[v2] = Tuple0(v7, v8);
+        v2 += 1l ;
+    }
     return v1;
 }
-__device__ Tuple6 f_28(unsigned char * v0){
+__device__ Tuple6 f_22(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+0ull);
     long v2;
@@ -1822,48 +1671,135 @@ __device__ Tuple6 f_28(unsigned char * v0){
     bool v4;
     v4 = v3[0l];
     static_array<static_array<Tuple0,2l>,2l> v5;
-    unsigned long long v6;
-    v6 = 16ull;
-    method_29(v0, v5, v6);
-    long * v7;
-    v7 = (long *)(v0+48ull);
-    long v8;
-    v8 = v7[0l];
-    static_array<long,2l> v9;
-    unsigned long long v10;
-    v10 = 52ull;
-    method_31(v0, v9, v10);
-    static_array<long,2l> v11;
-    unsigned long long v12;
-    v12 = 60ull;
-    method_31(v0, v11, v12);
-    long v13;
-    v13 = f_32(v0);
-    unsigned char * v14;
-    v14 = (unsigned char *)(v0+80ull);
-    US9 v23;
-    switch (v13) {
+    long v6;
+    v6 = 0l;
+    while (while_method_0(v6)){
+        unsigned long long v8;
+        v8 = (unsigned long long)v6;
+        unsigned long long v9;
+        v9 = v8 * 16ull;
+        unsigned long long v10;
+        v10 = 16ull + v9;
+        unsigned char * v11;
+        v11 = (unsigned char *)(v0+v10);
+        static_array<Tuple0,2l> v12;
+        v12 = f_23(v11);
+        bool v13;
+        v13 = 0l <= v6;
+        bool v15;
+        if (v13){
+            bool v14;
+            v14 = v6 < 2l;
+            v15 = v14;
+        } else {
+            v15 = false;
+        }
+        bool v16;
+        v16 = v15 == false;
+        if (v16){
+            assert("The read index needs to be in range for the static array." && v15);
+        } else {
+        }
+        v5.v[v6] = v12;
+        v6 += 1l ;
+    }
+    long * v17;
+    v17 = (long *)(v0+48ull);
+    long v18;
+    v18 = v17[0l];
+    static_array<long,2l> v19;
+    long v20;
+    v20 = 0l;
+    while (while_method_0(v20)){
+        unsigned long long v22;
+        v22 = (unsigned long long)v20;
+        unsigned long long v23;
+        v23 = v22 * 4ull;
+        unsigned long long v24;
+        v24 = 52ull + v23;
+        unsigned char * v25;
+        v25 = (unsigned char *)(v0+v24);
+        long v26;
+        v26 = f_2(v25);
+        bool v27;
+        v27 = 0l <= v20;
+        bool v29;
+        if (v27){
+            bool v28;
+            v28 = v20 < 2l;
+            v29 = v28;
+        } else {
+            v29 = false;
+        }
+        bool v30;
+        v30 = v29 == false;
+        if (v30){
+            assert("The read index needs to be in range for the static array." && v29);
+        } else {
+        }
+        v19.v[v20] = v26;
+        v20 += 1l ;
+    }
+    static_array<long,2l> v31;
+    long v32;
+    v32 = 0l;
+    while (while_method_0(v32)){
+        unsigned long long v34;
+        v34 = (unsigned long long)v32;
+        unsigned long long v35;
+        v35 = v34 * 4ull;
+        unsigned long long v36;
+        v36 = 60ull + v35;
+        unsigned char * v37;
+        v37 = (unsigned char *)(v0+v36);
+        long v38;
+        v38 = f_2(v37);
+        bool v39;
+        v39 = 0l <= v32;
+        bool v41;
+        if (v39){
+            bool v40;
+            v40 = v32 < 2l;
+            v41 = v40;
+        } else {
+            v41 = false;
+        }
+        bool v42;
+        v42 = v41 == false;
+        if (v42){
+            assert("The read index needs to be in range for the static array." && v41);
+        } else {
+        }
+        v31.v[v32] = v38;
+        v32 += 1l ;
+    }
+    long v43;
+    v43 = f_24(v0);
+    unsigned char * v44;
+    v44 = (unsigned char *)(v0+80ull);
+    US9 v53;
+    switch (v43) {
         case 0: {
-            static_array<Tuple0,3l> v16;
-            v16 = f_33(v14);
-            v23 = US9_0(v16);
+            static_array<Tuple0,3l> v46;
+            v46 = f_25(v44);
+            v53 = US9_0(v46);
             break;
         }
         case 1: {
-            f_4(v14);
-            v23 = US9_1();
+            f_4(v44);
+            v53 = US9_1();
             break;
         }
         case 2: {
-            static_array<Tuple0,5l> v19;
-            v19 = f_24(v14);
-            v23 = US9_2(v19);
+            static_array<Tuple0,5l> v49;
+            v49 = f_19(v44);
+            v53 = US9_2(v49);
             break;
         }
         case 3: {
-            static_array<Tuple0,4l> v21;
-            v21 = f_35(v14);
-            v23 = US9_3(v21);
+            static_array<Tuple0,4l> v51;
+            v51 = f_26(v44);
+            v53 = US9_3(v51);
             break;
         }
         default: {
@@ -1871,16 +1807,16 @@ __device__ Tuple6 f_28(unsigned char * v0){
             asm("exit;");
         }
     }
-    return Tuple6(v2, v4, v5, v8, v9, v11, v23);
+    return Tuple6(v2, v4, v5, v18, v19, v31, v53);
 }
-__device__ long f_38(unsigned char * v0){
+__device__ long f_28(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+128ull);
     long v2;
     v2 = v1[0l];
     return v2;
 }
-__device__ Tuple7 f_37(unsigned char * v0){
+__device__ Tuple7 f_27(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+0ull);
     long v2;
@@ -1890,48 +1826,135 @@ __device__ Tuple7 f_37(unsigned char * v0){
     bool v4;
     v4 = v3[0l];
     static_array<static_array<Tuple0,2l>,2l> v5;
-    unsigned long long v6;
-    v6 = 16ull;
-    method_29(v0, v5, v6);
-    long * v7;
-    v7 = (long *)(v0+48ull);
-    long v8;
-    v8 = v7[0l];
-    static_array<long,2l> v9;
-    unsigned long long v10;
-    v10 = 52ull;
-    method_31(v0, v9, v10);
-    static_array<long,2l> v11;
-    unsigned long long v12;
-    v12 = 60ull;
-    method_31(v0, v11, v12);
-    long v13;
-    v13 = f_32(v0);
-    unsigned char * v14;
-    v14 = (unsigned char *)(v0+80ull);
-    US9 v23;
-    switch (v13) {
+    long v6;
+    v6 = 0l;
+    while (while_method_0(v6)){
+        unsigned long long v8;
+        v8 = (unsigned long long)v6;
+        unsigned long long v9;
+        v9 = v8 * 16ull;
+        unsigned long long v10;
+        v10 = 16ull + v9;
+        unsigned char * v11;
+        v11 = (unsigned char *)(v0+v10);
+        static_array<Tuple0,2l> v12;
+        v12 = f_23(v11);
+        bool v13;
+        v13 = 0l <= v6;
+        bool v15;
+        if (v13){
+            bool v14;
+            v14 = v6 < 2l;
+            v15 = v14;
+        } else {
+            v15 = false;
+        }
+        bool v16;
+        v16 = v15 == false;
+        if (v16){
+            assert("The read index needs to be in range for the static array." && v15);
+        } else {
+        }
+        v5.v[v6] = v12;
+        v6 += 1l ;
+    }
+    long * v17;
+    v17 = (long *)(v0+48ull);
+    long v18;
+    v18 = v17[0l];
+    static_array<long,2l> v19;
+    long v20;
+    v20 = 0l;
+    while (while_method_0(v20)){
+        unsigned long long v22;
+        v22 = (unsigned long long)v20;
+        unsigned long long v23;
+        v23 = v22 * 4ull;
+        unsigned long long v24;
+        v24 = 52ull + v23;
+        unsigned char * v25;
+        v25 = (unsigned char *)(v0+v24);
+        long v26;
+        v26 = f_2(v25);
+        bool v27;
+        v27 = 0l <= v20;
+        bool v29;
+        if (v27){
+            bool v28;
+            v28 = v20 < 2l;
+            v29 = v28;
+        } else {
+            v29 = false;
+        }
+        bool v30;
+        v30 = v29 == false;
+        if (v30){
+            assert("The read index needs to be in range for the static array." && v29);
+        } else {
+        }
+        v19.v[v20] = v26;
+        v20 += 1l ;
+    }
+    static_array<long,2l> v31;
+    long v32;
+    v32 = 0l;
+    while (while_method_0(v32)){
+        unsigned long long v34;
+        v34 = (unsigned long long)v32;
+        unsigned long long v35;
+        v35 = v34 * 4ull;
+        unsigned long long v36;
+        v36 = 60ull + v35;
+        unsigned char * v37;
+        v37 = (unsigned char *)(v0+v36);
+        long v38;
+        v38 = f_2(v37);
+        bool v39;
+        v39 = 0l <= v32;
+        bool v41;
+        if (v39){
+            bool v40;
+            v40 = v32 < 2l;
+            v41 = v40;
+        } else {
+            v41 = false;
+        }
+        bool v42;
+        v42 = v41 == false;
+        if (v42){
+            assert("The read index needs to be in range for the static array." && v41);
+        } else {
+        }
+        v31.v[v32] = v38;
+        v32 += 1l ;
+    }
+    long v43;
+    v43 = f_24(v0);
+    unsigned char * v44;
+    v44 = (unsigned char *)(v0+80ull);
+    US9 v53;
+    switch (v43) {
         case 0: {
-            static_array<Tuple0,3l> v16;
-            v16 = f_33(v14);
-            v23 = US9_0(v16);
+            static_array<Tuple0,3l> v46;
+            v46 = f_25(v44);
+            v53 = US9_0(v46);
             break;
         }
         case 1: {
-            f_4(v14);
-            v23 = US9_1();
+            f_4(v44);
+            v53 = US9_1();
             break;
         }
         case 2: {
-            static_array<Tuple0,5l> v19;
-            v19 = f_24(v14);
-            v23 = US9_2(v19);
+            static_array<Tuple0,5l> v49;
+            v49 = f_19(v44);
+            v53 = US9_2(v49);
             break;
         }
         case 3: {
-            static_array<Tuple0,4l> v21;
-            v21 = f_35(v14);
-            v23 = US9_3(v21);
+            static_array<Tuple0,4l> v51;
+            v51 = f_26(v44);
+            v53 = US9_3(v51);
             break;
         }
         default: {
@@ -1939,26 +1962,26 @@ __device__ Tuple7 f_37(unsigned char * v0){
             asm("exit;");
         }
     }
-    long v24;
-    v24 = f_38(v0);
-    unsigned char * v25;
-    v25 = (unsigned char *)(v0+132ull);
-    US1 v31;
-    switch (v24) {
+    long v54;
+    v54 = f_28(v0);
+    unsigned char * v55;
+    v55 = (unsigned char *)(v0+132ull);
+    US1 v61;
+    switch (v54) {
         case 0: {
-            f_4(v25);
-            v31 = US1_0();
+            f_4(v55);
+            v61 = US1_0();
             break;
         }
         case 1: {
-            f_4(v25);
-            v31 = US1_1();
+            f_4(v55);
+            v61 = US1_1();
             break;
         }
         case 2: {
-            long v29;
-            v29 = f_2(v25);
-            v31 = US1_2(v29);
+            long v59;
+            v59 = f_2(v55);
+            v61 = US1_2(v59);
             break;
         }
         default: {
@@ -1966,9 +1989,9 @@ __device__ Tuple7 f_37(unsigned char * v0){
             asm("exit;");
         }
     }
-    return Tuple7(v2, v4, v5, v8, v9, v11, v23, v31);
+    return Tuple7(v2, v4, v5, v18, v19, v31, v53, v61);
 }
-__device__ US8 f_27(unsigned char * v0){
+__device__ US8 f_21(unsigned char * v0){
     long v1;
     v1 = f_2(v0);
     unsigned char * v2;
@@ -1976,15 +1999,15 @@ __device__ US8 f_27(unsigned char * v0){
     switch (v1) {
         case 0: {
             long v4; bool v5; static_array<static_array<Tuple0,2l>,2l> v6; long v7; static_array<long,2l> v8; static_array<long,2l> v9; US9 v10;
-            Tuple6 tmp9 = f_28(v2);
-            v4 = tmp9.v0; v5 = tmp9.v1; v6 = tmp9.v2; v7 = tmp9.v3; v8 = tmp9.v4; v9 = tmp9.v5; v10 = tmp9.v6;
+            Tuple6 tmp10 = f_22(v2);
+            v4 = tmp10.v0; v5 = tmp10.v1; v6 = tmp10.v2; v7 = tmp10.v3; v8 = tmp10.v4; v9 = tmp10.v5; v10 = tmp10.v6;
             return US8_0(v4, v5, v6, v7, v8, v9, v10);
             break;
         }
         case 1: {
             long v12; bool v13; static_array<static_array<Tuple0,2l>,2l> v14; long v15; static_array<long,2l> v16; static_array<long,2l> v17; US9 v18;
-            Tuple6 tmp10 = f_28(v2);
-            v12 = tmp10.v0; v13 = tmp10.v1; v14 = tmp10.v2; v15 = tmp10.v3; v16 = tmp10.v4; v17 = tmp10.v5; v18 = tmp10.v6;
+            Tuple6 tmp11 = f_22(v2);
+            v12 = tmp11.v0; v13 = tmp11.v1; v14 = tmp11.v2; v15 = tmp11.v3; v16 = tmp11.v4; v17 = tmp11.v5; v18 = tmp11.v6;
             return US8_1(v12, v13, v14, v15, v16, v17, v18);
             break;
         }
@@ -1995,36 +2018,36 @@ __device__ US8 f_27(unsigned char * v0){
         }
         case 3: {
             long v21; bool v22; static_array<static_array<Tuple0,2l>,2l> v23; long v24; static_array<long,2l> v25; static_array<long,2l> v26; US9 v27;
-            Tuple6 tmp11 = f_28(v2);
-            v21 = tmp11.v0; v22 = tmp11.v1; v23 = tmp11.v2; v24 = tmp11.v3; v25 = tmp11.v4; v26 = tmp11.v5; v27 = tmp11.v6;
+            Tuple6 tmp12 = f_22(v2);
+            v21 = tmp12.v0; v22 = tmp12.v1; v23 = tmp12.v2; v24 = tmp12.v3; v25 = tmp12.v4; v26 = tmp12.v5; v27 = tmp12.v6;
             return US8_3(v21, v22, v23, v24, v25, v26, v27);
             break;
         }
         case 4: {
             long v29; bool v30; static_array<static_array<Tuple0,2l>,2l> v31; long v32; static_array<long,2l> v33; static_array<long,2l> v34; US9 v35;
-            Tuple6 tmp12 = f_28(v2);
-            v29 = tmp12.v0; v30 = tmp12.v1; v31 = tmp12.v2; v32 = tmp12.v3; v33 = tmp12.v4; v34 = tmp12.v5; v35 = tmp12.v6;
+            Tuple6 tmp13 = f_22(v2);
+            v29 = tmp13.v0; v30 = tmp13.v1; v31 = tmp13.v2; v32 = tmp13.v3; v33 = tmp13.v4; v34 = tmp13.v5; v35 = tmp13.v6;
             return US8_4(v29, v30, v31, v32, v33, v34, v35);
             break;
         }
         case 5: {
             long v37; bool v38; static_array<static_array<Tuple0,2l>,2l> v39; long v40; static_array<long,2l> v41; static_array<long,2l> v42; US9 v43; US1 v44;
-            Tuple7 tmp13 = f_37(v2);
-            v37 = tmp13.v0; v38 = tmp13.v1; v39 = tmp13.v2; v40 = tmp13.v3; v41 = tmp13.v4; v42 = tmp13.v5; v43 = tmp13.v6; v44 = tmp13.v7;
+            Tuple7 tmp14 = f_27(v2);
+            v37 = tmp14.v0; v38 = tmp14.v1; v39 = tmp14.v2; v40 = tmp14.v3; v41 = tmp14.v4; v42 = tmp14.v5; v43 = tmp14.v6; v44 = tmp14.v7;
             return US8_5(v37, v38, v39, v40, v41, v42, v43, v44);
             break;
         }
         case 6: {
             long v46; bool v47; static_array<static_array<Tuple0,2l>,2l> v48; long v49; static_array<long,2l> v50; static_array<long,2l> v51; US9 v52;
-            Tuple6 tmp14 = f_28(v2);
-            v46 = tmp14.v0; v47 = tmp14.v1; v48 = tmp14.v2; v49 = tmp14.v3; v50 = tmp14.v4; v51 = tmp14.v5; v52 = tmp14.v6;
+            Tuple6 tmp15 = f_22(v2);
+            v46 = tmp15.v0; v47 = tmp15.v1; v48 = tmp15.v2; v49 = tmp15.v3; v50 = tmp15.v4; v51 = tmp15.v5; v52 = tmp15.v6;
             return US8_6(v46, v47, v48, v49, v50, v51, v52);
             break;
         }
         case 7: {
             long v54; bool v55; static_array<static_array<Tuple0,2l>,2l> v56; long v57; static_array<long,2l> v58; static_array<long,2l> v59; US9 v60;
-            Tuple6 tmp15 = f_28(v2);
-            v54 = tmp15.v0; v55 = tmp15.v1; v56 = tmp15.v2; v57 = tmp15.v3; v58 = tmp15.v4; v59 = tmp15.v5; v60 = tmp15.v6;
+            Tuple6 tmp16 = f_22(v2);
+            v54 = tmp16.v0; v55 = tmp16.v1; v56 = tmp16.v2; v57 = tmp16.v3; v58 = tmp16.v4; v59 = tmp16.v5; v60 = tmp16.v6;
             return US8_7(v54, v55, v56, v57, v58, v59, v60);
             break;
         }
@@ -2034,39 +2057,72 @@ __device__ US8 f_27(unsigned char * v0){
         }
     }
 }
-__device__ long f_39(unsigned char * v0){
+__device__ long f_29(unsigned char * v0){
     long * v1;
     v1 = (long *)(v0+22728ull);
     long v2;
     v2 = v1[0l];
     return v2;
 }
-__device__ Tuple1 f_8(unsigned char * v0){
+__device__ Tuple1 f_7(unsigned char * v0){
     unsigned long long v1;
-    v1 = f_9(v0);
+    v1 = f_8(v0);
     static_array_list<US3,128l,long> v2;
     v2.length = 0;
     long v3;
-    v3 = f_10(v0);
+    v3 = f_9(v0);
     v2.length = v3;
-    unsigned long long v4;
-    v4 = 16ull;
-    method_11(v0, v2, v4);
+    long v4;
+    v4 = v2.length;
     long v5;
-    v5 = f_26(v0);
-    unsigned char * v6;
-    v6 = (unsigned char *)(v0+22560ull);
-    US7 v11;
-    switch (v5) {
+    v5 = 0l;
+    while (while_method_1(v4, v5)){
+        unsigned long long v7;
+        v7 = (unsigned long long)v5;
+        unsigned long long v8;
+        v8 = v7 * 176ull;
+        unsigned long long v9;
+        v9 = 16ull + v8;
+        unsigned char * v10;
+        v10 = (unsigned char *)(v0+v9);
+        US3 v11;
+        v11 = f_10(v10);
+        bool v12;
+        v12 = 0l <= v5;
+        bool v15;
+        if (v12){
+            long v13;
+            v13 = v2.length;
+            bool v14;
+            v14 = v5 < v13;
+            v15 = v14;
+        } else {
+            v15 = false;
+        }
+        bool v16;
+        v16 = v15 == false;
+        if (v16){
+            assert("The set index needs to be in range for the static array list." && v15);
+        } else {
+        }
+        v2.v[v5] = v11;
+        v5 += 1l ;
+    }
+    long v17;
+    v17 = f_20(v0);
+    unsigned char * v18;
+    v18 = (unsigned char *)(v0+22560ull);
+    US7 v23;
+    switch (v17) {
         case 0: {
-            f_4(v6);
-            v11 = US7_0();
+            f_4(v18);
+            v23 = US7_0();
             break;
         }
         case 1: {
-            US8 v9;
-            v9 = f_27(v6);
-            v11 = US7_1(v9);
+            US8 v21;
+            v21 = f_21(v18);
+            v23 = US7_1(v21);
             break;
         }
         default: {
@@ -2074,33 +2130,62 @@ __device__ Tuple1 f_8(unsigned char * v0){
             asm("exit;");
         }
     }
-    static_array<US2,2l> v12;
-    unsigned long long v13;
-    v13 = 22720ull;
-    method_6(v0, v12, v13);
-    long v14;
-    v14 = f_39(v0);
-    unsigned char * v15;
-    v15 = (unsigned char *)(v0+22736ull);
-    US10 v34;
-    switch (v14) {
+    static_array<US2,2l> v24;
+    long v25;
+    v25 = 0l;
+    while (while_method_0(v25)){
+        unsigned long long v27;
+        v27 = (unsigned long long)v25;
+        unsigned long long v28;
+        v28 = v27 * 4ull;
+        unsigned long long v29;
+        v29 = 22720ull + v28;
+        unsigned char * v30;
+        v30 = (unsigned char *)(v0+v29);
+        US2 v31;
+        v31 = f_6(v30);
+        bool v32;
+        v32 = 0l <= v25;
+        bool v34;
+        if (v32){
+            bool v33;
+            v33 = v25 < 2l;
+            v34 = v33;
+        } else {
+            v34 = false;
+        }
+        bool v35;
+        v35 = v34 == false;
+        if (v35){
+            assert("The read index needs to be in range for the static array." && v34);
+        } else {
+        }
+        v24.v[v25] = v31;
+        v25 += 1l ;
+    }
+    long v36;
+    v36 = f_29(v0);
+    unsigned char * v37;
+    v37 = (unsigned char *)(v0+22736ull);
+    US10 v56;
+    switch (v36) {
         case 0: {
-            f_4(v15);
-            v34 = US10_0();
+            f_4(v37);
+            v56 = US10_0();
             break;
         }
         case 1: {
-            long v18; bool v19; static_array<static_array<Tuple0,2l>,2l> v20; long v21; static_array<long,2l> v22; static_array<long,2l> v23; US9 v24;
-            Tuple6 tmp16 = f_28(v15);
-            v18 = tmp16.v0; v19 = tmp16.v1; v20 = tmp16.v2; v21 = tmp16.v3; v22 = tmp16.v4; v23 = tmp16.v5; v24 = tmp16.v6;
-            v34 = US10_1(v18, v19, v20, v21, v22, v23, v24);
+            long v40; bool v41; static_array<static_array<Tuple0,2l>,2l> v42; long v43; static_array<long,2l> v44; static_array<long,2l> v45; US9 v46;
+            Tuple6 tmp17 = f_22(v37);
+            v40 = tmp17.v0; v41 = tmp17.v1; v42 = tmp17.v2; v43 = tmp17.v3; v44 = tmp17.v4; v45 = tmp17.v5; v46 = tmp17.v6;
+            v56 = US10_1(v40, v41, v42, v43, v44, v45, v46);
             break;
         }
         case 2: {
-            long v26; bool v27; static_array<static_array<Tuple0,2l>,2l> v28; long v29; static_array<long,2l> v30; static_array<long,2l> v31; US9 v32;
-            Tuple6 tmp17 = f_28(v15);
-            v26 = tmp17.v0; v27 = tmp17.v1; v28 = tmp17.v2; v29 = tmp17.v3; v30 = tmp17.v4; v31 = tmp17.v5; v32 = tmp17.v6;
-            v34 = US10_2(v26, v27, v28, v29, v30, v31, v32);
+            long v48; bool v49; static_array<static_array<Tuple0,2l>,2l> v50; long v51; static_array<long,2l> v52; static_array<long,2l> v53; US9 v54;
+            Tuple6 tmp18 = f_22(v37);
+            v48 = tmp18.v0; v49 = tmp18.v1; v50 = tmp18.v2; v51 = tmp18.v3; v52 = tmp18.v4; v53 = tmp18.v5; v54 = tmp18.v6;
+            v56 = US10_2(v48, v49, v50, v51, v52, v53, v54);
             break;
         }
         default: {
@@ -2108,12 +2193,12 @@ __device__ Tuple1 f_8(unsigned char * v0){
             asm("exit;");
         }
     }
-    return Tuple1(v1, v2, v11, v12, v34);
+    return Tuple1(v1, v2, v23, v24, v56);
 }
 __device__ inline bool while_method_5(bool v0, US8 v1){
     return v0;
 }
-__device__ unsigned long loop_44(unsigned long v0, curandStatePhilox4_32_10_t & v1){
+__device__ unsigned long loop_34(unsigned long v0, curandStatePhilox4_32_10_t & v1){
     unsigned long v2;
     v2 = curand(&v1);
     unsigned long v3;
@@ -2127,16 +2212,16 @@ __device__ unsigned long loop_44(unsigned long v0, curandStatePhilox4_32_10_t & 
     if (v6){
         return v3;
     } else {
-        return loop_44(v0, v1);
+        return loop_34(v0, v1);
     }
 }
-__device__ Tuple12 draw_card_43(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
+__device__ Tuple12 draw_card_33(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
     long v2;
     v2 = __popcll(v1);
     unsigned long v3;
     v3 = (unsigned long)v2;
     unsigned long v4;
-    v4 = loop_44(v3, v0);
+    v4 = loop_34(v3, v0);
     long v5;
     v5 = (long)v4;
     unsigned long v6;
@@ -2183,15 +2268,15 @@ __device__ Tuple12 draw_card_43(curandStatePhilox4_32_10_t & v0, unsigned long l
     v24 = v1 ^ v23;
     return Tuple12(v21, v24);
 }
-__device__ Tuple10 draw_cards_42(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
+__device__ Tuple10 draw_cards_32(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
     static_array<Card,3l> v2;
     long v3; unsigned long long v4;
-    Tuple11 tmp20 = Tuple11(0l, v1);
-    v3 = tmp20.v0; v4 = tmp20.v1;
+    Tuple11 tmp21 = Tuple11(0l, v1);
+    v3 = tmp21.v0; v4 = tmp21.v1;
     while (while_method_3(v3)){
         Card v6; unsigned long long v7;
-        Tuple12 tmp21 = draw_card_43(v0, v4);
-        v6 = tmp21.v0; v7 = tmp21.v1;
+        Tuple12 tmp22 = draw_card_33(v0, v4);
+        v6 = tmp22.v0; v7 = tmp22.v1;
         bool v8;
         v8 = 0l <= v3;
         bool v10;
@@ -2214,7 +2299,7 @@ __device__ Tuple10 draw_cards_42(curandStatePhilox4_32_10_t & v0, unsigned long 
     }
     return Tuple10(v2, v4);
 }
-__device__ US4 card_rank_untag_46(unsigned char v0){
+__device__ US4 card_rank_untag_36(unsigned char v0){
     bool v1;
     v1 = 12u == v0;
     if (v1){
@@ -2296,7 +2381,7 @@ __device__ US4 card_rank_untag_46(unsigned char v0){
         }
     }
 }
-__device__ US5 card_suit_untag_47(unsigned char v0){
+__device__ US5 card_suit_untag_37(unsigned char v0){
     bool v1;
     v1 = 3u == v0;
     if (v1){
@@ -2324,18 +2409,18 @@ __device__ US5 card_suit_untag_47(unsigned char v0){
         }
     }
 }
-__device__ Tuple0 card_from_lib_card_45(Card v0){
+__device__ Tuple0 card_from_lib_card_35(Card v0){
     unsigned char v1;
     v1 = v0.rank;
     US4 v2;
-    v2 = card_rank_untag_46(v1);
+    v2 = card_rank_untag_36(v1);
     unsigned char v3;
     v3 = v0.suit;
     US5 v4;
-    v4 = card_suit_untag_47(v3);
+    v4 = card_suit_untag_37(v3);
     return Tuple0(v2, v4);
 }
-__device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, static_array<Tuple0,3l> v1){
+__device__ static_array_list<Tuple0,5l,long> get_community_cards_38(US9 v0, static_array<Tuple0,3l> v1){
     static_array_list<Tuple0,5l,long> v2;
     v2.length = 0;
     switch (v0.tag) {
@@ -2361,8 +2446,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, stat
                 } else {
                 }
                 US4 v10; US5 v11;
-                Tuple0 tmp24 = v3.v[v4];
-                v10 = tmp24.v0; v11 = tmp24.v1;
+                Tuple0 tmp25 = v3.v[v4];
+                v10 = tmp25.v0; v11 = tmp25.v1;
                 long v12;
                 v12 = v2.length;
                 bool v13;
@@ -2424,8 +2509,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, stat
                 } else {
                 }
                 US4 v46; US5 v47;
-                Tuple0 tmp25 = v39.v[v40];
-                v46 = tmp25.v0; v47 = tmp25.v1;
+                Tuple0 tmp26 = v39.v[v40];
+                v46 = tmp26.v0; v47 = tmp26.v1;
                 long v48;
                 v48 = v2.length;
                 bool v49;
@@ -2484,8 +2569,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, stat
                 } else {
                 }
                 US4 v28; US5 v29;
-                Tuple0 tmp26 = v21.v[v22];
-                v28 = tmp26.v0; v29 = tmp26.v1;
+                Tuple0 tmp27 = v21.v[v22];
+                v28 = tmp27.v0; v29 = tmp27.v1;
                 long v30;
                 v30 = v2.length;
                 bool v31;
@@ -2546,8 +2631,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, stat
         } else {
         }
         US4 v63; US5 v64;
-        Tuple0 tmp27 = v1.v[v57];
-        v63 = tmp27.v0; v64 = tmp27.v1;
+        Tuple0 tmp28 = v1.v[v57];
+        v63 = tmp28.v0; v64 = tmp28.v1;
         long v65;
         v65 = v2.length;
         bool v66;
@@ -2584,15 +2669,15 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_48(US9 v0, stat
     }
     return v2;
 }
-__device__ Tuple13 draw_cards_49(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
+__device__ Tuple13 draw_cards_39(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
     static_array<Card,2l> v2;
     long v3; unsigned long long v4;
-    Tuple11 tmp28 = Tuple11(0l, v1);
-    v3 = tmp28.v0; v4 = tmp28.v1;
+    Tuple11 tmp29 = Tuple11(0l, v1);
+    v3 = tmp29.v0; v4 = tmp29.v1;
     while (while_method_0(v3)){
         Card v6; unsigned long long v7;
-        Tuple12 tmp29 = draw_card_43(v0, v4);
-        v6 = tmp29.v0; v7 = tmp29.v1;
+        Tuple12 tmp30 = draw_card_33(v0, v4);
+        v6 = tmp30.v0; v7 = tmp30.v1;
         bool v8;
         v8 = 0l <= v3;
         bool v10;
@@ -2620,15 +2705,15 @@ __device__ inline bool while_method_6(long v0){
     v1 = v0 < 1l;
     return v1;
 }
-__device__ Tuple14 draw_cards_50(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
+__device__ Tuple14 draw_cards_40(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
     static_array<Card,1l> v2;
     long v3; unsigned long long v4;
-    Tuple11 tmp34 = Tuple11(0l, v1);
-    v3 = tmp34.v0; v4 = tmp34.v1;
+    Tuple11 tmp35 = Tuple11(0l, v1);
+    v3 = tmp35.v0; v4 = tmp35.v1;
     while (while_method_6(v3)){
         Card v6; unsigned long long v7;
-        Tuple12 tmp35 = draw_card_43(v0, v4);
-        v6 = tmp35.v0; v7 = tmp35.v1;
+        Tuple12 tmp36 = draw_card_33(v0, v4);
+        v6 = tmp36.v0; v7 = tmp36.v1;
         bool v8;
         v8 = 0l <= v3;
         bool v10;
@@ -2651,7 +2736,7 @@ __device__ Tuple14 draw_cards_50(curandStatePhilox4_32_10_t & v0, unsigned long 
     }
     return Tuple14(v2, v4);
 }
-__device__ static_array_list<Tuple0,5l,long> get_community_cards_51(US9 v0, static_array<Tuple0,1l> v1){
+__device__ static_array_list<Tuple0,5l,long> get_community_cards_41(US9 v0, static_array<Tuple0,1l> v1){
     static_array_list<Tuple0,5l,long> v2;
     v2.length = 0;
     switch (v0.tag) {
@@ -2677,8 +2762,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_51(US9 v0, stat
                 } else {
                 }
                 US4 v10; US5 v11;
-                Tuple0 tmp38 = v3.v[v4];
-                v10 = tmp38.v0; v11 = tmp38.v1;
+                Tuple0 tmp39 = v3.v[v4];
+                v10 = tmp39.v0; v11 = tmp39.v1;
                 long v12;
                 v12 = v2.length;
                 bool v13;
@@ -2740,8 +2825,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_51(US9 v0, stat
                 } else {
                 }
                 US4 v46; US5 v47;
-                Tuple0 tmp39 = v39.v[v40];
-                v46 = tmp39.v0; v47 = tmp39.v1;
+                Tuple0 tmp40 = v39.v[v40];
+                v46 = tmp40.v0; v47 = tmp40.v1;
                 long v48;
                 v48 = v2.length;
                 bool v49;
@@ -2800,8 +2885,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_51(US9 v0, stat
                 } else {
                 }
                 US4 v28; US5 v29;
-                Tuple0 tmp40 = v21.v[v22];
-                v28 = tmp40.v0; v29 = tmp40.v1;
+                Tuple0 tmp41 = v21.v[v22];
+                v28 = tmp41.v0; v29 = tmp41.v1;
                 long v30;
                 v30 = v2.length;
                 bool v31;
@@ -2862,8 +2947,8 @@ __device__ static_array_list<Tuple0,5l,long> get_community_cards_51(US9 v0, stat
         } else {
         }
         US4 v63; US5 v64;
-        Tuple0 tmp41 = v1.v[v57];
-        v63 = tmp41.v0; v64 = tmp41.v1;
+        Tuple0 tmp42 = v1.v[v57];
+        v63 = tmp42.v0; v64 = tmp42.v1;
         long v65;
         v65 = v2.length;
         bool v66;
@@ -2915,7 +3000,7 @@ __device__ inline bool while_method_9(long v0, long v1){
     v2 = v1 > v0;
     return v2;
 }
-__device__ long loop_54(static_array<float,8l> v0, float v1, long v2){
+__device__ long loop_44(static_array<float,8l> v0, float v1, long v2){
     bool v3;
     v3 = v2 < 8l;
     if (v3){
@@ -2938,13 +3023,13 @@ __device__ long loop_54(static_array<float,8l> v0, float v1, long v2){
         } else {
             long v9;
             v9 = v2 + 1l;
-            return loop_54(v0, v1, v9);
+            return loop_44(v0, v1, v9);
         }
     } else {
         return 7l;
     }
 }
-__device__ long sample_discrete__53(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1){
+__device__ long sample_discrete__43(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1){
     static_array<float,8l> v2;
     long v3;
     v3 = 0l;
@@ -3059,9 +3144,9 @@ __device__ long sample_discrete__53(static_array<float,8l> v0, curandStatePhilox
     v35 = v34 * v33;
     long v36;
     v36 = 0l;
-    return loop_54(v2, v35, v36);
+    return loop_44(v2, v35, v36);
 }
-__device__ US1 sample_discrete_52(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1){
+__device__ US1 sample_discrete_42(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1){
     static_array<float,8l> v2;
     long v3;
     v3 = 0l;
@@ -3083,8 +3168,8 @@ __device__ US1 sample_discrete_52(static_array<Tuple15,8l> v0, curandStatePhilox
         } else {
         }
         US1 v9; float v10;
-        Tuple15 tmp46 = v0.v[v3];
-        v9 = tmp46.v0; v10 = tmp46.v1;
+        Tuple15 tmp47 = v0.v[v3];
+        v9 = tmp47.v0; v10 = tmp47.v1;
         bool v12;
         if (v5){
             bool v11;
@@ -3103,7 +3188,7 @@ __device__ US1 sample_discrete_52(static_array<Tuple15,8l> v0, curandStatePhilox
         v3 += 1l ;
     }
     long v14;
-    v14 = sample_discrete__53(v2, v1);
+    v14 = sample_discrete__43(v2, v1);
     bool v15;
     v15 = 0l <= v14;
     bool v17;
@@ -3121,11 +3206,11 @@ __device__ US1 sample_discrete_52(static_array<Tuple15,8l> v0, curandStatePhilox
     } else {
     }
     US1 v19; float v20;
-    Tuple15 tmp47 = v0.v[v14];
-    v19 = tmp47.v0; v20 = tmp47.v1;
+    Tuple15 tmp48 = v0.v[v14];
+    v19 = tmp48.v0; v20 = tmp48.v1;
     return v19;
 }
-__device__ unsigned char card_rank_tag_55(US4 v0){
+__device__ unsigned char card_rank_tag_45(US4 v0){
     switch (v0.tag) {
         case 0: { // Ace
             return 12u;
@@ -3184,7 +3269,7 @@ __device__ unsigned char card_rank_tag_55(US4 v0){
         }
     }
 }
-__device__ unsigned char card_suit_tag_56(US5 v0){
+__device__ unsigned char card_suit_tag_46(US5 v0){
     switch (v0.tag) {
         case 0: { // Clubs
             return 1u;
@@ -3308,7 +3393,7 @@ __device__ US17 US17_1(static_array<Card,2l> v0, static_array<Card,3l> v1) { // 
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
     return x;
 }
-__device__ Tuple16 score_57(static_array<Card,7l> v0){
+__device__ Tuple16 score_47(static_array<Card,7l> v0){
     static_array<Card,7l> v1;
     long v2;
     v2 = 0l;
@@ -3350,8 +3435,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
     }
     static_array<Card,7l> v12;
     bool v13; long v14;
-    Tuple17 tmp54 = Tuple17(true, 1l);
-    v13 = tmp54.v0; v14 = tmp54.v1;
+    Tuple17 tmp55 = Tuple17(true, 1l);
+    v13 = tmp55.v0; v14 = tmp55.v1;
     while (while_method_11(v1, v13, v14)){
         long v16;
         v16 = 0l;
@@ -3379,8 +3464,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                 v24 = 7l;
             }
             long v25; long v26; long v27;
-            Tuple18 tmp55 = Tuple18(v16, v20, v16);
-            v25 = tmp55.v0; v26 = tmp55.v1; v27 = tmp55.v2;
+            Tuple18 tmp56 = Tuple18(v16, v20, v16);
+            v25 = tmp56.v0; v26 = tmp56.v1; v27 = tmp56.v2;
             while (while_method_13(v24, v25, v26, v27)){
                 bool v29;
                 v29 = v25 < v20;
@@ -3692,8 +3777,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
     }
     static_array<Card,5l> v121;
     long v122; long v123; unsigned char v124;
-    Tuple19 tmp56 = Tuple19(0l, 0l, 12u);
-    v122 = tmp56.v0; v123 = tmp56.v1; v124 = tmp56.v2;
+    Tuple19 tmp57 = Tuple19(0l, 0l, 12u);
+    v122 = tmp57.v0; v123 = tmp57.v1; v124 = tmp57.v2;
     while (while_method_10(v122)){
         bool v126;
         v126 = 0l <= v122;
@@ -3890,8 +3975,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
     }
     static_array<Card,5l> v192;
     long v193; long v194; unsigned char v195;
-    Tuple19 tmp57 = Tuple19(0l, 0l, 12u);
-    v193 = tmp57.v0; v194 = tmp57.v1; v195 = tmp57.v2;
+    Tuple19 tmp58 = Tuple19(0l, 0l, 12u);
+    v193 = tmp58.v0; v194 = tmp58.v1; v195 = tmp58.v2;
     while (while_method_10(v193)){
         bool v197;
         v197 = 0l <= v193;
@@ -4104,8 +4189,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                     US11 v265;
                     v265 = US11_0();
                     long v266; US11 v267;
-                    Tuple20 tmp58 = Tuple20(0l, v265);
-                    v266 = tmp58.v0; v267 = tmp58.v1;
+                    Tuple20 tmp59 = Tuple20(0l, v265);
+                    v266 = tmp59.v0; v267 = tmp59.v1;
                     while (while_method_2(v266)){
                         bool v269;
                         v269 = 0l <= v266;
@@ -4201,8 +4286,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
     }
     static_array<Card,5l> v296;
     long v297; long v298; unsigned char v299;
-    Tuple19 tmp59 = Tuple19(0l, 0l, 12u);
-    v297 = tmp59.v0; v298 = tmp59.v1; v299 = tmp59.v2;
+    Tuple19 tmp60 = Tuple19(0l, 0l, 12u);
+    v297 = tmp60.v0; v298 = tmp60.v1; v299 = tmp60.v2;
     while (while_method_10(v297)){
         bool v301;
         v301 = 0l <= v297;
@@ -4415,8 +4500,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                     US11 v369;
                     v369 = US11_0();
                     long v370; US11 v371;
-                    Tuple20 tmp60 = Tuple20(0l, v369);
-                    v370 = tmp60.v0; v371 = tmp60.v1;
+                    Tuple20 tmp61 = Tuple20(0l, v369);
+                    v370 = tmp61.v0; v371 = tmp61.v1;
                     while (while_method_2(v370)){
                         bool v373;
                         v373 = 0l <= v370;
@@ -4512,8 +4597,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
     }
     static_array<Card,5l> v400;
     long v401; long v402; unsigned char v403;
-    Tuple19 tmp61 = Tuple19(0l, 0l, 12u);
-    v401 = tmp61.v0; v402 = tmp61.v1; v403 = tmp61.v2;
+    Tuple19 tmp62 = Tuple19(0l, 0l, 12u);
+    v401 = tmp62.v0; v402 = tmp62.v1; v403 = tmp62.v2;
     while (while_method_10(v401)){
         bool v405;
         v405 = 0l <= v401;
@@ -4726,8 +4811,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                     US11 v473;
                     v473 = US11_0();
                     long v474; US11 v475;
-                    Tuple20 tmp62 = Tuple20(0l, v473);
-                    v474 = tmp62.v0; v475 = tmp62.v1;
+                    Tuple20 tmp63 = Tuple20(0l, v473);
+                    v474 = tmp63.v0; v475 = tmp63.v1;
                     while (while_method_2(v474)){
                         bool v477;
                         v477 = 0l <= v474;
@@ -4827,8 +4912,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
             static_array<Card,4l> v505;
             static_array<Card,3l> v506;
             long v507; long v508; long v509; unsigned char v510;
-            Tuple21 tmp63 = Tuple21(0l, 0l, 0l, 12u);
-            v507 = tmp63.v0; v508 = tmp63.v1; v509 = tmp63.v2; v510 = tmp63.v3;
+            Tuple21 tmp64 = Tuple21(0l, 0l, 0l, 12u);
+            v507 = tmp64.v0; v508 = tmp64.v1; v509 = tmp64.v2; v510 = tmp64.v3;
             while (while_method_10(v507)){
                 bool v512;
                 v512 = 0l <= v507;
@@ -5092,8 +5177,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                     static_array<Card,3l> v593;
                     static_array<Card,4l> v594;
                     long v595; long v596; long v597; unsigned char v598;
-                    Tuple21 tmp64 = Tuple21(0l, 0l, 0l, 12u);
-                    v595 = tmp64.v0; v596 = tmp64.v1; v597 = tmp64.v2; v598 = tmp64.v3;
+                    Tuple21 tmp65 = Tuple21(0l, 0l, 0l, 12u);
+                    v595 = tmp65.v0; v596 = tmp65.v1; v597 = tmp65.v2; v598 = tmp65.v3;
                     while (while_method_10(v595)){
                         bool v600;
                         v600 = 0l <= v595;
@@ -5228,8 +5313,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                             static_array<Card,2l> v642;
                             static_array<Card,2l> v643;
                             long v644; long v645; long v646; unsigned char v647;
-                            Tuple21 tmp65 = Tuple21(0l, 0l, 0l, 12u);
-                            v644 = tmp65.v0; v645 = tmp65.v1; v646 = tmp65.v2; v647 = tmp65.v3;
+                            Tuple21 tmp66 = Tuple21(0l, 0l, 0l, 12u);
+                            v644 = tmp66.v0; v645 = tmp66.v1; v646 = tmp66.v2; v647 = tmp66.v3;
                             while (while_method_4(v644)){
                                 bool v649;
                                 v649 = 0l <= v644;
@@ -5458,8 +5543,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                         case 0: { // None
                             static_array<Card,5l> v722;
                             long v723; long v724;
-                            Tuple2 tmp66 = Tuple2(0l, 0l);
-                            v723 = tmp66.v0; v724 = tmp66.v1;
+                            Tuple2 tmp67 = Tuple2(0l, 0l);
+                            v723 = tmp67.v0; v724 = tmp67.v1;
                             while (while_method_10(v723)){
                                 bool v726;
                                 v726 = 0l <= v723;
@@ -5529,8 +5614,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                             }
                             static_array<Card,5l> v745;
                             long v746; long v747;
-                            Tuple2 tmp67 = Tuple2(0l, 0l);
-                            v746 = tmp67.v0; v747 = tmp67.v1;
+                            Tuple2 tmp68 = Tuple2(0l, 0l);
+                            v746 = tmp68.v0; v747 = tmp68.v1;
                             while (while_method_10(v746)){
                                 bool v749;
                                 v749 = 0l <= v746;
@@ -5616,8 +5701,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                             US11 v770;
                                             v770 = US11_0();
                                             long v771; US11 v772;
-                                            Tuple20 tmp68 = Tuple20(0l, v770);
-                                            v771 = tmp68.v0; v772 = tmp68.v1;
+                                            Tuple20 tmp69 = Tuple20(0l, v770);
+                                            v771 = tmp69.v0; v772 = tmp69.v1;
                                             while (while_method_2(v771)){
                                                 bool v774;
                                                 v774 = 0l <= v771;
@@ -5713,8 +5798,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                             }
                             static_array<Card,5l> v801;
                             long v802; long v803;
-                            Tuple2 tmp69 = Tuple2(0l, 0l);
-                            v802 = tmp69.v0; v803 = tmp69.v1;
+                            Tuple2 tmp70 = Tuple2(0l, 0l);
+                            v802 = tmp70.v0; v803 = tmp70.v1;
                             while (while_method_10(v802)){
                                 bool v805;
                                 v805 = 0l <= v802;
@@ -5800,8 +5885,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                             US11 v826;
                                             v826 = US11_0();
                                             long v827; US11 v828;
-                                            Tuple20 tmp70 = Tuple20(0l, v826);
-                                            v827 = tmp70.v0; v828 = tmp70.v1;
+                                            Tuple20 tmp71 = Tuple20(0l, v826);
+                                            v827 = tmp71.v0; v828 = tmp71.v1;
                                             while (while_method_2(v827)){
                                                 bool v830;
                                                 v830 = 0l <= v827;
@@ -5897,8 +5982,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                             }
                             static_array<Card,5l> v857;
                             long v858; long v859;
-                            Tuple2 tmp71 = Tuple2(0l, 0l);
-                            v858 = tmp71.v0; v859 = tmp71.v1;
+                            Tuple2 tmp72 = Tuple2(0l, 0l);
+                            v858 = tmp72.v0; v859 = tmp72.v1;
                             while (while_method_10(v858)){
                                 bool v861;
                                 v861 = 0l <= v858;
@@ -5984,8 +6069,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                             US11 v882;
                                             v882 = US11_0();
                                             long v883; US11 v884;
-                                            Tuple20 tmp72 = Tuple20(0l, v882);
-                                            v883 = tmp72.v0; v884 = tmp72.v1;
+                                            Tuple20 tmp73 = Tuple20(0l, v882);
+                                            v883 = tmp73.v0; v884 = tmp73.v1;
                                             while (while_method_2(v883)){
                                                 bool v886;
                                                 v886 = 0l <= v883;
@@ -6083,8 +6168,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                 case 0: { // None
                                     static_array<Card,5l> v914;
                                     long v915; long v916; unsigned char v917;
-                                    Tuple19 tmp73 = Tuple19(0l, 0l, 12u);
-                                    v915 = tmp73.v0; v916 = tmp73.v1; v917 = tmp73.v2;
+                                    Tuple19 tmp74 = Tuple19(0l, 0l, 12u);
+                                    v915 = tmp74.v0; v916 = tmp74.v1; v917 = tmp74.v2;
                                     while (while_method_10(v915)){
                                         bool v919;
                                         v919 = 0l <= v915;
@@ -6205,8 +6290,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                             static_array<Card,3l> v961;
                                             static_array<Card,4l> v962;
                                             long v963; long v964; long v965; unsigned char v966;
-                                            Tuple21 tmp74 = Tuple21(0l, 0l, 0l, 12u);
-                                            v963 = tmp74.v0; v964 = tmp74.v1; v965 = tmp74.v2; v966 = tmp74.v3;
+                                            Tuple21 tmp75 = Tuple21(0l, 0l, 0l, 12u);
+                                            v963 = tmp75.v0; v964 = tmp75.v1; v965 = tmp75.v2; v966 = tmp75.v3;
                                             while (while_method_10(v963)){
                                                 bool v968;
                                                 v968 = 0l <= v963;
@@ -6470,8 +6555,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                                     static_array<Card,2l> v1049;
                                                     static_array<Card,5l> v1050;
                                                     long v1051; long v1052; long v1053; unsigned char v1054;
-                                                    Tuple21 tmp75 = Tuple21(0l, 0l, 0l, 12u);
-                                                    v1051 = tmp75.v0; v1052 = tmp75.v1; v1053 = tmp75.v2; v1054 = tmp75.v3;
+                                                    Tuple21 tmp76 = Tuple21(0l, 0l, 0l, 12u);
+                                                    v1051 = tmp76.v0; v1052 = tmp76.v1; v1053 = tmp76.v2; v1054 = tmp76.v3;
                                                     while (while_method_10(v1051)){
                                                         bool v1056;
                                                         v1056 = 0l <= v1051;
@@ -6606,8 +6691,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                                             static_array<Card,2l> v1098;
                                                             static_array<Card,3l> v1099;
                                                             long v1100; long v1101; long v1102; unsigned char v1103;
-                                                            Tuple21 tmp76 = Tuple21(0l, 0l, 0l, 12u);
-                                                            v1100 = tmp76.v0; v1101 = tmp76.v1; v1102 = tmp76.v2; v1103 = tmp76.v3;
+                                                            Tuple21 tmp77 = Tuple21(0l, 0l, 0l, 12u);
+                                                            v1100 = tmp77.v0; v1101 = tmp77.v1; v1102 = tmp77.v2; v1103 = tmp77.v3;
                                                             while (while_method_2(v1100)){
                                                                 bool v1105;
                                                                 v1105 = 0l <= v1100;
@@ -6918,8 +7003,8 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
                                                             static_array<Card,2l> v1201;
                                                             static_array<Card,5l> v1202;
                                                             long v1203; long v1204; long v1205; unsigned char v1206;
-                                                            Tuple21 tmp77 = Tuple21(0l, 0l, 0l, 12u);
-                                                            v1203 = tmp77.v0; v1204 = tmp77.v1; v1205 = tmp77.v2; v1206 = tmp77.v3;
+                                                            Tuple21 tmp78 = Tuple21(0l, 0l, 0l, 12u);
+                                                            v1203 = tmp78.v0; v1204 = tmp78.v1; v1205 = tmp78.v2; v1206 = tmp78.v3;
                                                             while (while_method_10(v1203)){
                                                                 bool v1208;
                                                                 v1208 = 0l <= v1203;
@@ -7310,7 +7395,7 @@ __device__ Tuple16 score_57(static_array<Card,7l> v0){
     }
     return Tuple16(v1330, v1331);
 }
-__device__ US6 hand_from_lib_hand_score_58(static_array<Card,5l> v0, char v1){
+__device__ US6 hand_from_lib_hand_score_48(static_array<Card,5l> v0, char v1){
     static_array<Tuple0,5l> v2;
     long v3;
     v3 = 0l;
@@ -7334,8 +7419,8 @@ __device__ US6 hand_from_lib_hand_score_58(static_array<Card,5l> v0, char v1){
         Card v9;
         v9 = v0.v[v3];
         US4 v10; US5 v11;
-        Tuple0 tmp81 = card_from_lib_card_45(v9);
-        v10 = tmp81.v0; v11 = tmp81.v1;
+        Tuple0 tmp82 = card_from_lib_card_35(v9);
+        v10 = tmp82.v0; v11 = tmp82.v1;
         bool v13;
         if (v5){
             bool v12;
@@ -7410,20 +7495,20 @@ __device__ US6 hand_from_lib_hand_score_58(static_array<Card,5l> v0, char v1){
         }
     }
 }
-__device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3,128l,long> & v1, curandStatePhilox4_32_10_t & v2, static_array<US2,2l> v3, US8 v4){
+__device__ US8 play_loop_inner_31(unsigned long long & v0, static_array_list<US3,128l,long> & v1, curandStatePhilox4_32_10_t & v2, static_array<US2,2l> v3, US8 v4){
     static_array_list<US3,128l,long> & v5 = v1;
     unsigned long long & v6 = v0;
     bool v7; US8 v8;
-    Tuple9 tmp19 = Tuple9(true, v4);
-    v7 = tmp19.v0; v8 = tmp19.v1;
+    Tuple9 tmp20 = Tuple9(true, v4);
+    v7 = tmp20.v0; v8 = tmp20.v1;
     while (while_method_5(v7, v8)){
         bool v924; US8 v925;
         switch (v8.tag) {
             case 0: { // G_Flop
                 long v681 = v8.v.case0.v0; bool v682 = v8.v.case0.v1; static_array<static_array<Tuple0,2l>,2l> v683 = v8.v.case0.v2; long v684 = v8.v.case0.v3; static_array<long,2l> v685 = v8.v.case0.v4; static_array<long,2l> v686 = v8.v.case0.v5; US9 v687 = v8.v.case0.v6;
                 static_array<Card,3l> v688; unsigned long long v689;
-                Tuple10 tmp22 = draw_cards_42(v2, v6);
-                v688 = tmp22.v0; v689 = tmp22.v1;
+                Tuple10 tmp23 = draw_cards_32(v2, v6);
+                v688 = tmp23.v0; v689 = tmp23.v1;
                 v0 = v689;
                 static_array<Tuple0,3l> v690;
                 long v691;
@@ -7448,8 +7533,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     Card v697;
                     v697 = v688.v[v691];
                     US4 v698; US5 v699;
-                    Tuple0 tmp23 = card_from_lib_card_45(v697);
-                    v698 = tmp23.v0; v699 = tmp23.v1;
+                    Tuple0 tmp24 = card_from_lib_card_35(v697);
+                    v698 = tmp24.v0; v699 = tmp24.v1;
                     bool v701;
                     if (v693){
                         bool v700;
@@ -7468,7 +7553,7 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     v691 += 1l ;
                 }
                 static_array_list<Tuple0,5l,long> v703;
-                v703 = get_community_cards_48(v687, v690);
+                v703 = get_community_cards_38(v687, v690);
                 long v704;
                 v704 = v5.length;
                 bool v705;
@@ -7580,8 +7665,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
             }
             case 2: { // G_Preflop
                 static_array<Card,2l> v844; unsigned long long v845;
-                Tuple13 tmp30 = draw_cards_49(v2, v6);
-                v844 = tmp30.v0; v845 = tmp30.v1;
+                Tuple13 tmp31 = draw_cards_39(v2, v6);
+                v844 = tmp31.v0; v845 = tmp31.v1;
                 v0 = v845;
                 static_array<Tuple0,2l> v846;
                 long v847;
@@ -7606,8 +7691,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     Card v853;
                     v853 = v844.v[v847];
                     US4 v854; US5 v855;
-                    Tuple0 tmp31 = card_from_lib_card_45(v853);
-                    v854 = tmp31.v0; v855 = tmp31.v1;
+                    Tuple0 tmp32 = card_from_lib_card_35(v853);
+                    v854 = tmp32.v0; v855 = tmp32.v1;
                     bool v857;
                     if (v849){
                         bool v856;
@@ -7626,8 +7711,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     v847 += 1l ;
                 }
                 static_array<Card,2l> v859; unsigned long long v860;
-                Tuple13 tmp32 = draw_cards_49(v2, v6);
-                v859 = tmp32.v0; v860 = tmp32.v1;
+                Tuple13 tmp33 = draw_cards_39(v2, v6);
+                v859 = tmp33.v0; v860 = tmp33.v1;
                 v0 = v860;
                 static_array<Tuple0,2l> v861;
                 long v862;
@@ -7652,8 +7737,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     Card v868;
                     v868 = v859.v[v862];
                     US4 v869; US5 v870;
-                    Tuple0 tmp33 = card_from_lib_card_45(v868);
-                    v869 = tmp33.v0; v870 = tmp33.v1;
+                    Tuple0 tmp34 = card_from_lib_card_35(v868);
+                    v869 = tmp34.v0; v870 = tmp34.v1;
                     bool v872;
                     if (v864){
                         bool v871;
@@ -7796,8 +7881,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
             case 3: { // G_River
                 long v781 = v8.v.case3.v0; bool v782 = v8.v.case3.v1; static_array<static_array<Tuple0,2l>,2l> v783 = v8.v.case3.v2; long v784 = v8.v.case3.v3; static_array<long,2l> v785 = v8.v.case3.v4; static_array<long,2l> v786 = v8.v.case3.v5; US9 v787 = v8.v.case3.v6;
                 static_array<Card,1l> v788; unsigned long long v789;
-                Tuple14 tmp36 = draw_cards_50(v2, v6);
-                v788 = tmp36.v0; v789 = tmp36.v1;
+                Tuple14 tmp37 = draw_cards_40(v2, v6);
+                v788 = tmp37.v0; v789 = tmp37.v1;
                 v0 = v789;
                 static_array<Tuple0,1l> v790;
                 long v791;
@@ -7822,8 +7907,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     Card v797;
                     v797 = v788.v[v791];
                     US4 v798; US5 v799;
-                    Tuple0 tmp37 = card_from_lib_card_45(v797);
-                    v798 = tmp37.v0; v799 = tmp37.v1;
+                    Tuple0 tmp38 = card_from_lib_card_35(v797);
+                    v798 = tmp38.v0; v799 = tmp38.v1;
                     bool v801;
                     if (v793){
                         bool v800;
@@ -7842,7 +7927,7 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     v791 += 1l ;
                 }
                 static_array_list<Tuple0,5l,long> v803;
-                v803 = get_community_cards_51(v787, v790);
+                v803 = get_community_cards_41(v787, v790);
                 long v804;
                 v804 = v5.length;
                 bool v805;
@@ -7902,8 +7987,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             US4 v822; US5 v823;
-                            Tuple0 tmp42 = v814.v[v816];
-                            v822 = tmp42.v0; v823 = tmp42.v1;
+                            Tuple0 tmp43 = v814.v[v816];
+                            v822 = tmp43.v0; v823 = tmp43.v1;
                             bool v825;
                             if (v818){
                                 bool v824;
@@ -7941,8 +8026,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             US4 v833; US5 v834;
-                            Tuple0 tmp43 = v790.v[v827];
-                            v833 = tmp43.v0; v834 = tmp43.v1;
+                            Tuple0 tmp44 = v790.v[v827];
+                            v833 = tmp44.v0; v834 = tmp44.v1;
                             long v835;
                             v835 = 4l + v827;
                             bool v836;
@@ -8059,8 +8144,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                         long v223;
                         v223 = v199.v[0l];
                         long v224; long v225;
-                        Tuple2 tmp44 = Tuple2(1l, v223);
-                        v224 = tmp44.v0; v225 = tmp44.v1;
+                        Tuple2 tmp45 = Tuple2(1l, v223);
+                        v224 = tmp45.v0; v225 = tmp45.v1;
                         while (while_method_0(v224)){
                             bool v227;
                             v227 = 0l <= v224;
@@ -8204,8 +8289,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                         long v265;
                         v265 = v234.v[0l];
                         long v266; long v267;
-                        Tuple2 tmp45 = Tuple2(1l, v265);
-                        v266 = tmp45.v0; v267 = tmp45.v1;
+                        Tuple2 tmp46 = Tuple2(1l, v265);
+                        v266 = tmp46.v0; v267 = tmp46.v1;
                         while (while_method_0(v266)){
                             bool v269;
                             v269 = 0l <= v266;
@@ -8470,7 +8555,7 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                         v340 = US1_2(v325);
                         v332.v[7l] = Tuple15(v340, v331);
                         US1 v341;
-                        v341 = sample_discrete_52(v332, v2);
+                        v341 = sample_discrete_42(v332, v2);
                         long v342;
                         v342 = v5.length;
                         bool v343;
@@ -8568,8 +8653,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                                 long v369;
                                 v369 = v199.v[0l];
                                 long v370; long v371;
-                                Tuple2 tmp48 = Tuple2(1l, v369);
-                                v370 = tmp48.v0; v371 = tmp48.v1;
+                                Tuple2 tmp49 = Tuple2(1l, v369);
+                                v370 = tmp49.v0; v371 = tmp49.v1;
                                 while (while_method_0(v370)){
                                     bool v373;
                                     v373 = 0l <= v370;
@@ -8806,8 +8891,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                                 long v441;
                                 v441 = v199.v[0l];
                                 long v442; long v443;
-                                Tuple2 tmp49 = Tuple2(1l, v441);
-                                v442 = tmp49.v0; v443 = tmp49.v1;
+                                Tuple2 tmp50 = Tuple2(1l, v441);
+                                v442 = tmp50.v0; v443 = tmp50.v1;
                                 while (while_method_0(v442)){
                                     bool v445;
                                     v445 = 0l <= v442;
@@ -9112,8 +9197,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                         long v543;
                         v543 = v512.v[0l];
                         long v544; long v545;
-                        Tuple2 tmp50 = Tuple2(1l, v543);
-                        v544 = tmp50.v0; v545 = tmp50.v1;
+                        Tuple2 tmp51 = Tuple2(1l, v543);
+                        v544 = tmp51.v0; v545 = tmp51.v1;
                         while (while_method_0(v544)){
                             bool v547;
                             v547 = 0l <= v544;
@@ -9352,8 +9437,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                         long v616;
                         v616 = v512.v[0l];
                         long v617; long v618;
-                        Tuple2 tmp51 = Tuple2(1l, v616);
-                        v617 = tmp51.v0; v618 = tmp51.v1;
+                        Tuple2 tmp52 = Tuple2(1l, v616);
+                        v617 = tmp52.v0; v618 = tmp52.v1;
                         while (while_method_0(v617)){
                             bool v620;
                             v620 = 0l <= v617;
@@ -9580,12 +9665,12 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             US4 v48; US5 v49;
-                            Tuple0 tmp52 = v40.v[v42];
-                            v48 = tmp52.v0; v49 = tmp52.v1;
+                            Tuple0 tmp53 = v40.v[v42];
+                            v48 = tmp53.v0; v49 = tmp53.v1;
                             unsigned char v50;
-                            v50 = card_rank_tag_55(v48);
+                            v50 = card_rank_tag_45(v48);
                             unsigned char v51;
-                            v51 = card_suit_tag_56(v49);
+                            v51 = card_suit_tag_46(v49);
                             Card v52;
                             v52 = {v50, v51};
                             bool v54;
@@ -9636,12 +9721,12 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     } else {
                     }
                     US4 v66; US5 v67;
-                    Tuple0 tmp53 = v58.v[v60];
-                    v66 = tmp53.v0; v67 = tmp53.v1;
+                    Tuple0 tmp54 = v58.v[v60];
+                    v66 = tmp54.v0; v67 = tmp54.v1;
                     unsigned char v68;
-                    v68 = card_rank_tag_55(v66);
+                    v68 = card_rank_tag_45(v66);
                     unsigned char v69;
-                    v69 = card_suit_tag_56(v67);
+                    v69 = card_suit_tag_46(v67);
                     Card v70;
                     v70 = {v68, v69};
                     bool v72;
@@ -9743,8 +9828,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     v85 += 1l ;
                 }
                 static_array<Card,5l> v97; char v98;
-                Tuple16 tmp78 = score_57(v74);
-                v97 = tmp78.v0; v98 = tmp78.v1;
+                Tuple16 tmp79 = score_47(v74);
+                v97 = tmp79.v0; v98 = tmp79.v1;
                 static_array<Tuple0,2l> v99;
                 v99 = v35.v[1l];
                 static_array<Card,2l> v100;
@@ -9768,12 +9853,12 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     } else {
                     }
                     US4 v107; US5 v108;
-                    Tuple0 tmp79 = v99.v[v101];
-                    v107 = tmp79.v0; v108 = tmp79.v1;
+                    Tuple0 tmp80 = v99.v[v101];
+                    v107 = tmp80.v0; v108 = tmp80.v1;
                     unsigned char v109;
-                    v109 = card_rank_tag_55(v107);
+                    v109 = card_rank_tag_45(v107);
                     unsigned char v110;
-                    v110 = card_suit_tag_56(v108);
+                    v110 = card_suit_tag_46(v108);
                     Card v111;
                     v111 = {v109, v110};
                     bool v113;
@@ -9875,8 +9960,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     v126 += 1l ;
                 }
                 static_array<Card,5l> v138; char v139;
-                Tuple16 tmp80 = score_57(v115);
-                v138 = tmp80.v0; v139 = tmp80.v1;
+                Tuple16 tmp81 = score_47(v115);
+                v138 = tmp81.v0; v139 = tmp81.v1;
                 bool v140;
                 v140 = 0l <= v36;
                 bool v142;
@@ -10014,9 +10099,9 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     }
                 }
                 US6 v182;
-                v182 = hand_from_lib_hand_score_58(v97, v98);
+                v182 = hand_from_lib_hand_score_48(v97, v98);
                 US6 v183;
-                v183 = hand_from_lib_hand_score_58(v138, v139);
+                v183 = hand_from_lib_hand_score_48(v138, v139);
                 static_array<US6,2l> v184;
                 v184.v[0l] = v182;
                 v184.v[1l] = v183;
@@ -10060,8 +10145,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
             case 7: { // G_Turn
                 long v718 = v8.v.case7.v0; bool v719 = v8.v.case7.v1; static_array<static_array<Tuple0,2l>,2l> v720 = v8.v.case7.v2; long v721 = v8.v.case7.v3; static_array<long,2l> v722 = v8.v.case7.v4; static_array<long,2l> v723 = v8.v.case7.v5; US9 v724 = v8.v.case7.v6;
                 static_array<Card,1l> v725; unsigned long long v726;
-                Tuple14 tmp82 = draw_cards_50(v2, v6);
-                v725 = tmp82.v0; v726 = tmp82.v1;
+                Tuple14 tmp83 = draw_cards_40(v2, v6);
+                v725 = tmp83.v0; v726 = tmp83.v1;
                 v0 = v726;
                 static_array<Tuple0,1l> v727;
                 long v728;
@@ -10086,8 +10171,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     Card v734;
                     v734 = v725.v[v728];
                     US4 v735; US5 v736;
-                    Tuple0 tmp83 = card_from_lib_card_45(v734);
-                    v735 = tmp83.v0; v736 = tmp83.v1;
+                    Tuple0 tmp84 = card_from_lib_card_35(v734);
+                    v735 = tmp84.v0; v736 = tmp84.v1;
                     bool v738;
                     if (v730){
                         bool v737;
@@ -10106,7 +10191,7 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                     v728 += 1l ;
                 }
                 static_array_list<Tuple0,5l,long> v740;
-                v740 = get_community_cards_51(v724, v727);
+                v740 = get_community_cards_41(v724, v727);
                 long v741;
                 v741 = v5.length;
                 bool v742;
@@ -10166,8 +10251,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             US4 v759; US5 v760;
-                            Tuple0 tmp84 = v751.v[v753];
-                            v759 = tmp84.v0; v760 = tmp84.v1;
+                            Tuple0 tmp85 = v751.v[v753];
+                            v759 = tmp85.v0; v760 = tmp85.v1;
                             bool v762;
                             if (v755){
                                 bool v761;
@@ -10205,8 +10290,8 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             US4 v770; US5 v771;
-                            Tuple0 tmp85 = v727.v[v764];
-                            v770 = tmp85.v0; v771 = tmp85.v1;
+                            Tuple0 tmp86 = v727.v[v764];
+                            v770 = tmp86.v0; v771 = tmp86.v1;
                             long v772;
                             v772 = 3l + v764;
                             bool v773;
@@ -10250,9 +10335,9 @@ __device__ US8 play_loop_inner_41(unsigned long long & v0, static_array_list<US3
     }
     return v8;
 }
-__device__ Tuple8 play_loop_40(US7 v0, static_array<US2,2l> v1, US10 v2, unsigned long long & v3, static_array_list<US3,128l,long> & v4, curandStatePhilox4_32_10_t & v5, US8 v6){
+__device__ Tuple8 play_loop_30(US7 v0, static_array<US2,2l> v1, US10 v2, unsigned long long & v3, static_array_list<US3,128l,long> & v4, curandStatePhilox4_32_10_t & v5, US8 v6){
     US8 v7;
-    v7 = play_loop_inner_41(v3, v4, v5, v1, v6);
+    v7 = play_loop_inner_31(v3, v4, v5, v1, v6);
     switch (v7.tag) {
         case 1: { // G_Fold
             long v26 = v7.v.case1.v0; bool v27 = v7.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v28 = v7.v.case1.v2; long v29 = v7.v.case1.v3; static_array<long,2l> v30 = v7.v.case1.v4; static_array<long,2l> v31 = v7.v.case1.v5; US9 v32 = v7.v.case1.v6;
@@ -10287,146 +10372,146 @@ __device__ Tuple8 play_loop_40(US7 v0, static_array<US2,2l> v1, US10 v2, unsigne
         }
     }
 }
-__device__ void write_60(char v0){
+__device__ void write_50(char v0){
     const char * v1;
     v1 = "%c";
     printf(v1,v0);
     return ;
 }
-__device__ void write_61(){
+__device__ void write_51(){
     return ;
 }
-__device__ void write_64(unsigned long long v0){
+__device__ void write_54(unsigned long long v0){
     const char * v1;
     v1 = "%u";
     printf(v1,v0);
     return ;
 }
-__device__ void write_63(unsigned long long v0){
-    return write_64(v0);
+__device__ void write_53(unsigned long long v0){
+    return write_54(v0);
 }
-__device__ void write_67(){
+__device__ void write_57(){
     const char * v0;
     v0 = "CommunityCardsAre";
     return write_0(v0);
 }
-__device__ void write_71(){
+__device__ void write_61(){
     const char * v0;
     v0 = "Ace";
     return write_0(v0);
 }
-__device__ void write_72(){
+__device__ void write_62(){
     const char * v0;
     v0 = "Eight";
     return write_0(v0);
 }
-__device__ void write_73(){
+__device__ void write_63(){
     const char * v0;
     v0 = "Five";
     return write_0(v0);
 }
-__device__ void write_74(){
+__device__ void write_64(){
     const char * v0;
     v0 = "Four";
     return write_0(v0);
 }
-__device__ void write_75(){
+__device__ void write_65(){
     const char * v0;
     v0 = "Jack";
     return write_0(v0);
 }
-__device__ void write_76(){
+__device__ void write_66(){
     const char * v0;
     v0 = "King";
     return write_0(v0);
 }
-__device__ void write_77(){
+__device__ void write_67(){
     const char * v0;
     v0 = "Nine";
     return write_0(v0);
 }
-__device__ void write_78(){
+__device__ void write_68(){
     const char * v0;
     v0 = "Queen";
     return write_0(v0);
 }
-__device__ void write_79(){
+__device__ void write_69(){
     const char * v0;
     v0 = "Seven";
     return write_0(v0);
 }
-__device__ void write_80(){
+__device__ void write_70(){
     const char * v0;
     v0 = "Six";
     return write_0(v0);
 }
-__device__ void write_81(){
+__device__ void write_71(){
     const char * v0;
     v0 = "Ten";
     return write_0(v0);
 }
-__device__ void write_82(){
+__device__ void write_72(){
     const char * v0;
     v0 = "Three";
     return write_0(v0);
 }
-__device__ void write_83(){
+__device__ void write_73(){
     const char * v0;
     v0 = "Two";
     return write_0(v0);
 }
-__device__ void write_70(US4 v0){
+__device__ void write_60(US4 v0){
     switch (v0.tag) {
         case 0: { // Ace
-            return write_71();
+            return write_61();
             break;
         }
         case 1: { // Eight
-            return write_72();
+            return write_62();
             break;
         }
         case 2: { // Five
-            return write_73();
+            return write_63();
             break;
         }
         case 3: { // Four
-            return write_74();
+            return write_64();
             break;
         }
         case 4: { // Jack
-            return write_75();
+            return write_65();
             break;
         }
         case 5: { // King
-            return write_76();
+            return write_66();
             break;
         }
         case 6: { // Nine
-            return write_77();
+            return write_67();
             break;
         }
         case 7: { // Queen
-            return write_78();
+            return write_68();
             break;
         }
         case 8: { // Seven
-            return write_79();
+            return write_69();
             break;
         }
         case 9: { // Six
-            return write_80();
+            return write_70();
             break;
         }
         case 10: { // Ten
-            return write_81();
+            return write_71();
             break;
         }
         case 11: { // Three
-            return write_82();
+            return write_72();
             break;
         }
         case 12: { // Two
-            return write_83();
+            return write_73();
             break;
         }
         default: {
@@ -10434,42 +10519,42 @@ __device__ void write_70(US4 v0){
         }
     }
 }
-__device__ void write_85(){
+__device__ void write_75(){
     const char * v0;
     v0 = "Clubs";
     return write_0(v0);
 }
-__device__ void write_86(){
+__device__ void write_76(){
     const char * v0;
     v0 = "Diamonds";
     return write_0(v0);
 }
-__device__ void write_87(){
+__device__ void write_77(){
     const char * v0;
     v0 = "Hearts";
     return write_0(v0);
 }
-__device__ void write_88(){
+__device__ void write_78(){
     const char * v0;
     v0 = "Spades";
     return write_0(v0);
 }
-__device__ void write_84(US5 v0){
+__device__ void write_74(US5 v0){
     switch (v0.tag) {
         case 0: { // Clubs
-            return write_85();
+            return write_75();
             break;
         }
         case 1: { // Diamonds
-            return write_86();
+            return write_76();
             break;
         }
         case 2: { // Hearts
-            return write_87();
+            return write_77();
             break;
         }
         case 3: { // Spades
-            return write_88();
+            return write_78();
             break;
         }
         default: {
@@ -10477,14 +10562,14 @@ __device__ void write_84(US5 v0){
         }
     }
 }
-__device__ void write_69(US4 v0, US5 v1){
-    write_70(v0);
+__device__ void write_59(US4 v0, US5 v1){
+    write_60(v0);
     const char * v2;
     v2 = ", ";
     write_0(v2);
-    return write_84(v1);
+    return write_74(v1);
 }
-__device__ void write_68(static_array_list<Tuple0,5l,long> v0){
+__device__ void write_58(static_array_list<Tuple0,5l,long> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -10520,9 +10605,9 @@ __device__ void write_68(static_array_list<Tuple0,5l,long> v0){
         } else {
         }
         US4 v12; US5 v13;
-        Tuple0 tmp88 = v0.v[v5];
-        v12 = tmp88.v0; v13 = tmp88.v1;
-        write_69(v12, v13);
+        Tuple0 tmp89 = v0.v[v5];
+        v12 = tmp89.v0; v13 = tmp89.v1;
+        write_59(v12, v13);
         long v14;
         v14 = v5 + 1l;
         long v15;
@@ -10551,29 +10636,29 @@ __device__ void write_68(static_array_list<Tuple0,5l,long> v0){
     v21 = "]";
     return write_0(v21);
 }
-__device__ void write_89(){
+__device__ void write_79(){
     const char * v0;
     v0 = "Fold";
     return write_0(v0);
 }
-__device__ void write_91(long v0){
+__device__ void write_81(long v0){
     const char * v1;
     v1 = "%d";
     printf(v1,v0);
     return ;
 }
-__device__ void write_90(long v0, long v1){
+__device__ void write_80(long v0, long v1){
     char v2;
     v2 = '{';
-    write_60(v2);
-    write_61();
+    write_50(v2);
+    write_51();
     const char * v3;
     v3 = "chips_won";
     write_0(v3);
     const char * v4;
     v4 = " = ";
     write_0(v4);
-    write_91(v0);
+    write_81(v0);
     const char * v5;
     v5 = "; ";
     write_0(v5);
@@ -10581,48 +10666,48 @@ __device__ void write_90(long v0, long v1){
     v6 = "winner_id";
     write_0(v6);
     write_0(v4);
-    write_91(v1);
+    write_81(v1);
     char v7;
     v7 = '}';
-    return write_60(v7);
+    return write_50(v7);
 }
-__device__ void write_92(){
+__device__ void write_82(){
     const char * v0;
     v0 = "PlayerAction";
     return write_0(v0);
 }
-__device__ void write_95(){
+__device__ void write_85(){
     const char * v0;
     v0 = "A_Call";
     return write_0(v0);
 }
-__device__ void write_96(){
+__device__ void write_86(){
     const char * v0;
     v0 = "A_Fold";
     return write_0(v0);
 }
-__device__ void write_97(){
+__device__ void write_87(){
     const char * v0;
     v0 = "A_Raise";
     return write_0(v0);
 }
-__device__ void write_94(US1 v0){
+__device__ void write_84(US1 v0){
     switch (v0.tag) {
         case 0: { // A_Call
-            return write_95();
+            return write_85();
             break;
         }
         case 1: { // A_Fold
-            return write_96();
+            return write_86();
             break;
         }
         case 2: { // A_Raise
             long v1 = v0.v.case2.v0;
-            write_97();
+            write_87();
             const char * v2;
             v2 = "(";
             write_0(v2);
-            write_91(v1);
+            write_81(v1);
             const char * v3;
             v3 = ")";
             return write_0(v3);
@@ -10633,19 +10718,19 @@ __device__ void write_94(US1 v0){
         }
     }
 }
-__device__ void write_93(long v0, US1 v1){
-    write_91(v0);
+__device__ void write_83(long v0, US1 v1){
+    write_81(v0);
     const char * v2;
     v2 = ", ";
     write_0(v2);
-    return write_94(v1);
+    return write_84(v1);
 }
-__device__ void write_98(){
+__device__ void write_88(){
     const char * v0;
     v0 = "PlayerGotCards";
     return write_0(v0);
 }
-__device__ void write_100(static_array<Tuple0,2l> v0){
+__device__ void write_90(static_array<Tuple0,2l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -10669,9 +10754,9 @@ __device__ void write_100(static_array<Tuple0,2l> v0){
         } else {
         }
         US4 v8; US5 v9;
-        Tuple0 tmp89 = v0.v[v2];
-        v8 = tmp89.v0; v9 = tmp89.v1;
-        write_69(v8, v9);
+        Tuple0 tmp90 = v0.v[v2];
+        v8 = tmp90.v0; v9 = tmp90.v1;
+        write_59(v8, v9);
         long v10;
         v10 = v2 + 1l;
         bool v11;
@@ -10688,24 +10773,24 @@ __device__ void write_100(static_array<Tuple0,2l> v0){
     v13 = "]";
     return write_0(v13);
 }
-__device__ void write_99(long v0, static_array<Tuple0,2l> v1){
-    write_91(v0);
+__device__ void write_89(long v0, static_array<Tuple0,2l> v1){
+    write_81(v0);
     const char * v2;
     v2 = ", ";
     write_0(v2);
-    return write_100(v1);
+    return write_90(v1);
 }
-__device__ void write_101(){
+__device__ void write_91(){
     const char * v0;
     v0 = "Showdown";
     return write_0(v0);
 }
-__device__ void write_105(){
+__device__ void write_95(){
     const char * v0;
     v0 = "Flush";
     return write_0(v0);
 }
-__device__ void write_106(static_array<Tuple0,5l> v0){
+__device__ void write_96(static_array<Tuple0,5l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -10729,9 +10814,9 @@ __device__ void write_106(static_array<Tuple0,5l> v0){
         } else {
         }
         US4 v8; US5 v9;
-        Tuple0 tmp90 = v0.v[v2];
-        v8 = tmp90.v0; v9 = tmp90.v1;
-        write_69(v8, v9);
+        Tuple0 tmp91 = v0.v[v2];
+        v8 = tmp91.v0; v9 = tmp91.v1;
+        write_59(v8, v9);
         long v10;
         v10 = v2 + 1l;
         bool v11;
@@ -10748,55 +10833,55 @@ __device__ void write_106(static_array<Tuple0,5l> v0){
     v13 = "]";
     return write_0(v13);
 }
-__device__ void write_107(){
+__device__ void write_97(){
     const char * v0;
     v0 = "Full_House";
     return write_0(v0);
 }
-__device__ void write_108(){
+__device__ void write_98(){
     const char * v0;
     v0 = "High_Card";
     return write_0(v0);
 }
-__device__ void write_109(){
+__device__ void write_99(){
     const char * v0;
     v0 = "Pair";
     return write_0(v0);
 }
-__device__ void write_110(){
+__device__ void write_100(){
     const char * v0;
     v0 = "Quads";
     return write_0(v0);
 }
-__device__ void write_111(){
+__device__ void write_101(){
     const char * v0;
     v0 = "Straight";
     return write_0(v0);
 }
-__device__ void write_112(){
+__device__ void write_102(){
     const char * v0;
     v0 = "Straight_Flush";
     return write_0(v0);
 }
-__device__ void write_113(){
+__device__ void write_103(){
     const char * v0;
     v0 = "Triple";
     return write_0(v0);
 }
-__device__ void write_114(){
+__device__ void write_104(){
     const char * v0;
     v0 = "Two_Pair";
     return write_0(v0);
 }
-__device__ void write_104(US6 v0){
+__device__ void write_94(US6 v0){
     switch (v0.tag) {
         case 0: { // Flush
             static_array<Tuple0,5l> v1 = v0.v.case0.v0;
-            write_105();
+            write_95();
             const char * v2;
             v2 = "(";
             write_0(v2);
-            write_106(v1);
+            write_96(v1);
             const char * v3;
             v3 = ")";
             return write_0(v3);
@@ -10804,11 +10889,11 @@ __device__ void write_104(US6 v0){
         }
         case 1: { // Full_House
             static_array<Tuple0,5l> v4 = v0.v.case1.v0;
-            write_107();
+            write_97();
             const char * v5;
             v5 = "(";
             write_0(v5);
-            write_106(v4);
+            write_96(v4);
             const char * v6;
             v6 = ")";
             return write_0(v6);
@@ -10816,11 +10901,11 @@ __device__ void write_104(US6 v0){
         }
         case 2: { // High_Card
             static_array<Tuple0,5l> v7 = v0.v.case2.v0;
-            write_108();
+            write_98();
             const char * v8;
             v8 = "(";
             write_0(v8);
-            write_106(v7);
+            write_96(v7);
             const char * v9;
             v9 = ")";
             return write_0(v9);
@@ -10828,11 +10913,11 @@ __device__ void write_104(US6 v0){
         }
         case 3: { // Pair
             static_array<Tuple0,5l> v10 = v0.v.case3.v0;
-            write_109();
+            write_99();
             const char * v11;
             v11 = "(";
             write_0(v11);
-            write_106(v10);
+            write_96(v10);
             const char * v12;
             v12 = ")";
             return write_0(v12);
@@ -10840,11 +10925,11 @@ __device__ void write_104(US6 v0){
         }
         case 4: { // Quads
             static_array<Tuple0,5l> v13 = v0.v.case4.v0;
-            write_110();
+            write_100();
             const char * v14;
             v14 = "(";
             write_0(v14);
-            write_106(v13);
+            write_96(v13);
             const char * v15;
             v15 = ")";
             return write_0(v15);
@@ -10852,11 +10937,11 @@ __device__ void write_104(US6 v0){
         }
         case 5: { // Straight
             static_array<Tuple0,5l> v16 = v0.v.case5.v0;
-            write_111();
+            write_101();
             const char * v17;
             v17 = "(";
             write_0(v17);
-            write_106(v16);
+            write_96(v16);
             const char * v18;
             v18 = ")";
             return write_0(v18);
@@ -10864,11 +10949,11 @@ __device__ void write_104(US6 v0){
         }
         case 6: { // Straight_Flush
             static_array<Tuple0,5l> v19 = v0.v.case6.v0;
-            write_112();
+            write_102();
             const char * v20;
             v20 = "(";
             write_0(v20);
-            write_106(v19);
+            write_96(v19);
             const char * v21;
             v21 = ")";
             return write_0(v21);
@@ -10876,11 +10961,11 @@ __device__ void write_104(US6 v0){
         }
         case 7: { // Triple
             static_array<Tuple0,5l> v22 = v0.v.case7.v0;
-            write_113();
+            write_103();
             const char * v23;
             v23 = "(";
             write_0(v23);
-            write_106(v22);
+            write_96(v22);
             const char * v24;
             v24 = ")";
             return write_0(v24);
@@ -10888,11 +10973,11 @@ __device__ void write_104(US6 v0){
         }
         case 8: { // Two_Pair
             static_array<Tuple0,5l> v25 = v0.v.case8.v0;
-            write_114();
+            write_104();
             const char * v26;
             v26 = "(";
             write_0(v26);
-            write_106(v25);
+            write_96(v25);
             const char * v27;
             v27 = ")";
             return write_0(v27);
@@ -10903,7 +10988,7 @@ __device__ void write_104(US6 v0){
         }
     }
 }
-__device__ void write_103(static_array<US6,2l> v0){
+__device__ void write_93(static_array<US6,2l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -10928,7 +11013,7 @@ __device__ void write_103(static_array<US6,2l> v0){
         }
         US6 v8;
         v8 = v0.v[v2];
-        write_104(v8);
+        write_94(v8);
         long v9;
         v9 = v2 + 1l;
         bool v10;
@@ -10945,18 +11030,18 @@ __device__ void write_103(static_array<US6,2l> v0){
     v12 = "]";
     return write_0(v12);
 }
-__device__ void write_102(long v0, static_array<US6,2l> v1, long v2){
+__device__ void write_92(long v0, static_array<US6,2l> v1, long v2){
     char v3;
     v3 = '{';
-    write_60(v3);
-    write_61();
+    write_50(v3);
+    write_51();
     const char * v4;
     v4 = "chips_won";
     write_0(v4);
     const char * v5;
     v5 = " = ";
     write_0(v5);
-    write_91(v0);
+    write_81(v0);
     const char * v6;
     v6 = "; ";
     write_0(v6);
@@ -10964,26 +11049,26 @@ __device__ void write_102(long v0, static_array<US6,2l> v1, long v2){
     v7 = "hands_shown";
     write_0(v7);
     write_0(v5);
-    write_103(v1);
+    write_93(v1);
     write_0(v6);
     const char * v8;
     v8 = "winner_id";
     write_0(v8);
     write_0(v5);
-    write_91(v2);
+    write_81(v2);
     char v9;
     v9 = '}';
-    return write_60(v9);
+    return write_50(v9);
 }
-__device__ void write_66(US3 v0){
+__device__ void write_56(US3 v0){
     switch (v0.tag) {
         case 0: { // CommunityCardsAre
             static_array_list<Tuple0,5l,long> v1 = v0.v.case0.v0;
-            write_67();
+            write_57();
             const char * v2;
             v2 = "(";
             write_0(v2);
-            write_68(v1);
+            write_58(v1);
             const char * v3;
             v3 = ")";
             return write_0(v3);
@@ -10991,11 +11076,11 @@ __device__ void write_66(US3 v0){
         }
         case 1: { // Fold
             long v4 = v0.v.case1.v0; long v5 = v0.v.case1.v1;
-            write_89();
+            write_79();
             const char * v6;
             v6 = "(";
             write_0(v6);
-            write_90(v4, v5);
+            write_80(v4, v5);
             const char * v7;
             v7 = ")";
             return write_0(v7);
@@ -11003,11 +11088,11 @@ __device__ void write_66(US3 v0){
         }
         case 2: { // PlayerAction
             long v8 = v0.v.case2.v0; US1 v9 = v0.v.case2.v1;
-            write_92();
+            write_82();
             const char * v10;
             v10 = "(";
             write_0(v10);
-            write_93(v8, v9);
+            write_83(v8, v9);
             const char * v11;
             v11 = ")";
             return write_0(v11);
@@ -11015,11 +11100,11 @@ __device__ void write_66(US3 v0){
         }
         case 3: { // PlayerGotCards
             long v12 = v0.v.case3.v0; static_array<Tuple0,2l> v13 = v0.v.case3.v1;
-            write_98();
+            write_88();
             const char * v14;
             v14 = "(";
             write_0(v14);
-            write_99(v12, v13);
+            write_89(v12, v13);
             const char * v15;
             v15 = ")";
             return write_0(v15);
@@ -11027,11 +11112,11 @@ __device__ void write_66(US3 v0){
         }
         case 4: { // Showdown
             long v16 = v0.v.case4.v0; static_array<US6,2l> v17 = v0.v.case4.v1; long v18 = v0.v.case4.v2;
-            write_101();
+            write_91();
             const char * v19;
             v19 = "(";
             write_0(v19);
-            write_102(v16, v17, v18);
+            write_92(v16, v17, v18);
             const char * v20;
             v20 = ")";
             return write_0(v20);
@@ -11042,7 +11127,7 @@ __device__ void write_66(US3 v0){
         }
     }
 }
-__device__ void write_65(static_array_list<US3,128l,long> v0){
+__device__ void write_55(static_array_list<US3,128l,long> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -11079,7 +11164,7 @@ __device__ void write_65(static_array_list<US3,128l,long> v0){
         }
         US3 v12;
         v12 = v0.v[v5];
-        write_66(v12);
+        write_56(v12);
         long v13;
         v13 = v5 + 1l;
         long v14;
@@ -11108,18 +11193,18 @@ __device__ void write_65(static_array_list<US3,128l,long> v0){
     v20 = "]";
     return write_0(v20);
 }
-__device__ void write_62(unsigned long long v0, static_array_list<US3,128l,long> v1){
+__device__ void write_52(unsigned long long v0, static_array_list<US3,128l,long> v1){
     char v2;
     v2 = '{';
-    write_60(v2);
-    write_61();
+    write_50(v2);
+    write_51();
     const char * v3;
     v3 = "deck";
     write_0(v3);
     const char * v4;
     v4 = " = ";
     write_0(v4);
-    write_63(v0);
+    write_53(v0);
     const char * v5;
     v5 = "; ";
     write_0(v5);
@@ -11127,43 +11212,43 @@ __device__ void write_62(unsigned long long v0, static_array_list<US3,128l,long>
     v6 = "messages";
     write_0(v6);
     write_0(v4);
-    write_65(v1);
+    write_55(v1);
     char v7;
     v7 = '}';
-    return write_60(v7);
+    return write_50(v7);
 }
-__device__ void write_117(){
+__device__ void write_107(){
     const char * v0;
     v0 = "None";
     return write_0(v0);
 }
-__device__ void write_118(){
+__device__ void write_108(){
     const char * v0;
     v0 = "Some";
     return write_0(v0);
 }
-__device__ void write_120(){
+__device__ void write_110(){
     const char * v0;
     v0 = "G_Flop";
     return write_0(v0);
 }
-__device__ void write_122(long v0){
+__device__ void write_112(long v0){
     char v1;
     v1 = '{';
-    write_60(v1);
-    write_61();
+    write_50(v1);
+    write_51();
     const char * v2;
     v2 = "min_raise";
     write_0(v2);
     const char * v3;
     v3 = " = ";
     write_0(v3);
-    write_91(v0);
+    write_81(v0);
     char v4;
     v4 = '}';
-    return write_60(v4);
+    return write_50(v4);
 }
-__device__ void write_123(bool v0){
+__device__ void write_113(bool v0){
     const char * v3;
     if (v0){
         const char * v1;
@@ -11179,7 +11264,7 @@ __device__ void write_123(bool v0){
     printf(v4,v3);
     return ;
 }
-__device__ void write_124(static_array<static_array<Tuple0,2l>,2l> v0){
+__device__ void write_114(static_array<static_array<Tuple0,2l>,2l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -11204,7 +11289,7 @@ __device__ void write_124(static_array<static_array<Tuple0,2l>,2l> v0){
         }
         static_array<Tuple0,2l> v8;
         v8 = v0.v[v2];
-        write_100(v8);
+        write_90(v8);
         long v9;
         v9 = v2 + 1l;
         bool v10;
@@ -11221,7 +11306,7 @@ __device__ void write_124(static_array<static_array<Tuple0,2l>,2l> v0){
     v12 = "]";
     return write_0(v12);
 }
-__device__ void write_125(static_array<long,2l> v0){
+__device__ void write_115(static_array<long,2l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -11246,7 +11331,7 @@ __device__ void write_125(static_array<long,2l> v0){
         }
         long v8;
         v8 = v0.v[v2];
-        write_91(v8);
+        write_81(v8);
         long v9;
         v9 = v2 + 1l;
         bool v10;
@@ -11263,12 +11348,12 @@ __device__ void write_125(static_array<long,2l> v0){
     v12 = "]";
     return write_0(v12);
 }
-__device__ void write_127(){
+__device__ void write_117(){
     const char * v0;
     v0 = "Flop";
     return write_0(v0);
 }
-__device__ void write_128(static_array<Tuple0,3l> v0){
+__device__ void write_118(static_array<Tuple0,3l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -11292,9 +11377,9 @@ __device__ void write_128(static_array<Tuple0,3l> v0){
         } else {
         }
         US4 v8; US5 v9;
-        Tuple0 tmp91 = v0.v[v2];
-        v8 = tmp91.v0; v9 = tmp91.v1;
-        write_69(v8, v9);
+        Tuple0 tmp92 = v0.v[v2];
+        v8 = tmp92.v0; v9 = tmp92.v1;
+        write_59(v8, v9);
         long v10;
         v10 = v2 + 1l;
         bool v11;
@@ -11311,22 +11396,22 @@ __device__ void write_128(static_array<Tuple0,3l> v0){
     v13 = "]";
     return write_0(v13);
 }
-__device__ void write_129(){
+__device__ void write_119(){
     const char * v0;
     v0 = "Preflop";
     return write_0(v0);
 }
-__device__ void write_130(){
+__device__ void write_120(){
     const char * v0;
     v0 = "River";
     return write_0(v0);
 }
-__device__ void write_131(){
+__device__ void write_121(){
     const char * v0;
     v0 = "Turn";
     return write_0(v0);
 }
-__device__ void write_132(static_array<Tuple0,4l> v0){
+__device__ void write_122(static_array<Tuple0,4l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -11350,9 +11435,9 @@ __device__ void write_132(static_array<Tuple0,4l> v0){
         } else {
         }
         US4 v8; US5 v9;
-        Tuple0 tmp92 = v0.v[v2];
-        v8 = tmp92.v0; v9 = tmp92.v1;
-        write_69(v8, v9);
+        Tuple0 tmp93 = v0.v[v2];
+        v8 = tmp93.v0; v9 = tmp93.v1;
+        write_59(v8, v9);
         long v10;
         v10 = v2 + 1l;
         bool v11;
@@ -11369,31 +11454,31 @@ __device__ void write_132(static_array<Tuple0,4l> v0){
     v13 = "]";
     return write_0(v13);
 }
-__device__ void write_126(US9 v0){
+__device__ void write_116(US9 v0){
     switch (v0.tag) {
         case 0: { // Flop
             static_array<Tuple0,3l> v1 = v0.v.case0.v0;
-            write_127();
+            write_117();
             const char * v2;
             v2 = "(";
             write_0(v2);
-            write_128(v1);
+            write_118(v1);
             const char * v3;
             v3 = ")";
             return write_0(v3);
             break;
         }
         case 1: { // Preflop
-            return write_129();
+            return write_119();
             break;
         }
         case 2: { // River
             static_array<Tuple0,5l> v4 = v0.v.case2.v0;
-            write_130();
+            write_120();
             const char * v5;
             v5 = "(";
             write_0(v5);
-            write_106(v4);
+            write_96(v4);
             const char * v6;
             v6 = ")";
             return write_0(v6);
@@ -11401,11 +11486,11 @@ __device__ void write_126(US9 v0){
         }
         case 3: { // Turn
             static_array<Tuple0,4l> v7 = v0.v.case3.v0;
-            write_131();
+            write_121();
             const char * v8;
             v8 = "(";
             write_0(v8);
-            write_132(v7);
+            write_122(v7);
             const char * v9;
             v9 = ")";
             return write_0(v9);
@@ -11416,18 +11501,18 @@ __device__ void write_126(US9 v0){
         }
     }
 }
-__device__ void write_121(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6){
+__device__ void write_111(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6){
     char v7;
     v7 = '{';
-    write_60(v7);
-    write_61();
+    write_50(v7);
+    write_51();
     const char * v8;
     v8 = "config";
     write_0(v8);
     const char * v9;
     v9 = " = ";
     write_0(v9);
-    write_122(v0);
+    write_112(v0);
     const char * v10;
     v10 = "; ";
     write_0(v10);
@@ -11435,92 +11520,92 @@ __device__ void write_121(long v0, bool v1, static_array<static_array<Tuple0,2l>
     v11 = "is_button_s_first_move";
     write_0(v11);
     write_0(v9);
-    write_123(v1);
+    write_113(v1);
     write_0(v10);
     const char * v12;
     v12 = "pl_card";
     write_0(v12);
     write_0(v9);
-    write_124(v2);
+    write_114(v2);
     write_0(v10);
     const char * v13;
     v13 = "player_turn";
     write_0(v13);
     write_0(v9);
-    write_91(v3);
+    write_81(v3);
     write_0(v10);
     const char * v14;
     v14 = "pot";
     write_0(v14);
     write_0(v9);
-    write_125(v4);
+    write_115(v4);
     write_0(v10);
     const char * v15;
     v15 = "stack";
     write_0(v15);
     write_0(v9);
-    write_125(v5);
+    write_115(v5);
     write_0(v10);
     const char * v16;
     v16 = "street";
     write_0(v16);
     write_0(v9);
-    write_126(v6);
+    write_116(v6);
     char v17;
     v17 = '}';
-    return write_60(v17);
+    return write_50(v17);
 }
-__device__ void write_133(){
+__device__ void write_123(){
     const char * v0;
     v0 = "G_Fold";
     return write_0(v0);
 }
-__device__ void write_134(){
+__device__ void write_124(){
     const char * v0;
     v0 = "G_Preflop";
     return write_0(v0);
 }
-__device__ void write_135(){
+__device__ void write_125(){
     const char * v0;
     v0 = "G_River";
     return write_0(v0);
 }
-__device__ void write_136(){
+__device__ void write_126(){
     const char * v0;
     v0 = "G_Round";
     return write_0(v0);
 }
-__device__ void write_137(){
+__device__ void write_127(){
     const char * v0;
     v0 = "G_Round'";
     return write_0(v0);
 }
-__device__ void write_138(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6, US1 v7){
-    write_121(v0, v1, v2, v3, v4, v5, v6);
+__device__ void write_128(long v0, bool v1, static_array<static_array<Tuple0,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US9 v6, US1 v7){
+    write_111(v0, v1, v2, v3, v4, v5, v6);
     const char * v8;
     v8 = ", ";
     write_0(v8);
-    return write_94(v7);
+    return write_84(v7);
 }
-__device__ void write_139(){
+__device__ void write_129(){
     const char * v0;
     v0 = "G_Showdown";
     return write_0(v0);
 }
-__device__ void write_140(){
+__device__ void write_130(){
     const char * v0;
     v0 = "G_Turn";
     return write_0(v0);
 }
-__device__ void write_119(US8 v0){
+__device__ void write_109(US8 v0){
     switch (v0.tag) {
         case 0: { // G_Flop
             long v1 = v0.v.case0.v0; bool v2 = v0.v.case0.v1; static_array<static_array<Tuple0,2l>,2l> v3 = v0.v.case0.v2; long v4 = v0.v.case0.v3; static_array<long,2l> v5 = v0.v.case0.v4; static_array<long,2l> v6 = v0.v.case0.v5; US9 v7 = v0.v.case0.v6;
-            write_120();
+            write_110();
             const char * v8;
             v8 = "(";
             write_0(v8);
-            write_121(v1, v2, v3, v4, v5, v6, v7);
+            write_111(v1, v2, v3, v4, v5, v6, v7);
             const char * v9;
             v9 = ")";
             return write_0(v9);
@@ -11528,27 +11613,27 @@ __device__ void write_119(US8 v0){
         }
         case 1: { // G_Fold
             long v10 = v0.v.case1.v0; bool v11 = v0.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v12 = v0.v.case1.v2; long v13 = v0.v.case1.v3; static_array<long,2l> v14 = v0.v.case1.v4; static_array<long,2l> v15 = v0.v.case1.v5; US9 v16 = v0.v.case1.v6;
-            write_133();
+            write_123();
             const char * v17;
             v17 = "(";
             write_0(v17);
-            write_121(v10, v11, v12, v13, v14, v15, v16);
+            write_111(v10, v11, v12, v13, v14, v15, v16);
             const char * v18;
             v18 = ")";
             return write_0(v18);
             break;
         }
         case 2: { // G_Preflop
-            return write_134();
+            return write_124();
             break;
         }
         case 3: { // G_River
             long v19 = v0.v.case3.v0; bool v20 = v0.v.case3.v1; static_array<static_array<Tuple0,2l>,2l> v21 = v0.v.case3.v2; long v22 = v0.v.case3.v3; static_array<long,2l> v23 = v0.v.case3.v4; static_array<long,2l> v24 = v0.v.case3.v5; US9 v25 = v0.v.case3.v6;
-            write_135();
+            write_125();
             const char * v26;
             v26 = "(";
             write_0(v26);
-            write_121(v19, v20, v21, v22, v23, v24, v25);
+            write_111(v19, v20, v21, v22, v23, v24, v25);
             const char * v27;
             v27 = ")";
             return write_0(v27);
@@ -11556,11 +11641,11 @@ __device__ void write_119(US8 v0){
         }
         case 4: { // G_Round
             long v28 = v0.v.case4.v0; bool v29 = v0.v.case4.v1; static_array<static_array<Tuple0,2l>,2l> v30 = v0.v.case4.v2; long v31 = v0.v.case4.v3; static_array<long,2l> v32 = v0.v.case4.v4; static_array<long,2l> v33 = v0.v.case4.v5; US9 v34 = v0.v.case4.v6;
-            write_136();
+            write_126();
             const char * v35;
             v35 = "(";
             write_0(v35);
-            write_121(v28, v29, v30, v31, v32, v33, v34);
+            write_111(v28, v29, v30, v31, v32, v33, v34);
             const char * v36;
             v36 = ")";
             return write_0(v36);
@@ -11568,11 +11653,11 @@ __device__ void write_119(US8 v0){
         }
         case 5: { // G_Round'
             long v37 = v0.v.case5.v0; bool v38 = v0.v.case5.v1; static_array<static_array<Tuple0,2l>,2l> v39 = v0.v.case5.v2; long v40 = v0.v.case5.v3; static_array<long,2l> v41 = v0.v.case5.v4; static_array<long,2l> v42 = v0.v.case5.v5; US9 v43 = v0.v.case5.v6; US1 v44 = v0.v.case5.v7;
-            write_137();
+            write_127();
             const char * v45;
             v45 = "(";
             write_0(v45);
-            write_138(v37, v38, v39, v40, v41, v42, v43, v44);
+            write_128(v37, v38, v39, v40, v41, v42, v43, v44);
             const char * v46;
             v46 = ")";
             return write_0(v46);
@@ -11580,11 +11665,11 @@ __device__ void write_119(US8 v0){
         }
         case 6: { // G_Showdown
             long v47 = v0.v.case6.v0; bool v48 = v0.v.case6.v1; static_array<static_array<Tuple0,2l>,2l> v49 = v0.v.case6.v2; long v50 = v0.v.case6.v3; static_array<long,2l> v51 = v0.v.case6.v4; static_array<long,2l> v52 = v0.v.case6.v5; US9 v53 = v0.v.case6.v6;
-            write_139();
+            write_129();
             const char * v54;
             v54 = "(";
             write_0(v54);
-            write_121(v47, v48, v49, v50, v51, v52, v53);
+            write_111(v47, v48, v49, v50, v51, v52, v53);
             const char * v55;
             v55 = ")";
             return write_0(v55);
@@ -11592,11 +11677,11 @@ __device__ void write_119(US8 v0){
         }
         case 7: { // G_Turn
             long v56 = v0.v.case7.v0; bool v57 = v0.v.case7.v1; static_array<static_array<Tuple0,2l>,2l> v58 = v0.v.case7.v2; long v59 = v0.v.case7.v3; static_array<long,2l> v60 = v0.v.case7.v4; static_array<long,2l> v61 = v0.v.case7.v5; US9 v62 = v0.v.case7.v6;
-            write_140();
+            write_130();
             const char * v63;
             v63 = "(";
             write_0(v63);
-            write_121(v56, v57, v58, v59, v60, v61, v62);
+            write_111(v56, v57, v58, v59, v60, v61, v62);
             const char * v64;
             v64 = ")";
             return write_0(v64);
@@ -11607,19 +11692,19 @@ __device__ void write_119(US8 v0){
         }
     }
 }
-__device__ void write_116(US7 v0){
+__device__ void write_106(US7 v0){
     switch (v0.tag) {
         case 0: { // None
-            return write_117();
+            return write_107();
             break;
         }
         case 1: { // Some
             US8 v1 = v0.v.case1.v0;
-            write_118();
+            write_108();
             const char * v2;
             v2 = "(";
             write_0(v2);
-            write_119(v1);
+            write_109(v1);
             const char * v3;
             v3 = ")";
             return write_0(v3);
@@ -11630,24 +11715,24 @@ __device__ void write_116(US7 v0){
         }
     }
 }
-__device__ void write_143(){
+__device__ void write_133(){
     const char * v0;
     v0 = "Computer";
     return write_0(v0);
 }
-__device__ void write_144(){
+__device__ void write_134(){
     const char * v0;
     v0 = "Human";
     return write_0(v0);
 }
-__device__ void write_142(US2 v0){
+__device__ void write_132(US2 v0){
     switch (v0.tag) {
         case 0: { // Computer
-            return write_143();
+            return write_133();
             break;
         }
         case 1: { // Human
-            return write_144();
+            return write_134();
             break;
         }
         default: {
@@ -11655,7 +11740,7 @@ __device__ void write_142(US2 v0){
         }
     }
 }
-__device__ void write_141(static_array<US2,2l> v0){
+__device__ void write_131(static_array<US2,2l> v0){
     const char * v1;
     v1 = "[";
     write_0(v1);
@@ -11680,7 +11765,7 @@ __device__ void write_141(static_array<US2,2l> v0){
         }
         US2 v8;
         v8 = v0.v[v2];
-        write_142(v8);
+        write_132(v8);
         long v9;
         v9 = v2 + 1l;
         bool v10;
@@ -11697,34 +11782,34 @@ __device__ void write_141(static_array<US2,2l> v0){
     v12 = "]";
     return write_0(v12);
 }
-__device__ void write_146(){
+__device__ void write_136(){
     const char * v0;
     v0 = "GameNotStarted";
     return write_0(v0);
 }
-__device__ void write_147(){
+__device__ void write_137(){
     const char * v0;
     v0 = "GameOver";
     return write_0(v0);
 }
-__device__ void write_148(){
+__device__ void write_138(){
     const char * v0;
     v0 = "WaitingForActionFromPlayerId";
     return write_0(v0);
 }
-__device__ void write_145(US10 v0){
+__device__ void write_135(US10 v0){
     switch (v0.tag) {
         case 0: { // GameNotStarted
-            return write_146();
+            return write_136();
             break;
         }
         case 1: { // GameOver
             long v1 = v0.v.case1.v0; bool v2 = v0.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v3 = v0.v.case1.v2; long v4 = v0.v.case1.v3; static_array<long,2l> v5 = v0.v.case1.v4; static_array<long,2l> v6 = v0.v.case1.v5; US9 v7 = v0.v.case1.v6;
-            write_147();
+            write_137();
             const char * v8;
             v8 = "(";
             write_0(v8);
-            write_121(v1, v2, v3, v4, v5, v6, v7);
+            write_111(v1, v2, v3, v4, v5, v6, v7);
             const char * v9;
             v9 = ")";
             return write_0(v9);
@@ -11732,11 +11817,11 @@ __device__ void write_145(US10 v0){
         }
         case 2: { // WaitingForActionFromPlayerId
             long v10 = v0.v.case2.v0; bool v11 = v0.v.case2.v1; static_array<static_array<Tuple0,2l>,2l> v12 = v0.v.case2.v2; long v13 = v0.v.case2.v3; static_array<long,2l> v14 = v0.v.case2.v4; static_array<long,2l> v15 = v0.v.case2.v5; US9 v16 = v0.v.case2.v6;
-            write_148();
+            write_138();
             const char * v17;
             v17 = "(";
             write_0(v17);
-            write_121(v10, v11, v12, v13, v14, v15, v16);
+            write_111(v10, v11, v12, v13, v14, v15, v16);
             const char * v18;
             v18 = ")";
             return write_0(v18);
@@ -11747,18 +11832,18 @@ __device__ void write_145(US10 v0){
         }
     }
 }
-__device__ void write_115(US7 v0, static_array<US2,2l> v1, US10 v2){
+__device__ void write_105(US7 v0, static_array<US2,2l> v1, US10 v2){
     char v3;
     v3 = '{';
-    write_60(v3);
-    write_61();
+    write_50(v3);
+    write_51();
     const char * v4;
     v4 = "game";
     write_0(v4);
     const char * v5;
     v5 = " = ";
     write_0(v5);
-    write_116(v0);
+    write_106(v0);
     const char * v6;
     v6 = "; ";
     write_0(v6);
@@ -11766,29 +11851,29 @@ __device__ void write_115(US7 v0, static_array<US2,2l> v1, US10 v2){
     v7 = "pl_type";
     write_0(v7);
     write_0(v5);
-    write_141(v1);
+    write_131(v1);
     write_0(v6);
     const char * v8;
     v8 = "ui_game_state";
     write_0(v8);
     write_0(v5);
-    write_145(v2);
+    write_135(v2);
     char v9;
     v9 = '}';
-    return write_60(v9);
+    return write_50(v9);
 }
-__device__ void write_59(unsigned long long v0, static_array_list<US3,128l,long> v1, US7 v2, static_array<US2,2l> v3, US10 v4){
+__device__ void write_49(unsigned long long v0, static_array_list<US3,128l,long> v1, US7 v2, static_array<US2,2l> v3, US10 v4){
     char v5;
     v5 = '{';
-    write_60(v5);
-    write_61();
+    write_50(v5);
+    write_51();
     const char * v6;
     v6 = "large";
     write_0(v6);
     const char * v7;
     v7 = " = ";
     write_0(v7);
-    write_62(v0, v1);
+    write_52(v0, v1);
     const char * v8;
     v8 = "; ";
     write_0(v8);
@@ -11796,95 +11881,95 @@ __device__ void write_59(unsigned long long v0, static_array_list<US3,128l,long>
     v9 = "small";
     write_0(v9);
     write_0(v7);
-    write_115(v2, v3, v4);
+    write_105(v2, v3, v4);
     char v10;
     v10 = '}';
-    return write_60(v10);
+    return write_50(v10);
 }
-__device__ void f_150(unsigned char * v0, unsigned long long v1){
+__device__ void f_140(unsigned char * v0, unsigned long long v1){
     unsigned long long * v2;
     v2 = (unsigned long long *)(v0+0ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_151(unsigned char * v0, long v1){
+__device__ void f_141(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+8ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_154(unsigned char * v0, long v1){
+__device__ void f_143(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+0ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_158(unsigned char * v0){
+__device__ void f_146(unsigned char * v0){
     return ;
 }
-__device__ void f_159(unsigned char * v0, long v1){
+__device__ void f_147(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+4ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_157(unsigned char * v0, US4 v1, US5 v2){
+__device__ void f_145(unsigned char * v0, US4 v1, US5 v2){
     long v3;
     v3 = v1.tag;
-    f_154(v0, v3);
+    f_143(v0, v3);
     unsigned char * v4;
     v4 = (unsigned char *)(v0+4ull);
     switch (v1.tag) {
         case 0: { // Ace
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 1: { // Eight
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 2: { // Five
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 3: { // Four
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 4: { // Jack
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 5: { // King
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 6: { // Nine
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 7: { // Queen
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 8: { // Seven
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 9: { // Six
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 10: { // Ten
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 11: { // Three
-            f_158(v4);
+            f_146(v4);
             break;
         }
         case 12: { // Two
-            f_158(v4);
+            f_146(v4);
             break;
         }
         default: {
@@ -11893,24 +11978,24 @@ __device__ void f_157(unsigned char * v0, US4 v1, US5 v2){
     }
     long v5;
     v5 = v2.tag;
-    f_159(v0, v5);
+    f_147(v0, v5);
     unsigned char * v6;
     v6 = (unsigned char *)(v0+8ull);
     switch (v2.tag) {
         case 0: { // Clubs
-            return f_158(v6);
+            return f_146(v6);
             break;
         }
         case 1: { // Diamonds
-            return f_158(v6);
+            return f_146(v6);
             break;
         }
         case 2: { // Hearts
-            return f_158(v6);
+            return f_146(v6);
             break;
         }
         case 3: { // Spades
-            return f_158(v6);
+            return f_146(v6);
             break;
         }
         default: {
@@ -11918,7 +12003,10 @@ __device__ void f_157(unsigned char * v0, US4 v1, US5 v2){
         }
     }
 }
-__device__ void method_156(unsigned char * v0, static_array_list<Tuple0,5l,long> v1, unsigned long long v2){
+__device__ void f_144(unsigned char * v0, static_array_list<Tuple0,5l,long> v1){
+    long v2;
+    v2 = v1.length;
+    f_143(v0, v2);
     long v3;
     v3 = v1.length;
     long v4;
@@ -11929,7 +12017,7 @@ __device__ void method_156(unsigned char * v0, static_array_list<Tuple0,5l,long>
         unsigned long long v7;
         v7 = v6 * 8ull;
         unsigned long long v8;
-        v8 = v2 + v7;
+        v8 = 8ull + v7;
         unsigned char * v9;
         v9 = (unsigned char *)(v0+v8);
         bool v10;
@@ -11951,22 +12039,14 @@ __device__ void method_156(unsigned char * v0, static_array_list<Tuple0,5l,long>
         } else {
         }
         US4 v15; US5 v16;
-        Tuple0 tmp93 = v1.v[v4];
-        v15 = tmp93.v0; v16 = tmp93.v1;
-        f_157(v9, v15, v16);
+        Tuple0 tmp94 = v1.v[v4];
+        v15 = tmp94.v0; v16 = tmp94.v1;
+        f_145(v9, v15, v16);
         v4 += 1l ;
     }
     return ;
 }
-__device__ void f_155(unsigned char * v0, static_array_list<Tuple0,5l,long> v1){
-    long v2;
-    v2 = v1.length;
-    f_154(v0, v2);
-    unsigned long long v3;
-    v3 = 8ull;
-    return method_156(v0, v1, v3);
-}
-__device__ void f_160(unsigned char * v0, long v1, long v2){
+__device__ void f_148(unsigned char * v0, long v1, long v2){
     long * v3;
     v3 = (long *)(v0+0ull);
     v3[0l] = v1;
@@ -11975,27 +12055,27 @@ __device__ void f_160(unsigned char * v0, long v1, long v2){
     v4[0l] = v2;
     return ;
 }
-__device__ void f_161(unsigned char * v0, long v1, US1 v2){
+__device__ void f_149(unsigned char * v0, long v1, US1 v2){
     long * v3;
     v3 = (long *)(v0+0ull);
     v3[0l] = v1;
     long v4;
     v4 = v2.tag;
-    f_159(v0, v4);
+    f_147(v0, v4);
     unsigned char * v5;
     v5 = (unsigned char *)(v0+8ull);
     switch (v2.tag) {
         case 0: { // A_Call
-            return f_158(v5);
+            return f_146(v5);
             break;
         }
         case 1: { // A_Fold
-            return f_158(v5);
+            return f_146(v5);
             break;
         }
         case 2: { // A_Raise
             long v6 = v2.v.case2.v0;
-            return f_154(v5, v6);
+            return f_143(v5, v6);
             break;
         }
         default: {
@@ -12003,141 +12083,129 @@ __device__ void f_161(unsigned char * v0, long v1, US1 v2){
         }
     }
 }
-__device__ void method_163(unsigned char * v0, static_array<Tuple0,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 2l;
-            v11 = v10;
-        } else {
-            v11 = false;
-        }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
-        } else {
-        }
-        US4 v13; US5 v14;
-        Tuple0 tmp94 = v1.v[v3];
-        v13 = tmp94.v0; v14 = tmp94.v1;
-        f_157(v8, v13, v14);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ void f_162(unsigned char * v0, long v1, static_array<Tuple0,2l> v2){
+__device__ void f_150(unsigned char * v0, long v1, static_array<Tuple0,2l> v2){
     long * v3;
     v3 = (long *)(v0+0ull);
     v3[0l] = v1;
-    unsigned long long v4;
-    v4 = 8ull;
-    return method_163(v0, v2, v4);
-}
-__device__ void method_168(unsigned char * v0, static_array<Tuple0,5l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_2(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
+    long v4;
+    v4 = 0l;
+    while (while_method_0(v4)){
         unsigned long long v6;
-        v6 = v5 * 8ull;
+        v6 = (unsigned long long)v4;
         unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 5l;
-            v11 = v10;
-        } else {
-            v11 = false;
-        }
+        v7 = v6 * 8ull;
+        unsigned long long v8;
+        v8 = 8ull + v7;
+        unsigned char * v9;
+        v9 = (unsigned char *)(v0+v8);
+        bool v10;
+        v10 = 0l <= v4;
         bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
+        if (v10){
+            bool v11;
+            v11 = v4 < 2l;
+            v12 = v11;
+        } else {
+            v12 = false;
+        }
+        bool v13;
+        v13 = v12 == false;
+        if (v13){
+            assert("The read index needs to be in range for the static array." && v12);
         } else {
         }
-        US4 v13; US5 v14;
-        Tuple0 tmp95 = v1.v[v3];
-        v13 = tmp95.v0; v14 = tmp95.v1;
-        f_157(v8, v13, v14);
-        v3 += 1l ;
+        US4 v14; US5 v15;
+        Tuple0 tmp95 = v2.v[v4];
+        v14 = tmp95.v0; v15 = tmp95.v1;
+        f_145(v9, v14, v15);
+        v4 += 1l ;
     }
     return ;
 }
-__device__ void f_167(unsigned char * v0, static_array<Tuple0,5l> v1){
-    unsigned long long v2;
-    v2 = 0ull;
-    return method_168(v0, v1, v2);
+__device__ void f_153(unsigned char * v0, static_array<Tuple0,5l> v1){
+    long v2;
+    v2 = 0l;
+    while (while_method_2(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
+        unsigned long long v5;
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        bool v7;
+        v7 = 0l <= v2;
+        bool v9;
+        if (v7){
+            bool v8;
+            v8 = v2 < 5l;
+            v9 = v8;
+        } else {
+            v9 = false;
+        }
+        bool v10;
+        v10 = v9 == false;
+        if (v10){
+            assert("The read index needs to be in range for the static array." && v9);
+        } else {
+        }
+        US4 v11; US5 v12;
+        Tuple0 tmp96 = v1.v[v2];
+        v11 = tmp96.v0; v12 = tmp96.v1;
+        f_145(v6, v11, v12);
+        v2 += 1l ;
+    }
+    return ;
 }
-__device__ void f_166(unsigned char * v0, US6 v1){
+__device__ void f_152(unsigned char * v0, US6 v1){
     long v2;
     v2 = v1.tag;
-    f_154(v0, v2);
+    f_143(v0, v2);
     unsigned char * v3;
     v3 = (unsigned char *)(v0+16ull);
     switch (v1.tag) {
         case 0: { // Flush
             static_array<Tuple0,5l> v4 = v1.v.case0.v0;
-            return f_167(v3, v4);
+            return f_153(v3, v4);
             break;
         }
         case 1: { // Full_House
             static_array<Tuple0,5l> v5 = v1.v.case1.v0;
-            return f_167(v3, v5);
+            return f_153(v3, v5);
             break;
         }
         case 2: { // High_Card
             static_array<Tuple0,5l> v6 = v1.v.case2.v0;
-            return f_167(v3, v6);
+            return f_153(v3, v6);
             break;
         }
         case 3: { // Pair
             static_array<Tuple0,5l> v7 = v1.v.case3.v0;
-            return f_167(v3, v7);
+            return f_153(v3, v7);
             break;
         }
         case 4: { // Quads
             static_array<Tuple0,5l> v8 = v1.v.case4.v0;
-            return f_167(v3, v8);
+            return f_153(v3, v8);
             break;
         }
         case 5: { // Straight
             static_array<Tuple0,5l> v9 = v1.v.case5.v0;
-            return f_167(v3, v9);
+            return f_153(v3, v9);
             break;
         }
         case 6: { // Straight_Flush
             static_array<Tuple0,5l> v10 = v1.v.case6.v0;
-            return f_167(v3, v10);
+            return f_153(v3, v10);
             break;
         }
         case 7: { // Triple
             static_array<Tuple0,5l> v11 = v1.v.case7.v0;
-            return f_167(v3, v11);
+            return f_153(v3, v11);
             break;
         }
         case 8: { // Two_Pair
             static_array<Tuple0,5l> v12 = v1.v.case8.v0;
-            return f_167(v3, v12);
+            return f_153(v3, v12);
             break;
         }
         default: {
@@ -12145,112 +12213,27 @@ __device__ void f_166(unsigned char * v0, US6 v1){
         }
     }
 }
-__device__ void method_165(unsigned char * v0, static_array<US6,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 64ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 2l;
-            v11 = v10;
-        } else {
-            v11 = false;
-        }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
-        } else {
-        }
-        US6 v13;
-        v13 = v1.v[v3];
-        f_166(v8, v13);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ void f_164(unsigned char * v0, long v1, static_array<US6,2l> v2, long v3){
+__device__ void f_151(unsigned char * v0, long v1, static_array<US6,2l> v2, long v3){
     long * v4;
     v4 = (long *)(v0+0ull);
     v4[0l] = v1;
-    unsigned long long v5;
-    v5 = 16ull;
-    method_165(v0, v2, v5);
-    long * v6;
-    v6 = (long *)(v0+144ull);
-    v6[0l] = v3;
-    return ;
-}
-__device__ void f_153(unsigned char * v0, US3 v1){
-    long v2;
-    v2 = v1.tag;
-    f_154(v0, v2);
-    unsigned char * v3;
-    v3 = (unsigned char *)(v0+16ull);
-    switch (v1.tag) {
-        case 0: { // CommunityCardsAre
-            static_array_list<Tuple0,5l,long> v4 = v1.v.case0.v0;
-            return f_155(v3, v4);
-            break;
-        }
-        case 1: { // Fold
-            long v5 = v1.v.case1.v0; long v6 = v1.v.case1.v1;
-            return f_160(v3, v5, v6);
-            break;
-        }
-        case 2: { // PlayerAction
-            long v7 = v1.v.case2.v0; US1 v8 = v1.v.case2.v1;
-            return f_161(v3, v7, v8);
-            break;
-        }
-        case 3: { // PlayerGotCards
-            long v9 = v1.v.case3.v0; static_array<Tuple0,2l> v10 = v1.v.case3.v1;
-            return f_162(v3, v9, v10);
-            break;
-        }
-        case 4: { // Showdown
-            long v11 = v1.v.case4.v0; static_array<US6,2l> v12 = v1.v.case4.v1; long v13 = v1.v.case4.v2;
-            return f_164(v3, v11, v12, v13);
-            break;
-        }
-        default: {
-            assert("Invalid tag." && false);
-        }
-    }
-}
-__device__ void method_152(unsigned char * v0, static_array_list<US3,128l,long> v1, unsigned long long v2){
-    long v3;
-    v3 = v1.length;
-    long v4;
-    v4 = 0l;
-    while (while_method_1(v3, v4)){
-        unsigned long long v6;
-        v6 = (unsigned long long)v4;
+    long v5;
+    v5 = 0l;
+    while (while_method_0(v5)){
         unsigned long long v7;
-        v7 = v6 * 176ull;
+        v7 = (unsigned long long)v5;
         unsigned long long v8;
-        v8 = v2 + v7;
-        unsigned char * v9;
-        v9 = (unsigned char *)(v0+v8);
-        bool v10;
-        v10 = 0l <= v4;
+        v8 = v7 * 64ull;
+        unsigned long long v9;
+        v9 = 16ull + v8;
+        unsigned char * v10;
+        v10 = (unsigned char *)(v0+v9);
+        bool v11;
+        v11 = 0l <= v5;
         bool v13;
-        if (v10){
-            long v11;
-            v11 = v1.length;
+        if (v11){
             bool v12;
-            v12 = v4 < v11;
+            v12 = v5 < 2l;
             v13 = v12;
         } else {
             v13 = false;
@@ -12258,227 +12241,299 @@ __device__ void method_152(unsigned char * v0, static_array_list<US3,128l,long> 
         bool v14;
         v14 = v13 == false;
         if (v14){
-            assert("The read index needs to be in range for the static array list." && v13);
+            assert("The read index needs to be in range for the static array." && v13);
         } else {
         }
-        US3 v15;
-        v15 = v1.v[v4];
-        f_153(v9, v15);
-        v4 += 1l ;
+        US6 v15;
+        v15 = v2.v[v5];
+        f_152(v10, v15);
+        v5 += 1l ;
     }
+    long * v16;
+    v16 = (long *)(v0+144ull);
+    v16[0l] = v3;
     return ;
 }
-__device__ void f_169(unsigned char * v0, long v1){
+__device__ void f_142(unsigned char * v0, US3 v1){
+    long v2;
+    v2 = v1.tag;
+    f_143(v0, v2);
+    unsigned char * v3;
+    v3 = (unsigned char *)(v0+16ull);
+    switch (v1.tag) {
+        case 0: { // CommunityCardsAre
+            static_array_list<Tuple0,5l,long> v4 = v1.v.case0.v0;
+            return f_144(v3, v4);
+            break;
+        }
+        case 1: { // Fold
+            long v5 = v1.v.case1.v0; long v6 = v1.v.case1.v1;
+            return f_148(v3, v5, v6);
+            break;
+        }
+        case 2: { // PlayerAction
+            long v7 = v1.v.case2.v0; US1 v8 = v1.v.case2.v1;
+            return f_149(v3, v7, v8);
+            break;
+        }
+        case 3: { // PlayerGotCards
+            long v9 = v1.v.case3.v0; static_array<Tuple0,2l> v10 = v1.v.case3.v1;
+            return f_150(v3, v9, v10);
+            break;
+        }
+        case 4: { // Showdown
+            long v11 = v1.v.case4.v0; static_array<US6,2l> v12 = v1.v.case4.v1; long v13 = v1.v.case4.v2;
+            return f_151(v3, v11, v12, v13);
+            break;
+        }
+        default: {
+            assert("Invalid tag." && false);
+        }
+    }
+}
+__device__ void f_154(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+22544ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_173(unsigned char * v0, static_array<Tuple0,2l> v1){
-    unsigned long long v2;
-    v2 = 0ull;
-    return method_163(v0, v1, v2);
-}
-__device__ void method_172(unsigned char * v0, static_array<static_array<Tuple0,2l>,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
+__device__ void f_157(unsigned char * v0, static_array<Tuple0,2l> v1){
+    long v2;
+    v2 = 0l;
+    while (while_method_0(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
         unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 16ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        bool v7;
+        v7 = 0l <= v2;
         bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 2l;
-            v11 = v10;
+        if (v7){
+            bool v8;
+            v8 = v2 < 2l;
+            v9 = v8;
         } else {
-            v11 = false;
+            v9 = false;
         }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
+        bool v10;
+        v10 = v9 == false;
+        if (v10){
+            assert("The read index needs to be in range for the static array." && v9);
         } else {
         }
-        static_array<Tuple0,2l> v13;
-        v13 = v1.v[v3];
-        f_173(v8, v13);
-        v3 += 1l ;
+        US4 v11; US5 v12;
+        Tuple0 tmp97 = v1.v[v2];
+        v11 = tmp97.v0; v12 = tmp97.v1;
+        f_145(v6, v11, v12);
+        v2 += 1l ;
     }
     return ;
 }
-__device__ void method_174(unsigned char * v0, static_array<long,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 4ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 2l;
-            v11 = v10;
-        } else {
-            v11 = false;
-        }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
-        } else {
-        }
-        long v13;
-        v13 = v1.v[v3];
-        f_154(v8, v13);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ void f_175(unsigned char * v0, long v1){
+__device__ void f_158(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+68ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void method_177(unsigned char * v0, static_array<Tuple0,3l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_3(v3)){
+__device__ void f_159(unsigned char * v0, static_array<Tuple0,3l> v1){
+    long v2;
+    v2 = 0l;
+    while (while_method_3(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
         unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        bool v7;
+        v7 = 0l <= v2;
         bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 3l;
-            v11 = v10;
+        if (v7){
+            bool v8;
+            v8 = v2 < 3l;
+            v9 = v8;
         } else {
-            v11 = false;
+            v9 = false;
         }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
+        bool v10;
+        v10 = v9 == false;
+        if (v10){
+            assert("The read index needs to be in range for the static array." && v9);
         } else {
         }
-        US4 v13; US5 v14;
-        Tuple0 tmp96 = v1.v[v3];
-        v13 = tmp96.v0; v14 = tmp96.v1;
-        f_157(v8, v13, v14);
-        v3 += 1l ;
+        US4 v11; US5 v12;
+        Tuple0 tmp98 = v1.v[v2];
+        v11 = tmp98.v0; v12 = tmp98.v1;
+        f_145(v6, v11, v12);
+        v2 += 1l ;
     }
     return ;
 }
-__device__ void f_176(unsigned char * v0, static_array<Tuple0,3l> v1){
-    unsigned long long v2;
-    v2 = 0ull;
-    return method_177(v0, v1, v2);
-}
-__device__ void method_179(unsigned char * v0, static_array<Tuple0,4l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_4(v3)){
+__device__ void f_160(unsigned char * v0, static_array<Tuple0,4l> v1){
+    long v2;
+    v2 = 0l;
+    while (while_method_4(v2)){
+        unsigned long long v4;
+        v4 = (unsigned long long)v2;
         unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 8ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
+        v5 = v4 * 8ull;
+        unsigned char * v6;
+        v6 = (unsigned char *)(v0+v5);
+        bool v7;
+        v7 = 0l <= v2;
         bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 4l;
-            v11 = v10;
+        if (v7){
+            bool v8;
+            v8 = v2 < 4l;
+            v9 = v8;
         } else {
-            v11 = false;
+            v9 = false;
         }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
+        bool v10;
+        v10 = v9 == false;
+        if (v10){
+            assert("The read index needs to be in range for the static array." && v9);
         } else {
         }
-        US4 v13; US5 v14;
-        Tuple0 tmp97 = v1.v[v3];
-        v13 = tmp97.v0; v14 = tmp97.v1;
-        f_157(v8, v13, v14);
-        v3 += 1l ;
+        US4 v11; US5 v12;
+        Tuple0 tmp99 = v1.v[v2];
+        v11 = tmp99.v0; v12 = tmp99.v1;
+        f_145(v6, v11, v12);
+        v2 += 1l ;
     }
     return ;
 }
-__device__ void f_178(unsigned char * v0, static_array<Tuple0,4l> v1){
-    unsigned long long v2;
-    v2 = 0ull;
-    return method_179(v0, v1, v2);
-}
-__device__ void f_171(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7){
+__device__ void f_156(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7){
     long * v8;
     v8 = (long *)(v0+0ull);
     v8[0l] = v1;
     bool * v9;
     v9 = (bool *)(v0+4ull);
     v9[0l] = v2;
-    unsigned long long v10;
-    v10 = 16ull;
-    method_172(v0, v3, v10);
-    long * v11;
-    v11 = (long *)(v0+48ull);
-    v11[0l] = v4;
-    unsigned long long v12;
-    v12 = 52ull;
-    method_174(v0, v5, v12);
-    unsigned long long v13;
-    v13 = 60ull;
-    method_174(v0, v6, v13);
-    long v14;
-    v14 = v7.tag;
-    f_175(v0, v14);
-    unsigned char * v15;
-    v15 = (unsigned char *)(v0+80ull);
+    long v10;
+    v10 = 0l;
+    while (while_method_0(v10)){
+        unsigned long long v12;
+        v12 = (unsigned long long)v10;
+        unsigned long long v13;
+        v13 = v12 * 16ull;
+        unsigned long long v14;
+        v14 = 16ull + v13;
+        unsigned char * v15;
+        v15 = (unsigned char *)(v0+v14);
+        bool v16;
+        v16 = 0l <= v10;
+        bool v18;
+        if (v16){
+            bool v17;
+            v17 = v10 < 2l;
+            v18 = v17;
+        } else {
+            v18 = false;
+        }
+        bool v19;
+        v19 = v18 == false;
+        if (v19){
+            assert("The read index needs to be in range for the static array." && v18);
+        } else {
+        }
+        static_array<Tuple0,2l> v20;
+        v20 = v3.v[v10];
+        f_157(v15, v20);
+        v10 += 1l ;
+    }
+    long * v21;
+    v21 = (long *)(v0+48ull);
+    v21[0l] = v4;
+    long v22;
+    v22 = 0l;
+    while (while_method_0(v22)){
+        unsigned long long v24;
+        v24 = (unsigned long long)v22;
+        unsigned long long v25;
+        v25 = v24 * 4ull;
+        unsigned long long v26;
+        v26 = 52ull + v25;
+        unsigned char * v27;
+        v27 = (unsigned char *)(v0+v26);
+        bool v28;
+        v28 = 0l <= v22;
+        bool v30;
+        if (v28){
+            bool v29;
+            v29 = v22 < 2l;
+            v30 = v29;
+        } else {
+            v30 = false;
+        }
+        bool v31;
+        v31 = v30 == false;
+        if (v31){
+            assert("The read index needs to be in range for the static array." && v30);
+        } else {
+        }
+        long v32;
+        v32 = v5.v[v22];
+        f_143(v27, v32);
+        v22 += 1l ;
+    }
+    long v33;
+    v33 = 0l;
+    while (while_method_0(v33)){
+        unsigned long long v35;
+        v35 = (unsigned long long)v33;
+        unsigned long long v36;
+        v36 = v35 * 4ull;
+        unsigned long long v37;
+        v37 = 60ull + v36;
+        unsigned char * v38;
+        v38 = (unsigned char *)(v0+v37);
+        bool v39;
+        v39 = 0l <= v33;
+        bool v41;
+        if (v39){
+            bool v40;
+            v40 = v33 < 2l;
+            v41 = v40;
+        } else {
+            v41 = false;
+        }
+        bool v42;
+        v42 = v41 == false;
+        if (v42){
+            assert("The read index needs to be in range for the static array." && v41);
+        } else {
+        }
+        long v43;
+        v43 = v6.v[v33];
+        f_143(v38, v43);
+        v33 += 1l ;
+    }
+    long v44;
+    v44 = v7.tag;
+    f_158(v0, v44);
+    unsigned char * v45;
+    v45 = (unsigned char *)(v0+80ull);
     switch (v7.tag) {
         case 0: { // Flop
-            static_array<Tuple0,3l> v16 = v7.v.case0.v0;
-            return f_176(v15, v16);
+            static_array<Tuple0,3l> v46 = v7.v.case0.v0;
+            return f_159(v45, v46);
             break;
         }
         case 1: { // Preflop
-            return f_158(v15);
+            return f_146(v45);
             break;
         }
         case 2: { // River
-            static_array<Tuple0,5l> v17 = v7.v.case2.v0;
-            return f_167(v15, v17);
+            static_array<Tuple0,5l> v47 = v7.v.case2.v0;
+            return f_153(v45, v47);
             break;
         }
         case 3: { // Turn
-            static_array<Tuple0,4l> v18 = v7.v.case3.v0;
-            return f_178(v15, v18);
+            static_array<Tuple0,4l> v48 = v7.v.case3.v0;
+            return f_160(v45, v48);
             break;
         }
         default: {
@@ -12486,77 +12541,164 @@ __device__ void f_171(unsigned char * v0, long v1, bool v2, static_array<static_
         }
     }
 }
-__device__ void f_181(unsigned char * v0, long v1){
+__device__ void f_162(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+128ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_180(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7, US1 v8){
+__device__ void f_161(unsigned char * v0, long v1, bool v2, static_array<static_array<Tuple0,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US9 v7, US1 v8){
     long * v9;
     v9 = (long *)(v0+0ull);
     v9[0l] = v1;
     bool * v10;
     v10 = (bool *)(v0+4ull);
     v10[0l] = v2;
-    unsigned long long v11;
-    v11 = 16ull;
-    method_172(v0, v3, v11);
-    long * v12;
-    v12 = (long *)(v0+48ull);
-    v12[0l] = v4;
-    unsigned long long v13;
-    v13 = 52ull;
-    method_174(v0, v5, v13);
-    unsigned long long v14;
-    v14 = 60ull;
-    method_174(v0, v6, v14);
-    long v15;
-    v15 = v7.tag;
-    f_175(v0, v15);
-    unsigned char * v16;
-    v16 = (unsigned char *)(v0+80ull);
+    long v11;
+    v11 = 0l;
+    while (while_method_0(v11)){
+        unsigned long long v13;
+        v13 = (unsigned long long)v11;
+        unsigned long long v14;
+        v14 = v13 * 16ull;
+        unsigned long long v15;
+        v15 = 16ull + v14;
+        unsigned char * v16;
+        v16 = (unsigned char *)(v0+v15);
+        bool v17;
+        v17 = 0l <= v11;
+        bool v19;
+        if (v17){
+            bool v18;
+            v18 = v11 < 2l;
+            v19 = v18;
+        } else {
+            v19 = false;
+        }
+        bool v20;
+        v20 = v19 == false;
+        if (v20){
+            assert("The read index needs to be in range for the static array." && v19);
+        } else {
+        }
+        static_array<Tuple0,2l> v21;
+        v21 = v3.v[v11];
+        f_157(v16, v21);
+        v11 += 1l ;
+    }
+    long * v22;
+    v22 = (long *)(v0+48ull);
+    v22[0l] = v4;
+    long v23;
+    v23 = 0l;
+    while (while_method_0(v23)){
+        unsigned long long v25;
+        v25 = (unsigned long long)v23;
+        unsigned long long v26;
+        v26 = v25 * 4ull;
+        unsigned long long v27;
+        v27 = 52ull + v26;
+        unsigned char * v28;
+        v28 = (unsigned char *)(v0+v27);
+        bool v29;
+        v29 = 0l <= v23;
+        bool v31;
+        if (v29){
+            bool v30;
+            v30 = v23 < 2l;
+            v31 = v30;
+        } else {
+            v31 = false;
+        }
+        bool v32;
+        v32 = v31 == false;
+        if (v32){
+            assert("The read index needs to be in range for the static array." && v31);
+        } else {
+        }
+        long v33;
+        v33 = v5.v[v23];
+        f_143(v28, v33);
+        v23 += 1l ;
+    }
+    long v34;
+    v34 = 0l;
+    while (while_method_0(v34)){
+        unsigned long long v36;
+        v36 = (unsigned long long)v34;
+        unsigned long long v37;
+        v37 = v36 * 4ull;
+        unsigned long long v38;
+        v38 = 60ull + v37;
+        unsigned char * v39;
+        v39 = (unsigned char *)(v0+v38);
+        bool v40;
+        v40 = 0l <= v34;
+        bool v42;
+        if (v40){
+            bool v41;
+            v41 = v34 < 2l;
+            v42 = v41;
+        } else {
+            v42 = false;
+        }
+        bool v43;
+        v43 = v42 == false;
+        if (v43){
+            assert("The read index needs to be in range for the static array." && v42);
+        } else {
+        }
+        long v44;
+        v44 = v6.v[v34];
+        f_143(v39, v44);
+        v34 += 1l ;
+    }
+    long v45;
+    v45 = v7.tag;
+    f_158(v0, v45);
+    unsigned char * v46;
+    v46 = (unsigned char *)(v0+80ull);
     switch (v7.tag) {
         case 0: { // Flop
-            static_array<Tuple0,3l> v17 = v7.v.case0.v0;
-            f_176(v16, v17);
+            static_array<Tuple0,3l> v47 = v7.v.case0.v0;
+            f_159(v46, v47);
             break;
         }
         case 1: { // Preflop
-            f_158(v16);
+            f_146(v46);
             break;
         }
         case 2: { // River
-            static_array<Tuple0,5l> v18 = v7.v.case2.v0;
-            f_167(v16, v18);
+            static_array<Tuple0,5l> v48 = v7.v.case2.v0;
+            f_153(v46, v48);
             break;
         }
         case 3: { // Turn
-            static_array<Tuple0,4l> v19 = v7.v.case3.v0;
-            f_178(v16, v19);
+            static_array<Tuple0,4l> v49 = v7.v.case3.v0;
+            f_160(v46, v49);
             break;
         }
         default: {
             assert("Invalid tag." && false);
         }
     }
-    long v20;
-    v20 = v8.tag;
-    f_181(v0, v20);
-    unsigned char * v21;
-    v21 = (unsigned char *)(v0+132ull);
+    long v50;
+    v50 = v8.tag;
+    f_162(v0, v50);
+    unsigned char * v51;
+    v51 = (unsigned char *)(v0+132ull);
     switch (v8.tag) {
         case 0: { // A_Call
-            return f_158(v21);
+            return f_146(v51);
             break;
         }
         case 1: { // A_Fold
-            return f_158(v21);
+            return f_146(v51);
             break;
         }
         case 2: { // A_Raise
-            long v22 = v8.v.case2.v0;
-            return f_154(v21, v22);
+            long v52 = v8.v.case2.v0;
+            return f_143(v51, v52);
             break;
         }
         default: {
@@ -12564,50 +12706,50 @@ __device__ void f_180(unsigned char * v0, long v1, bool v2, static_array<static_
         }
     }
 }
-__device__ void f_170(unsigned char * v0, US8 v1){
+__device__ void f_155(unsigned char * v0, US8 v1){
     long v2;
     v2 = v1.tag;
-    f_154(v0, v2);
+    f_143(v0, v2);
     unsigned char * v3;
     v3 = (unsigned char *)(v0+16ull);
     switch (v1.tag) {
         case 0: { // G_Flop
             long v4 = v1.v.case0.v0; bool v5 = v1.v.case0.v1; static_array<static_array<Tuple0,2l>,2l> v6 = v1.v.case0.v2; long v7 = v1.v.case0.v3; static_array<long,2l> v8 = v1.v.case0.v4; static_array<long,2l> v9 = v1.v.case0.v5; US9 v10 = v1.v.case0.v6;
-            return f_171(v3, v4, v5, v6, v7, v8, v9, v10);
+            return f_156(v3, v4, v5, v6, v7, v8, v9, v10);
             break;
         }
         case 1: { // G_Fold
             long v11 = v1.v.case1.v0; bool v12 = v1.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v13 = v1.v.case1.v2; long v14 = v1.v.case1.v3; static_array<long,2l> v15 = v1.v.case1.v4; static_array<long,2l> v16 = v1.v.case1.v5; US9 v17 = v1.v.case1.v6;
-            return f_171(v3, v11, v12, v13, v14, v15, v16, v17);
+            return f_156(v3, v11, v12, v13, v14, v15, v16, v17);
             break;
         }
         case 2: { // G_Preflop
-            return f_158(v3);
+            return f_146(v3);
             break;
         }
         case 3: { // G_River
             long v18 = v1.v.case3.v0; bool v19 = v1.v.case3.v1; static_array<static_array<Tuple0,2l>,2l> v20 = v1.v.case3.v2; long v21 = v1.v.case3.v3; static_array<long,2l> v22 = v1.v.case3.v4; static_array<long,2l> v23 = v1.v.case3.v5; US9 v24 = v1.v.case3.v6;
-            return f_171(v3, v18, v19, v20, v21, v22, v23, v24);
+            return f_156(v3, v18, v19, v20, v21, v22, v23, v24);
             break;
         }
         case 4: { // G_Round
             long v25 = v1.v.case4.v0; bool v26 = v1.v.case4.v1; static_array<static_array<Tuple0,2l>,2l> v27 = v1.v.case4.v2; long v28 = v1.v.case4.v3; static_array<long,2l> v29 = v1.v.case4.v4; static_array<long,2l> v30 = v1.v.case4.v5; US9 v31 = v1.v.case4.v6;
-            return f_171(v3, v25, v26, v27, v28, v29, v30, v31);
+            return f_156(v3, v25, v26, v27, v28, v29, v30, v31);
             break;
         }
         case 5: { // G_Round'
             long v32 = v1.v.case5.v0; bool v33 = v1.v.case5.v1; static_array<static_array<Tuple0,2l>,2l> v34 = v1.v.case5.v2; long v35 = v1.v.case5.v3; static_array<long,2l> v36 = v1.v.case5.v4; static_array<long,2l> v37 = v1.v.case5.v5; US9 v38 = v1.v.case5.v6; US1 v39 = v1.v.case5.v7;
-            return f_180(v3, v32, v33, v34, v35, v36, v37, v38, v39);
+            return f_161(v3, v32, v33, v34, v35, v36, v37, v38, v39);
             break;
         }
         case 6: { // G_Showdown
             long v40 = v1.v.case6.v0; bool v41 = v1.v.case6.v1; static_array<static_array<Tuple0,2l>,2l> v42 = v1.v.case6.v2; long v43 = v1.v.case6.v3; static_array<long,2l> v44 = v1.v.case6.v4; static_array<long,2l> v45 = v1.v.case6.v5; US9 v46 = v1.v.case6.v6;
-            return f_171(v3, v40, v41, v42, v43, v44, v45, v46);
+            return f_156(v3, v40, v41, v42, v43, v44, v45, v46);
             break;
         }
         case 7: { // G_Turn
             long v47 = v1.v.case7.v0; bool v48 = v1.v.case7.v1; static_array<static_array<Tuple0,2l>,2l> v49 = v1.v.case7.v2; long v50 = v1.v.case7.v3; static_array<long,2l> v51 = v1.v.case7.v4; static_array<long,2l> v52 = v1.v.case7.v5; US9 v53 = v1.v.case7.v6;
-            return f_171(v3, v47, v48, v49, v50, v51, v52, v53);
+            return f_156(v3, v47, v48, v49, v50, v51, v52, v53);
             break;
         }
         default: {
@@ -12615,19 +12757,19 @@ __device__ void f_170(unsigned char * v0, US8 v1){
         }
     }
 }
-__device__ void f_183(unsigned char * v0, US2 v1){
+__device__ void f_163(unsigned char * v0, US2 v1){
     long v2;
     v2 = v1.tag;
-    f_154(v0, v2);
+    f_143(v0, v2);
     unsigned char * v3;
     v3 = (unsigned char *)(v0+4ull);
     switch (v1.tag) {
         case 0: { // Computer
-            return f_158(v3);
+            return f_146(v3);
             break;
         }
         case 1: { // Human
-            return f_158(v3);
+            return f_146(v3);
             break;
         }
         default: {
@@ -12635,95 +12777,122 @@ __device__ void f_183(unsigned char * v0, US2 v1){
         }
     }
 }
-__device__ void method_182(unsigned char * v0, static_array<US2,2l> v1, unsigned long long v2){
-    long v3;
-    v3 = 0l;
-    while (while_method_0(v3)){
-        unsigned long long v5;
-        v5 = (unsigned long long)v3;
-        unsigned long long v6;
-        v6 = v5 * 4ull;
-        unsigned long long v7;
-        v7 = v2 + v6;
-        unsigned char * v8;
-        v8 = (unsigned char *)(v0+v7);
-        bool v9;
-        v9 = 0l <= v3;
-        bool v11;
-        if (v9){
-            bool v10;
-            v10 = v3 < 2l;
-            v11 = v10;
-        } else {
-            v11 = false;
-        }
-        bool v12;
-        v12 = v11 == false;
-        if (v12){
-            assert("The read index needs to be in range for the static array." && v11);
-        } else {
-        }
-        US2 v13;
-        v13 = v1.v[v3];
-        f_183(v8, v13);
-        v3 += 1l ;
-    }
-    return ;
-}
-__device__ void f_184(unsigned char * v0, long v1){
+__device__ void f_164(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+22728ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_149(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US7 v3, static_array<US2,2l> v4, US10 v5){
-    f_150(v0, v1);
+__device__ void f_139(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US7 v3, static_array<US2,2l> v4, US10 v5){
+    f_140(v0, v1);
     long v6;
     v6 = v2.length;
-    f_151(v0, v6);
-    unsigned long long v7;
-    v7 = 16ull;
-    method_152(v0, v2, v7);
+    f_141(v0, v6);
+    long v7;
+    v7 = v2.length;
     long v8;
-    v8 = v3.tag;
-    f_169(v0, v8);
-    unsigned char * v9;
-    v9 = (unsigned char *)(v0+22560ull);
+    v8 = 0l;
+    while (while_method_1(v7, v8)){
+        unsigned long long v10;
+        v10 = (unsigned long long)v8;
+        unsigned long long v11;
+        v11 = v10 * 176ull;
+        unsigned long long v12;
+        v12 = 16ull + v11;
+        unsigned char * v13;
+        v13 = (unsigned char *)(v0+v12);
+        bool v14;
+        v14 = 0l <= v8;
+        bool v17;
+        if (v14){
+            long v15;
+            v15 = v2.length;
+            bool v16;
+            v16 = v8 < v15;
+            v17 = v16;
+        } else {
+            v17 = false;
+        }
+        bool v18;
+        v18 = v17 == false;
+        if (v18){
+            assert("The read index needs to be in range for the static array list." && v17);
+        } else {
+        }
+        US3 v19;
+        v19 = v2.v[v8];
+        f_142(v13, v19);
+        v8 += 1l ;
+    }
+    long v20;
+    v20 = v3.tag;
+    f_154(v0, v20);
+    unsigned char * v21;
+    v21 = (unsigned char *)(v0+22560ull);
     switch (v3.tag) {
         case 0: { // None
-            f_158(v9);
+            f_146(v21);
             break;
         }
         case 1: { // Some
-            US8 v10 = v3.v.case1.v0;
-            f_170(v9, v10);
+            US8 v22 = v3.v.case1.v0;
+            f_155(v21, v22);
             break;
         }
         default: {
             assert("Invalid tag." && false);
         }
     }
-    unsigned long long v11;
-    v11 = 22720ull;
-    method_182(v0, v4, v11);
-    long v12;
-    v12 = v5.tag;
-    f_184(v0, v12);
-    unsigned char * v13;
-    v13 = (unsigned char *)(v0+22736ull);
+    long v23;
+    v23 = 0l;
+    while (while_method_0(v23)){
+        unsigned long long v25;
+        v25 = (unsigned long long)v23;
+        unsigned long long v26;
+        v26 = v25 * 4ull;
+        unsigned long long v27;
+        v27 = 22720ull + v26;
+        unsigned char * v28;
+        v28 = (unsigned char *)(v0+v27);
+        bool v29;
+        v29 = 0l <= v23;
+        bool v31;
+        if (v29){
+            bool v30;
+            v30 = v23 < 2l;
+            v31 = v30;
+        } else {
+            v31 = false;
+        }
+        bool v32;
+        v32 = v31 == false;
+        if (v32){
+            assert("The read index needs to be in range for the static array." && v31);
+        } else {
+        }
+        US2 v33;
+        v33 = v4.v[v23];
+        f_163(v28, v33);
+        v23 += 1l ;
+    }
+    long v34;
+    v34 = v5.tag;
+    f_164(v0, v34);
+    unsigned char * v35;
+    v35 = (unsigned char *)(v0+22736ull);
     switch (v5.tag) {
         case 0: { // GameNotStarted
-            return f_158(v13);
+            return f_146(v35);
             break;
         }
         case 1: { // GameOver
-            long v14 = v5.v.case1.v0; bool v15 = v5.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v16 = v5.v.case1.v2; long v17 = v5.v.case1.v3; static_array<long,2l> v18 = v5.v.case1.v4; static_array<long,2l> v19 = v5.v.case1.v5; US9 v20 = v5.v.case1.v6;
-            return f_171(v13, v14, v15, v16, v17, v18, v19, v20);
+            long v36 = v5.v.case1.v0; bool v37 = v5.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v38 = v5.v.case1.v2; long v39 = v5.v.case1.v3; static_array<long,2l> v40 = v5.v.case1.v4; static_array<long,2l> v41 = v5.v.case1.v5; US9 v42 = v5.v.case1.v6;
+            return f_156(v35, v36, v37, v38, v39, v40, v41, v42);
             break;
         }
         case 2: { // WaitingForActionFromPlayerId
-            long v21 = v5.v.case2.v0; bool v22 = v5.v.case2.v1; static_array<static_array<Tuple0,2l>,2l> v23 = v5.v.case2.v2; long v24 = v5.v.case2.v3; static_array<long,2l> v25 = v5.v.case2.v4; static_array<long,2l> v26 = v5.v.case2.v5; US9 v27 = v5.v.case2.v6;
-            return f_171(v13, v21, v22, v23, v24, v25, v26, v27);
+            long v43 = v5.v.case2.v0; bool v44 = v5.v.case2.v1; static_array<static_array<Tuple0,2l>,2l> v45 = v5.v.case2.v2; long v46 = v5.v.case2.v3; static_array<long,2l> v47 = v5.v.case2.v4; static_array<long,2l> v48 = v5.v.case2.v5; US9 v49 = v5.v.case2.v6;
+            return f_156(v35, v43, v44, v45, v46, v47, v48, v49);
             break;
         }
         default: {
@@ -12731,40 +12900,102 @@ __device__ void f_149(unsigned char * v0, unsigned long long v1, static_array_li
         }
     }
 }
-__device__ void f_186(unsigned char * v0, long v1){
+__device__ void f_166(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+22552ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_185(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US10 v3){
+__device__ void f_165(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US10 v3){
     long v4;
     v4 = v1.length;
-    f_154(v0, v4);
-    unsigned long long v5;
-    v5 = 16ull;
-    method_152(v0, v1, v5);
-    unsigned long long v6;
-    v6 = 22544ull;
-    method_182(v0, v2, v6);
-    long v7;
-    v7 = v3.tag;
-    f_186(v0, v7);
-    unsigned char * v8;
-    v8 = (unsigned char *)(v0+22560ull);
+    f_143(v0, v4);
+    long v5;
+    v5 = v1.length;
+    long v6;
+    v6 = 0l;
+    while (while_method_1(v5, v6)){
+        unsigned long long v8;
+        v8 = (unsigned long long)v6;
+        unsigned long long v9;
+        v9 = v8 * 176ull;
+        unsigned long long v10;
+        v10 = 16ull + v9;
+        unsigned char * v11;
+        v11 = (unsigned char *)(v0+v10);
+        bool v12;
+        v12 = 0l <= v6;
+        bool v15;
+        if (v12){
+            long v13;
+            v13 = v1.length;
+            bool v14;
+            v14 = v6 < v13;
+            v15 = v14;
+        } else {
+            v15 = false;
+        }
+        bool v16;
+        v16 = v15 == false;
+        if (v16){
+            assert("The read index needs to be in range for the static array list." && v15);
+        } else {
+        }
+        US3 v17;
+        v17 = v1.v[v6];
+        f_142(v11, v17);
+        v6 += 1l ;
+    }
+    long v18;
+    v18 = 0l;
+    while (while_method_0(v18)){
+        unsigned long long v20;
+        v20 = (unsigned long long)v18;
+        unsigned long long v21;
+        v21 = v20 * 4ull;
+        unsigned long long v22;
+        v22 = 22544ull + v21;
+        unsigned char * v23;
+        v23 = (unsigned char *)(v0+v22);
+        bool v24;
+        v24 = 0l <= v18;
+        bool v26;
+        if (v24){
+            bool v25;
+            v25 = v18 < 2l;
+            v26 = v25;
+        } else {
+            v26 = false;
+        }
+        bool v27;
+        v27 = v26 == false;
+        if (v27){
+            assert("The read index needs to be in range for the static array." && v26);
+        } else {
+        }
+        US2 v28;
+        v28 = v2.v[v18];
+        f_163(v23, v28);
+        v18 += 1l ;
+    }
+    long v29;
+    v29 = v3.tag;
+    f_166(v0, v29);
+    unsigned char * v30;
+    v30 = (unsigned char *)(v0+22560ull);
     switch (v3.tag) {
         case 0: { // GameNotStarted
-            return f_158(v8);
+            return f_146(v30);
             break;
         }
         case 1: { // GameOver
-            long v9 = v3.v.case1.v0; bool v10 = v3.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v11 = v3.v.case1.v2; long v12 = v3.v.case1.v3; static_array<long,2l> v13 = v3.v.case1.v4; static_array<long,2l> v14 = v3.v.case1.v5; US9 v15 = v3.v.case1.v6;
-            return f_171(v8, v9, v10, v11, v12, v13, v14, v15);
+            long v31 = v3.v.case1.v0; bool v32 = v3.v.case1.v1; static_array<static_array<Tuple0,2l>,2l> v33 = v3.v.case1.v2; long v34 = v3.v.case1.v3; static_array<long,2l> v35 = v3.v.case1.v4; static_array<long,2l> v36 = v3.v.case1.v5; US9 v37 = v3.v.case1.v6;
+            return f_156(v30, v31, v32, v33, v34, v35, v36, v37);
             break;
         }
         case 2: { // WaitingForActionFromPlayerId
-            long v16 = v3.v.case2.v0; bool v17 = v3.v.case2.v1; static_array<static_array<Tuple0,2l>,2l> v18 = v3.v.case2.v2; long v19 = v3.v.case2.v3; static_array<long,2l> v20 = v3.v.case2.v4; static_array<long,2l> v21 = v3.v.case2.v5; US9 v22 = v3.v.case2.v6;
-            return f_171(v8, v16, v17, v18, v19, v20, v21, v22);
+            long v38 = v3.v.case2.v0; bool v39 = v3.v.case2.v1; static_array<static_array<Tuple0,2l>,2l> v40 = v3.v.case2.v2; long v41 = v3.v.case2.v3; static_array<long,2l> v42 = v3.v.case2.v4; static_array<long,2l> v43 = v3.v.case2.v5; US9 v44 = v3.v.case2.v6;
+            return f_156(v30, v38, v39, v40, v41, v42, v43, v44);
             break;
         }
         default: {
@@ -12791,8 +13022,8 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1, unsign
         US0 v9;
         v9 = f_1(v1);
         unsigned long long v10; static_array_list<US3,128l,long> v11; US7 v12; static_array<US2,2l> v13; US10 v14;
-        Tuple1 tmp18 = f_8(v0);
-        v10 = tmp18.v0; v11 = tmp18.v1; v12 = tmp18.v2; v13 = tmp18.v3; v14 = tmp18.v4;
+        Tuple1 tmp19 = f_7(v0);
+        v10 = tmp19.v0; v11 = tmp19.v1; v12 = tmp19.v2; v13 = tmp19.v3; v14 = tmp19.v4;
         unsigned long long & v15 = v10;
         static_array_list<US3,128l,long> & v16 = v11;
         unsigned long long v17;
@@ -12825,8 +13056,8 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1, unsign
                                 long v37 = v36.v.case4.v0; bool v38 = v36.v.case4.v1; static_array<static_array<Tuple0,2l>,2l> v39 = v36.v.case4.v2; long v40 = v36.v.case4.v3; static_array<long,2l> v41 = v36.v.case4.v4; static_array<long,2l> v42 = v36.v.case4.v5; US9 v43 = v36.v.case4.v6;
                                 US8 v44;
                                 v44 = US8_5(v37, v38, v39, v40, v41, v42, v43, v35);
-                                Tuple8 tmp86 = play_loop_40(v12, v13, v14, v15, v16, v23, v44);
-                                v66 = tmp86.v0; v67 = tmp86.v1; v68 = tmp86.v2;
+                                Tuple8 tmp87 = play_loop_30(v12, v13, v14, v15, v16, v23, v44);
+                                v66 = tmp87.v0; v67 = tmp87.v1; v68 = tmp87.v2;
                                 break;
                             }
                             default: {
@@ -12865,18 +13096,18 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1, unsign
                 v29 = US10_0();
                 US8 v30;
                 v30 = US8_2();
-                Tuple8 tmp87 = play_loop_40(v28, v24, v29, v15, v16, v23, v30);
-                v66 = tmp87.v0; v67 = tmp87.v1; v68 = tmp87.v2;
+                Tuple8 tmp88 = play_loop_30(v28, v24, v29, v15, v16, v23, v30);
+                v66 = tmp88.v0; v67 = tmp88.v1; v68 = tmp88.v2;
                 break;
             }
             default: {
                 assert("Invalid tag." && false);
             }
         }
-        write_59(v10, v11, v66, v67, v68);
+        write_49(v10, v11, v66, v67, v68);
         printf("\n");
-        f_149(v0, v10, v11, v66, v67, v68);
-        return f_185(v2, v11, v67, v68);
+        f_139(v0, v10, v11, v66, v67, v68);
+        return f_165(v2, v11, v67, v68);
     } else {
         return ;
     }
@@ -13133,7 +13364,7 @@ def Closure0():
         print()
         method41(v2, v6)
         del v6
-        method49(v3, v7, v8, v9, v10, v11)
+        method48(v3, v7, v8, v9, v10, v11)
         del v7, v8, v9, v10, v11
         v13 = "Done serializing the gpu state"
         method0(v13)
@@ -13145,11 +13376,11 @@ def Closure0():
         v15.max_dynamic_shared_size_bytes = 0 
         v15((1,),(512,),(v3, v2, v4),shared_mem=0)
         del v2, v15
-        v16, v17, v18, v19, v20 = method84(v3)
+        v16, v17, v18, v19, v20 = method74(v3)
         del v3
-        v21, v22, v23 = method120(v4)
+        v21, v22, v23 = method100(v4)
         del v4
-        return method122(v16, v17, v18, v19, v20, v21, v22, v23)
+        return method102(v16, v17, v18, v19, v20, v21, v22, v23)
     return inner
 def Closure1():
     def inner() -> object:
@@ -13164,7 +13395,7 @@ def Closure1():
         v4 = 4503599627370495
         v5 = US3_0()
         v6 = US6_0()
-        return method161(v4, v3, v5, v0, v6)
+        return method141(v4, v3, v5, v0, v6)
     return inner
 def method0(v0 : string) -> None:
     print(v0, end="")
@@ -14262,11 +14493,11 @@ def method43(v0 : cp.ndarray, v1 : US1) -> None:
             return method42(v3, v4)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method47(v0 : i32) -> bool:
+def method46(v0 : i32) -> bool:
     v1 = v0 < 2
     del v0
     return v1
-def method48(v0 : cp.ndarray, v1 : US2) -> None:
+def method47(v0 : cp.ndarray, v1 : US2) -> None:
     v2 = v1.tag
     method42(v0, v2)
     del v2
@@ -14281,40 +14512,35 @@ def method48(v0 : cp.ndarray, v1 : US2) -> None:
             return method44(v3)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method46(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 4
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 2
-            v11 = v10
-        else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
-        else:
-            pass
-        del v11, v12
-        v14 = v1[v3]
-        method48(v8, v14)
-        del v8, v14
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
 def method45(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    return method46(v0, v1, v2)
+    while method46(v2):
+        v4 = u64(v2)
+        v5 = v4 * 4
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
+        del v5
+        v7 = 0 <= v2
+        if v7:
+            v8 = v2 < 2
+            v9 = v8
+        else:
+            v9 = False
+        del v7
+        v10 = v9 == False
+        if v10:
+            v11 = "The read index needs to be in range for the static array."
+            assert v9, v11
+            del v11
+        else:
+            pass
+        del v9, v10
+        v12 = v1[v2]
+        method47(v6, v12)
+        del v6, v12
+        v2 += 1 
+    del v0, v1, v2
+    return 
 def method41(v0 : cp.ndarray, v1 : US0) -> None:
     v2 = v1.tag
     method42(v0, v2)
@@ -14333,25 +14559,25 @@ def method41(v0 : cp.ndarray, v1 : US0) -> None:
             return method44(v3)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method50(v0 : cp.ndarray, v1 : u64) -> None:
+def method49(v0 : cp.ndarray, v1 : u64) -> None:
     v2 = v0[0:].view(cp.uint64)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method51(v0 : cp.ndarray, v1 : i32) -> None:
+def method50(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[8:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method57(v0 : cp.ndarray, v1 : i32) -> None:
+def method54(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[4:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method56(v0 : cp.ndarray, v1 : US8, v2 : US9) -> None:
+def method53(v0 : cp.ndarray, v1 : US8, v2 : US9) -> None:
     v3 = v1.tag
     method42(v0, v3)
     del v3
@@ -14387,7 +14613,7 @@ def method56(v0 : cp.ndarray, v1 : US8, v2 : US9) -> None:
             raise Exception(f'Pattern matching miss. Got: {t}')
     del v1, v4
     v5 = v2.tag
-    method57(v0, v5)
+    method54(v0, v5)
     del v5
     v6 = v0[8:].view(cp.uint8)
     del v0
@@ -14406,14 +14632,17 @@ def method56(v0 : cp.ndarray, v1 : US8, v2 : US9) -> None:
             return method44(v6)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method55(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
+def method52(v0 : cp.ndarray, v1 : static_array_list) -> None:
+    v2 = v1.length
+    method42(v0, v2)
+    del v2
     v3 = v1.length
     v4 = 0
     while method7(v3, v4):
         v6 = u64(v4)
         v7 = v6 * 8
         del v6
-        v8 = v2 + v7
+        v8 = 8 + v7
         del v7
         v9 = v0[v8:].view(cp.uint8)
         del v8
@@ -14435,18 +14664,12 @@ def method55(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
             pass
         del v13, v14
         v16, v17 = v1[v4]
-        method56(v9, v16, v17)
+        method53(v9, v16, v17)
         del v9, v16, v17
         v4 += 1 
-    del v0, v1, v2, v3, v4
+    del v0, v1, v3, v4
     return 
-def method54(v0 : cp.ndarray, v1 : static_array_list) -> None:
-    v2 = v1.length
-    method42(v0, v2)
-    del v2
-    v3 = 8
-    return method55(v0, v1, v3)
-def method58(v0 : cp.ndarray, v1 : i32, v2 : i32) -> None:
+def method55(v0 : cp.ndarray, v1 : i32, v2 : i32) -> None:
     v3 = v0[0:].view(cp.int32)
     v3[0] = v1
     del v1, v3
@@ -14455,12 +14678,12 @@ def method58(v0 : cp.ndarray, v1 : i32, v2 : i32) -> None:
     v4[0] = v2
     del v2, v4
     return 
-def method59(v0 : cp.ndarray, v1 : i32, v2 : US1) -> None:
+def method56(v0 : cp.ndarray, v1 : i32, v2 : US1) -> None:
     v3 = v0[0:].view(cp.int32)
     v3[0] = v1
     del v1, v3
     v4 = v2.tag
-    method57(v0, v4)
+    method54(v0, v4)
     del v4
     v5 = v0[8:].view(cp.uint8)
     del v0
@@ -14476,82 +14699,74 @@ def method59(v0 : cp.ndarray, v1 : i32, v2 : US1) -> None:
             return method42(v5, v6)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method61(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 2
-            v11 = v10
-        else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
-        else:
-            pass
-        del v11, v12
-        v14, v15 = v1[v3]
-        method56(v8, v14, v15)
-        del v8, v14, v15
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method60(v0 : cp.ndarray, v1 : i32, v2 : static_array) -> None:
+def method57(v0 : cp.ndarray, v1 : i32, v2 : static_array) -> None:
     v3 = v0[0:].view(cp.int32)
     v3[0] = v1
     del v1, v3
-    v4 = 8
-    return method61(v0, v2, v4)
-def method67(v0 : i32) -> bool:
+    v4 = 0
+    while method46(v4):
+        v6 = u64(v4)
+        v7 = v6 * 8
+        del v6
+        v8 = 8 + v7
+        del v7
+        v9 = v0[v8:].view(cp.uint8)
+        del v8
+        v10 = 0 <= v4
+        if v10:
+            v11 = v4 < 2
+            v12 = v11
+        else:
+            v12 = False
+        del v10
+        v13 = v12 == False
+        if v13:
+            v14 = "The read index needs to be in range for the static array."
+            assert v12, v14
+            del v14
+        else:
+            pass
+        del v12, v13
+        v15, v16 = v2[v4]
+        method53(v9, v15, v16)
+        del v9, v15, v16
+        v4 += 1 
+    del v0, v2, v4
+    return 
+def method61(v0 : i32) -> bool:
     v1 = v0 < 5
     del v0
     return v1
-def method66(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method67(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
+def method60(v0 : cp.ndarray, v1 : static_array) -> None:
+    v2 = 0
+    while method61(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
         del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 5
-            v11 = v10
+        v7 = 0 <= v2
+        if v7:
+            v8 = v2 < 5
+            v9 = v8
         else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
+            v9 = False
+        del v7
+        v10 = v9 == False
+        if v10:
+            v11 = "The read index needs to be in range for the static array."
+            assert v9, v11
+            del v11
         else:
             pass
-        del v11, v12
-        v14, v15 = v1[v3]
-        method56(v8, v14, v15)
-        del v8, v14, v15
-        v3 += 1 
-    del v0, v1, v2, v3
+        del v9, v10
+        v12, v13 = v1[v2]
+        method53(v6, v12, v13)
+        del v6, v12, v13
+        v2 += 1 
+    del v0, v1, v2
     return 
-def method65(v0 : cp.ndarray, v1 : static_array) -> None:
-    v2 = 0
-    return method66(v0, v1, v2)
-def method64(v0 : cp.ndarray, v1 : US10) -> None:
+def method59(v0 : cp.ndarray, v1 : US10) -> None:
     v2 = v1.tag
     method42(v0, v2)
     del v2
@@ -14560,77 +14775,72 @@ def method64(v0 : cp.ndarray, v1 : US10) -> None:
     match v1:
         case US10_0(v4): # Flush
             del v1
-            return method65(v3, v4)
+            return method60(v3, v4)
         case US10_1(v5): # Full_House
             del v1
-            return method65(v3, v5)
+            return method60(v3, v5)
         case US10_2(v6): # High_Card
             del v1
-            return method65(v3, v6)
+            return method60(v3, v6)
         case US10_3(v7): # Pair
             del v1
-            return method65(v3, v7)
+            return method60(v3, v7)
         case US10_4(v8): # Quads
             del v1
-            return method65(v3, v8)
+            return method60(v3, v8)
         case US10_5(v9): # Straight
             del v1
-            return method65(v3, v9)
+            return method60(v3, v9)
         case US10_6(v10): # Straight_Flush
             del v1
-            return method65(v3, v10)
+            return method60(v3, v10)
         case US10_7(v11): # Triple
             del v1
-            return method65(v3, v11)
+            return method60(v3, v11)
         case US10_8(v12): # Two_Pair
             del v1
-            return method65(v3, v12)
+            return method60(v3, v12)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method63(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 64
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 2
-            v11 = v10
-        else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
-        else:
-            pass
-        del v11, v12
-        v14 = v1[v3]
-        method64(v8, v14)
-        del v8, v14
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method62(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : i32) -> None:
+def method58(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : i32) -> None:
     v4 = v0[0:].view(cp.int32)
     v4[0] = v1
     del v1, v4
-    v5 = 16
-    method63(v0, v2, v5)
+    v5 = 0
+    while method46(v5):
+        v7 = u64(v5)
+        v8 = v7 * 64
+        del v7
+        v9 = 16 + v8
+        del v8
+        v10 = v0[v9:].view(cp.uint8)
+        del v9
+        v11 = 0 <= v5
+        if v11:
+            v12 = v5 < 2
+            v13 = v12
+        else:
+            v13 = False
+        del v11
+        v14 = v13 == False
+        if v14:
+            v15 = "The read index needs to be in range for the static array."
+            assert v13, v15
+            del v15
+        else:
+            pass
+        del v13, v14
+        v16 = v2[v5]
+        method59(v10, v16)
+        del v10, v16
+        v5 += 1 
     del v2, v5
-    v6 = v0[144:].view(cp.int32)
+    v17 = v0[144:].view(cp.int32)
     del v0
-    v6[0] = v3
-    del v3, v6
+    v17[0] = v3
+    del v3, v17
     return 
-def method53(v0 : cp.ndarray, v1 : US7) -> None:
+def method51(v0 : cp.ndarray, v1 : US7) -> None:
     v2 = v1.tag
     method42(v0, v2)
     del v2
@@ -14639,306 +14849,382 @@ def method53(v0 : cp.ndarray, v1 : US7) -> None:
     match v1:
         case US7_0(v4): # CommunityCardsAre
             del v1
-            return method54(v3, v4)
+            return method52(v3, v4)
         case US7_1(v5, v6): # Fold
             del v1
-            return method58(v3, v5, v6)
+            return method55(v3, v5, v6)
         case US7_2(v7, v8): # PlayerAction
             del v1
-            return method59(v3, v7, v8)
+            return method56(v3, v7, v8)
         case US7_3(v9, v10): # PlayerGotCards
             del v1
-            return method60(v3, v9, v10)
+            return method57(v3, v9, v10)
         case US7_4(v11, v12, v13): # Showdown
             del v1
-            return method62(v3, v11, v12, v13)
+            return method58(v3, v11, v12, v13)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method52(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
-    v3 = v1.length
-    v4 = 0
-    while method7(v3, v4):
-        v6 = u64(v4)
-        v7 = v6 * 176
-        del v6
-        v8 = v2 + v7
-        del v7
-        v9 = v0[v8:].view(cp.uint8)
-        del v8
-        v10 = 0 <= v4
-        if v10:
-            v11 = v1.length
-            v12 = v4 < v11
-            del v11
-            v13 = v12
-        else:
-            v13 = False
-        del v10
-        v14 = v13 == False
-        if v14:
-            v15 = "The read index needs to be in range for the static array list."
-            assert v13, v15
-            del v15
-        else:
-            pass
-        del v13, v14
-        v16 = v1[v4]
-        method53(v9, v16)
-        del v9, v16
-        v4 += 1 
-    del v0, v1, v2, v3, v4
-    return 
-def method68(v0 : cp.ndarray, v1 : i32) -> None:
+def method62(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[22544:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method72(v0 : cp.ndarray, v1 : static_array) -> None:
+def method65(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    return method61(v0, v1, v2)
-def method71(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 16
+    while method46(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
         del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 2
-            v11 = v10
+        v7 = 0 <= v2
+        if v7:
+            v8 = v2 < 2
+            v9 = v8
         else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
+            v9 = False
+        del v7
+        v10 = v9 == False
+        if v10:
+            v11 = "The read index needs to be in range for the static array."
+            assert v9, v11
+            del v11
         else:
             pass
-        del v11, v12
-        v14 = v1[v3]
-        method72(v8, v14)
-        del v8, v14
-        v3 += 1 
-    del v0, v1, v2, v3
+        del v9, v10
+        v12, v13 = v1[v2]
+        method53(v6, v12, v13)
+        del v6, v12, v13
+        v2 += 1 
+    del v0, v1, v2
     return 
-def method73(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 4
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 2
-            v11 = v10
-        else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
-        else:
-            pass
-        del v11, v12
-        v14 = v1[v3]
-        method42(v8, v14)
-        del v8, v14
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method74(v0 : cp.ndarray, v1 : i32) -> None:
+def method66(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[68:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method77(v0 : i32) -> bool:
+def method68(v0 : i32) -> bool:
     v1 = v0 < 3
     del v0
     return v1
-def method76(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method77(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
+def method67(v0 : cp.ndarray, v1 : static_array) -> None:
+    v2 = 0
+    while method68(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
         del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 3
-            v11 = v10
+        v7 = 0 <= v2
+        if v7:
+            v8 = v2 < 3
+            v9 = v8
         else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
+            v9 = False
+        del v7
+        v10 = v9 == False
+        if v10:
+            v11 = "The read index needs to be in range for the static array."
+            assert v9, v11
+            del v11
         else:
             pass
-        del v11, v12
-        v14, v15 = v1[v3]
-        method56(v8, v14, v15)
-        del v8, v14, v15
-        v3 += 1 
-    del v0, v1, v2, v3
+        del v9, v10
+        v12, v13 = v1[v2]
+        method53(v6, v12, v13)
+        del v6, v12, v13
+        v2 += 1 
+    del v0, v1, v2
     return 
-def method75(v0 : cp.ndarray, v1 : static_array) -> None:
-    v2 = 0
-    return method76(v0, v1, v2)
-def method80(v0 : i32) -> bool:
+def method70(v0 : i32) -> bool:
     v1 = v0 < 4
     del v0
     return v1
-def method79(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method80(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
+def method69(v0 : cp.ndarray, v1 : static_array) -> None:
+    v2 = 0
+    while method70(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
         del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = 0 <= v3
-        if v9:
-            v10 = v3 < 4
-            v11 = v10
+        v7 = 0 <= v2
+        if v7:
+            v8 = v2 < 4
+            v9 = v8
         else:
-            v11 = False
-        del v9
-        v12 = v11 == False
-        if v12:
-            v13 = "The read index needs to be in range for the static array."
-            assert v11, v13
-            del v13
+            v9 = False
+        del v7
+        v10 = v9 == False
+        if v10:
+            v11 = "The read index needs to be in range for the static array."
+            assert v9, v11
+            del v11
         else:
             pass
-        del v11, v12
-        v14, v15 = v1[v3]
-        method56(v8, v14, v15)
-        del v8, v14, v15
-        v3 += 1 
-    del v0, v1, v2, v3
+        del v9, v10
+        v12, v13 = v1[v2]
+        method53(v6, v12, v13)
+        del v6, v12, v13
+        v2 += 1 
+    del v0, v1, v2
     return 
-def method78(v0 : cp.ndarray, v1 : static_array) -> None:
-    v2 = 0
-    return method79(v0, v1, v2)
-def method70(v0 : cp.ndarray, v1 : i32, v2 : bool, v3 : static_array, v4 : i32, v5 : static_array, v6 : static_array, v7 : US5) -> None:
+def method64(v0 : cp.ndarray, v1 : i32, v2 : bool, v3 : static_array, v4 : i32, v5 : static_array, v6 : static_array, v7 : US5) -> None:
     v8 = v0[0:].view(cp.int32)
     v8[0] = v1
     del v1, v8
     v9 = v0[4:].view(cp.bool_)
     v9[0] = v2
     del v2, v9
-    v10 = 16
-    method71(v0, v3, v10)
+    v10 = 0
+    while method46(v10):
+        v12 = u64(v10)
+        v13 = v12 * 16
+        del v12
+        v14 = 16 + v13
+        del v13
+        v15 = v0[v14:].view(cp.uint8)
+        del v14
+        v16 = 0 <= v10
+        if v16:
+            v17 = v10 < 2
+            v18 = v17
+        else:
+            v18 = False
+        del v16
+        v19 = v18 == False
+        if v19:
+            v20 = "The read index needs to be in range for the static array."
+            assert v18, v20
+            del v20
+        else:
+            pass
+        del v18, v19
+        v21 = v3[v10]
+        method65(v15, v21)
+        del v15, v21
+        v10 += 1 
     del v3, v10
-    v11 = v0[48:].view(cp.int32)
-    v11[0] = v4
-    del v4, v11
-    v12 = 52
-    method73(v0, v5, v12)
-    del v5, v12
-    v13 = 60
-    method73(v0, v6, v13)
-    del v6, v13
-    v14 = v7.tag
-    method74(v0, v14)
-    del v14
-    v15 = v0[80:].view(cp.uint8)
+    v22 = v0[48:].view(cp.int32)
+    v22[0] = v4
+    del v4, v22
+    v23 = 0
+    while method46(v23):
+        v25 = u64(v23)
+        v26 = v25 * 4
+        del v25
+        v27 = 52 + v26
+        del v26
+        v28 = v0[v27:].view(cp.uint8)
+        del v27
+        v29 = 0 <= v23
+        if v29:
+            v30 = v23 < 2
+            v31 = v30
+        else:
+            v31 = False
+        del v29
+        v32 = v31 == False
+        if v32:
+            v33 = "The read index needs to be in range for the static array."
+            assert v31, v33
+            del v33
+        else:
+            pass
+        del v31, v32
+        v34 = v5[v23]
+        method42(v28, v34)
+        del v28, v34
+        v23 += 1 
+    del v5, v23
+    v35 = 0
+    while method46(v35):
+        v37 = u64(v35)
+        v38 = v37 * 4
+        del v37
+        v39 = 60 + v38
+        del v38
+        v40 = v0[v39:].view(cp.uint8)
+        del v39
+        v41 = 0 <= v35
+        if v41:
+            v42 = v35 < 2
+            v43 = v42
+        else:
+            v43 = False
+        del v41
+        v44 = v43 == False
+        if v44:
+            v45 = "The read index needs to be in range for the static array."
+            assert v43, v45
+            del v45
+        else:
+            pass
+        del v43, v44
+        v46 = v6[v35]
+        method42(v40, v46)
+        del v40, v46
+        v35 += 1 
+    del v6, v35
+    v47 = v7.tag
+    method66(v0, v47)
+    del v47
+    v48 = v0[80:].view(cp.uint8)
     del v0
     match v7:
-        case US5_0(v16): # Flop
+        case US5_0(v49): # Flop
             del v7
-            return method75(v15, v16)
+            return method67(v48, v49)
         case US5_1(): # Preflop
             del v7
-            return method44(v15)
-        case US5_2(v17): # River
+            return method44(v48)
+        case US5_2(v50): # River
             del v7
-            return method65(v15, v17)
-        case US5_3(v18): # Turn
+            return method60(v48, v50)
+        case US5_3(v51): # Turn
             del v7
-            return method78(v15, v18)
+            return method69(v48, v51)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method82(v0 : cp.ndarray, v1 : i32) -> None:
+def method72(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[128:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method81(v0 : cp.ndarray, v1 : i32, v2 : bool, v3 : static_array, v4 : i32, v5 : static_array, v6 : static_array, v7 : US5, v8 : US1) -> None:
+def method71(v0 : cp.ndarray, v1 : i32, v2 : bool, v3 : static_array, v4 : i32, v5 : static_array, v6 : static_array, v7 : US5, v8 : US1) -> None:
     v9 = v0[0:].view(cp.int32)
     v9[0] = v1
     del v1, v9
     v10 = v0[4:].view(cp.bool_)
     v10[0] = v2
     del v2, v10
-    v11 = 16
-    method71(v0, v3, v11)
+    v11 = 0
+    while method46(v11):
+        v13 = u64(v11)
+        v14 = v13 * 16
+        del v13
+        v15 = 16 + v14
+        del v14
+        v16 = v0[v15:].view(cp.uint8)
+        del v15
+        v17 = 0 <= v11
+        if v17:
+            v18 = v11 < 2
+            v19 = v18
+        else:
+            v19 = False
+        del v17
+        v20 = v19 == False
+        if v20:
+            v21 = "The read index needs to be in range for the static array."
+            assert v19, v21
+            del v21
+        else:
+            pass
+        del v19, v20
+        v22 = v3[v11]
+        method65(v16, v22)
+        del v16, v22
+        v11 += 1 
     del v3, v11
-    v12 = v0[48:].view(cp.int32)
-    v12[0] = v4
-    del v4, v12
-    v13 = 52
-    method73(v0, v5, v13)
-    del v5, v13
-    v14 = 60
-    method73(v0, v6, v14)
-    del v6, v14
-    v15 = v7.tag
-    method74(v0, v15)
-    del v15
-    v16 = v0[80:].view(cp.uint8)
+    v23 = v0[48:].view(cp.int32)
+    v23[0] = v4
+    del v4, v23
+    v24 = 0
+    while method46(v24):
+        v26 = u64(v24)
+        v27 = v26 * 4
+        del v26
+        v28 = 52 + v27
+        del v27
+        v29 = v0[v28:].view(cp.uint8)
+        del v28
+        v30 = 0 <= v24
+        if v30:
+            v31 = v24 < 2
+            v32 = v31
+        else:
+            v32 = False
+        del v30
+        v33 = v32 == False
+        if v33:
+            v34 = "The read index needs to be in range for the static array."
+            assert v32, v34
+            del v34
+        else:
+            pass
+        del v32, v33
+        v35 = v5[v24]
+        method42(v29, v35)
+        del v29, v35
+        v24 += 1 
+    del v5, v24
+    v36 = 0
+    while method46(v36):
+        v38 = u64(v36)
+        v39 = v38 * 4
+        del v38
+        v40 = 60 + v39
+        del v39
+        v41 = v0[v40:].view(cp.uint8)
+        del v40
+        v42 = 0 <= v36
+        if v42:
+            v43 = v36 < 2
+            v44 = v43
+        else:
+            v44 = False
+        del v42
+        v45 = v44 == False
+        if v45:
+            v46 = "The read index needs to be in range for the static array."
+            assert v44, v46
+            del v46
+        else:
+            pass
+        del v44, v45
+        v47 = v6[v36]
+        method42(v41, v47)
+        del v41, v47
+        v36 += 1 
+    del v6, v36
+    v48 = v7.tag
+    method66(v0, v48)
+    del v48
+    v49 = v0[80:].view(cp.uint8)
     match v7:
-        case US5_0(v17): # Flop
-            method75(v16, v17)
+        case US5_0(v50): # Flop
+            method67(v49, v50)
         case US5_1(): # Preflop
-            method44(v16)
-        case US5_2(v18): # River
-            method65(v16, v18)
-        case US5_3(v19): # Turn
-            method78(v16, v19)
+            method44(v49)
+        case US5_2(v51): # River
+            method60(v49, v51)
+        case US5_3(v52): # Turn
+            method69(v49, v52)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-    del v7, v16
-    v20 = v8.tag
-    method82(v0, v20)
-    del v20
-    v21 = v0[132:].view(cp.uint8)
+    del v7, v49
+    v53 = v8.tag
+    method72(v0, v53)
+    del v53
+    v54 = v0[132:].view(cp.uint8)
     del v0
     match v8:
         case US1_0(): # A_Call
             del v8
-            return method44(v21)
+            return method44(v54)
         case US1_1(): # A_Fold
             del v8
-            return method44(v21)
-        case US1_2(v22): # A_Raise
+            return method44(v54)
+        case US1_2(v55): # A_Raise
             del v8
-            return method42(v21, v22)
+            return method42(v54, v55)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method69(v0 : cp.ndarray, v1 : US4) -> None:
+def method63(v0 : cp.ndarray, v1 : US4) -> None:
     v2 = v1.tag
     method42(v0, v2)
     del v2
@@ -14947,180 +15233,239 @@ def method69(v0 : cp.ndarray, v1 : US4) -> None:
     match v1:
         case US4_0(v4, v5, v6, v7, v8, v9, v10): # G_Flop
             del v1
-            return method70(v3, v4, v5, v6, v7, v8, v9, v10)
+            return method64(v3, v4, v5, v6, v7, v8, v9, v10)
         case US4_1(v11, v12, v13, v14, v15, v16, v17): # G_Fold
             del v1
-            return method70(v3, v11, v12, v13, v14, v15, v16, v17)
+            return method64(v3, v11, v12, v13, v14, v15, v16, v17)
         case US4_2(): # G_Preflop
             del v1
             return method44(v3)
         case US4_3(v18, v19, v20, v21, v22, v23, v24): # G_River
             del v1
-            return method70(v3, v18, v19, v20, v21, v22, v23, v24)
+            return method64(v3, v18, v19, v20, v21, v22, v23, v24)
         case US4_4(v25, v26, v27, v28, v29, v30, v31): # G_Round
             del v1
-            return method70(v3, v25, v26, v27, v28, v29, v30, v31)
+            return method64(v3, v25, v26, v27, v28, v29, v30, v31)
         case US4_5(v32, v33, v34, v35, v36, v37, v38, v39): # G_Round'
             del v1
-            return method81(v3, v32, v33, v34, v35, v36, v37, v38, v39)
+            return method71(v3, v32, v33, v34, v35, v36, v37, v38, v39)
         case US4_6(v40, v41, v42, v43, v44, v45, v46): # G_Showdown
             del v1
-            return method70(v3, v40, v41, v42, v43, v44, v45, v46)
+            return method64(v3, v40, v41, v42, v43, v44, v45, v46)
         case US4_7(v47, v48, v49, v50, v51, v52, v53): # G_Turn
             del v1
-            return method70(v3, v47, v48, v49, v50, v51, v52, v53)
+            return method64(v3, v47, v48, v49, v50, v51, v52, v53)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method83(v0 : cp.ndarray, v1 : i32) -> None:
+def method73(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[22728:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method49(v0 : cp.ndarray, v1 : u64, v2 : static_array_list, v3 : US3, v4 : static_array, v5 : US6) -> None:
-    method50(v0, v1)
+def method48(v0 : cp.ndarray, v1 : u64, v2 : static_array_list, v3 : US3, v4 : static_array, v5 : US6) -> None:
+    method49(v0, v1)
     del v1
     v6 = v2.length
-    method51(v0, v6)
+    method50(v0, v6)
     del v6
-    v7 = 16
-    method52(v0, v2, v7)
-    del v2, v7
-    v8 = v3.tag
-    method68(v0, v8)
-    del v8
-    v9 = v0[22560:].view(cp.uint8)
+    v7 = v2.length
+    v8 = 0
+    while method7(v7, v8):
+        v10 = u64(v8)
+        v11 = v10 * 176
+        del v10
+        v12 = 16 + v11
+        del v11
+        v13 = v0[v12:].view(cp.uint8)
+        del v12
+        v14 = 0 <= v8
+        if v14:
+            v15 = v2.length
+            v16 = v8 < v15
+            del v15
+            v17 = v16
+        else:
+            v17 = False
+        del v14
+        v18 = v17 == False
+        if v18:
+            v19 = "The read index needs to be in range for the static array list."
+            assert v17, v19
+            del v19
+        else:
+            pass
+        del v17, v18
+        v20 = v2[v8]
+        method51(v13, v20)
+        del v13, v20
+        v8 += 1 
+    del v2, v7, v8
+    v21 = v3.tag
+    method62(v0, v21)
+    del v21
+    v22 = v0[22560:].view(cp.uint8)
     match v3:
         case US3_0(): # None
-            method44(v9)
-        case US3_1(v10): # Some
-            method69(v9, v10)
+            method44(v22)
+        case US3_1(v23): # Some
+            method63(v22, v23)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-    del v3, v9
-    v11 = 22720
-    method46(v0, v4, v11)
-    del v4, v11
-    v12 = v5.tag
-    method83(v0, v12)
-    del v12
-    v13 = v0[22736:].view(cp.uint8)
+    del v3, v22
+    v24 = 0
+    while method46(v24):
+        v26 = u64(v24)
+        v27 = v26 * 4
+        del v26
+        v28 = 22720 + v27
+        del v27
+        v29 = v0[v28:].view(cp.uint8)
+        del v28
+        v30 = 0 <= v24
+        if v30:
+            v31 = v24 < 2
+            v32 = v31
+        else:
+            v32 = False
+        del v30
+        v33 = v32 == False
+        if v33:
+            v34 = "The read index needs to be in range for the static array."
+            assert v32, v34
+            del v34
+        else:
+            pass
+        del v32, v33
+        v35 = v4[v24]
+        method47(v29, v35)
+        del v29, v35
+        v24 += 1 
+    del v4, v24
+    v36 = v5.tag
+    method73(v0, v36)
+    del v36
+    v37 = v0[22736:].view(cp.uint8)
     del v0
     match v5:
         case US6_0(): # GameNotStarted
             del v5
-            return method44(v13)
-        case US6_1(v14, v15, v16, v17, v18, v19, v20): # GameOver
+            return method44(v37)
+        case US6_1(v38, v39, v40, v41, v42, v43, v44): # GameOver
             del v5
-            return method70(v13, v14, v15, v16, v17, v18, v19, v20)
-        case US6_2(v21, v22, v23, v24, v25, v26, v27): # WaitingForActionFromPlayerId
+            return method64(v37, v38, v39, v40, v41, v42, v43, v44)
+        case US6_2(v45, v46, v47, v48, v49, v50, v51): # WaitingForActionFromPlayerId
             del v5
-            return method70(v13, v21, v22, v23, v24, v25, v26, v27)
+            return method64(v37, v45, v46, v47, v48, v49, v50, v51)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method85(v0 : cp.ndarray) -> u64:
+def method75(v0 : cp.ndarray) -> u64:
     v1 = v0[0:].view(cp.uint64)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method86(v0 : cp.ndarray) -> i32:
+def method76(v0 : cp.ndarray) -> i32:
     v1 = v0[8:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method89(v0 : cp.ndarray) -> i32:
+def method78(v0 : cp.ndarray) -> i32:
     v1 = v0[0:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method93(v0 : cp.ndarray) -> None:
+def method81(v0 : cp.ndarray) -> None:
     del v0
     return 
-def method94(v0 : cp.ndarray) -> i32:
+def method82(v0 : cp.ndarray) -> i32:
     v1 = v0[4:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method92(v0 : cp.ndarray) -> Tuple[US8, US9]:
-    v1 = method89(v0)
+def method80(v0 : cp.ndarray) -> Tuple[US8, US9]:
+    v1 = method78(v0)
     v2 = v0[4:].view(cp.uint8)
     if v1 == 0:
-        method93(v2)
+        method81(v2)
         v17 = US8_0()
     elif v1 == 1:
-        method93(v2)
+        method81(v2)
         v17 = US8_1()
     elif v1 == 2:
-        method93(v2)
+        method81(v2)
         v17 = US8_2()
     elif v1 == 3:
-        method93(v2)
+        method81(v2)
         v17 = US8_3()
     elif v1 == 4:
-        method93(v2)
+        method81(v2)
         v17 = US8_4()
     elif v1 == 5:
-        method93(v2)
+        method81(v2)
         v17 = US8_5()
     elif v1 == 6:
-        method93(v2)
+        method81(v2)
         v17 = US8_6()
     elif v1 == 7:
-        method93(v2)
+        method81(v2)
         v17 = US8_7()
     elif v1 == 8:
-        method93(v2)
+        method81(v2)
         v17 = US8_8()
     elif v1 == 9:
-        method93(v2)
+        method81(v2)
         v17 = US8_9()
     elif v1 == 10:
-        method93(v2)
+        method81(v2)
         v17 = US8_10()
     elif v1 == 11:
-        method93(v2)
+        method81(v2)
         v17 = US8_11()
     elif v1 == 12:
-        method93(v2)
+        method81(v2)
         v17 = US8_12()
     else:
         raise Exception("Invalid tag.")
     del v1, v2
-    v18 = method94(v0)
+    v18 = method82(v0)
     v19 = v0[8:].view(cp.uint8)
     del v0
     if v18 == 0:
-        method93(v19)
+        method81(v19)
         v25 = US9_0()
     elif v18 == 1:
-        method93(v19)
+        method81(v19)
         v25 = US9_1()
     elif v18 == 2:
-        method93(v19)
+        method81(v19)
         v25 = US9_2()
     elif v18 == 3:
-        method93(v19)
+        method81(v19)
         v25 = US9_3()
     else:
         raise Exception("Invalid tag.")
     del v18, v19
     return v17, v25
-def method91(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
+def method79(v0 : cp.ndarray) -> static_array_list:
+    v1 = static_array_list(5)
+    v2 = method78(v0)
+    v1.length = v2
+    del v2
     v3 = v1.length
     v4 = 0
     while method7(v3, v4):
         v6 = u64(v4)
         v7 = v6 * 8
         del v6
-        v8 = v2 + v7
+        v8 = 8 + v7
         del v7
         v9 = v0[v8:].view(cp.uint8)
         del v8
-        v10, v11 = method92(v9)
+        v10, v11 = method80(v9)
         del v9
         v12 = 0 <= v4
         if v12:
@@ -15142,18 +15487,9 @@ def method91(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
         v1[v4] = (v10, v11)
         del v10, v11
         v4 += 1 
-    del v0, v1, v2, v3, v4
-    return 
-def method90(v0 : cp.ndarray) -> static_array_list:
-    v1 = static_array_list(5)
-    v2 = method89(v0)
-    v1.length = v2
-    del v2
-    v3 = 8
-    method91(v0, v1, v3)
-    del v0, v3
+    del v0, v3, v4
     return v1
-def method95(v0 : cp.ndarray) -> Tuple[i32, i32]:
+def method83(v0 : cp.ndarray) -> Tuple[i32, i32]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
@@ -15162,246 +15498,775 @@ def method95(v0 : cp.ndarray) -> Tuple[i32, i32]:
     v4 = v3[0].item()
     del v3
     return v2, v4
-def method96(v0 : cp.ndarray) -> Tuple[i32, US1]:
+def method84(v0 : cp.ndarray) -> Tuple[i32, US1]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
-    v3 = method94(v0)
+    v3 = method82(v0)
     v4 = v0[8:].view(cp.uint8)
     del v0
     if v3 == 0:
-        method93(v4)
+        method81(v4)
         v10 = US1_0()
     elif v3 == 1:
-        method93(v4)
+        method81(v4)
         v10 = US1_1()
     elif v3 == 2:
-        v8 = method89(v4)
+        v8 = method78(v4)
         v10 = US1_2(v8)
     else:
         raise Exception("Invalid tag.")
     del v3, v4
     return v2, v10
-def method98(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9, v10 = method92(v8)
-        del v8
-        v11 = 0 <= v3
-        if v11:
-            v12 = v3 < 2
-            v13 = v12
-        else:
-            v13 = False
-        del v11
-        v14 = v13 == False
-        if v14:
-            v15 = "The read index needs to be in range for the static array."
-            assert v13, v15
-            del v15
-        else:
-            pass
-        del v13, v14
-        v1[v3] = (v9, v10)
-        del v9, v10
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method97(v0 : cp.ndarray) -> Tuple[i32, static_array]:
+def method85(v0 : cp.ndarray) -> Tuple[i32, static_array]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
     v3 = static_array(2)
-    v4 = 8
-    method98(v0, v3, v4)
-    del v0, v4
-    return v2, v3
-def method103(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method67(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
-        del v5
-        v7 = v2 + v6
+    v4 = 0
+    while method46(v4):
+        v6 = u64(v4)
+        v7 = v6 * 8
         del v6
-        v8 = v0[v7:].view(cp.uint8)
+        v8 = 8 + v7
         del v7
-        v9, v10 = method92(v8)
+        v9 = v0[v8:].view(cp.uint8)
         del v8
-        v11 = 0 <= v3
-        if v11:
-            v12 = v3 < 5
-            v13 = v12
+        v10, v11 = method80(v9)
+        del v9
+        v12 = 0 <= v4
+        if v12:
+            v13 = v4 < 2
+            v14 = v13
         else:
-            v13 = False
-        del v11
-        v14 = v13 == False
-        if v14:
-            v15 = "The read index needs to be in range for the static array."
-            assert v13, v15
-            del v15
+            v14 = False
+        del v12
+        v15 = v14 == False
+        if v15:
+            v16 = "The read index needs to be in range for the static array."
+            assert v14, v16
+            del v16
         else:
             pass
-        del v13, v14
-        v1[v3] = (v9, v10)
-        del v9, v10
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method102(v0 : cp.ndarray) -> static_array:
+        del v14, v15
+        v3[v4] = (v10, v11)
+        del v10, v11
+        v4 += 1 
+    del v0, v4
+    return v2, v3
+def method88(v0 : cp.ndarray) -> static_array:
     v1 = static_array(5)
     v2 = 0
-    method103(v0, v1, v2)
+    while method61(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
+        del v5
+        v7, v8 = method80(v6)
+        del v6
+        v9 = 0 <= v2
+        if v9:
+            v10 = v2 < 5
+            v11 = v10
+        else:
+            v11 = False
+        del v9
+        v12 = v11 == False
+        if v12:
+            v13 = "The read index needs to be in range for the static array."
+            assert v11, v13
+            del v13
+        else:
+            pass
+        del v11, v12
+        v1[v2] = (v7, v8)
+        del v7, v8
+        v2 += 1 
     del v0, v2
     return v1
-def method101(v0 : cp.ndarray) -> US10:
-    v1 = method89(v0)
+def method87(v0 : cp.ndarray) -> US10:
+    v1 = method78(v0)
     v2 = v0[16:].view(cp.uint8)
     del v0
     if v1 == 0:
         del v1
-        v4 = method102(v2)
+        v4 = method88(v2)
         del v2
         return US10_0(v4)
     elif v1 == 1:
         del v1
-        v6 = method102(v2)
+        v6 = method88(v2)
         del v2
         return US10_1(v6)
     elif v1 == 2:
         del v1
-        v8 = method102(v2)
+        v8 = method88(v2)
         del v2
         return US10_2(v8)
     elif v1 == 3:
         del v1
-        v10 = method102(v2)
+        v10 = method88(v2)
         del v2
         return US10_3(v10)
     elif v1 == 4:
         del v1
-        v12 = method102(v2)
+        v12 = method88(v2)
         del v2
         return US10_4(v12)
     elif v1 == 5:
         del v1
-        v14 = method102(v2)
+        v14 = method88(v2)
         del v2
         return US10_5(v14)
     elif v1 == 6:
         del v1
-        v16 = method102(v2)
+        v16 = method88(v2)
         del v2
         return US10_6(v16)
     elif v1 == 7:
         del v1
-        v18 = method102(v2)
+        v18 = method88(v2)
         del v2
         return US10_7(v18)
     elif v1 == 8:
         del v1
-        v20 = method102(v2)
+        v20 = method88(v2)
         del v2
         return US10_8(v20)
     else:
         del v1, v2
         raise Exception("Invalid tag.")
-def method100(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 64
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = method101(v8)
-        del v8
-        v10 = 0 <= v3
-        if v10:
-            v11 = v3 < 2
-            v12 = v11
-        else:
-            v12 = False
-        del v10
-        v13 = v12 == False
-        if v13:
-            v14 = "The read index needs to be in range for the static array."
-            assert v12, v14
-            del v14
-        else:
-            pass
-        del v12, v13
-        v1[v3] = v9
-        del v9
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method99(v0 : cp.ndarray) -> Tuple[i32, static_array, i32]:
+def method86(v0 : cp.ndarray) -> Tuple[i32, static_array, i32]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
     v3 = static_array(2)
-    v4 = 16
-    method100(v0, v3, v4)
+    v4 = 0
+    while method46(v4):
+        v6 = u64(v4)
+        v7 = v6 * 64
+        del v6
+        v8 = 16 + v7
+        del v7
+        v9 = v0[v8:].view(cp.uint8)
+        del v8
+        v10 = method87(v9)
+        del v9
+        v11 = 0 <= v4
+        if v11:
+            v12 = v4 < 2
+            v13 = v12
+        else:
+            v13 = False
+        del v11
+        v14 = v13 == False
+        if v14:
+            v15 = "The read index needs to be in range for the static array."
+            assert v13, v15
+            del v15
+        else:
+            pass
+        del v13, v14
+        v3[v4] = v10
+        del v10
+        v4 += 1 
     del v4
-    v5 = v0[144:].view(cp.int32)
+    v16 = v0[144:].view(cp.int32)
     del v0
-    v6 = v5[0].item()
-    del v5
-    return v2, v3, v6
-def method88(v0 : cp.ndarray) -> US7:
-    v1 = method89(v0)
+    v17 = v16[0].item()
+    del v16
+    return v2, v3, v17
+def method77(v0 : cp.ndarray) -> US7:
+    v1 = method78(v0)
     v2 = v0[16:].view(cp.uint8)
     del v0
     if v1 == 0:
         del v1
-        v4 = method90(v2)
+        v4 = method79(v2)
         del v2
         return US7_0(v4)
     elif v1 == 1:
         del v1
-        v6, v7 = method95(v2)
+        v6, v7 = method83(v2)
         del v2
         return US7_1(v6, v7)
     elif v1 == 2:
         del v1
-        v9, v10 = method96(v2)
+        v9, v10 = method84(v2)
         del v2
         return US7_2(v9, v10)
     elif v1 == 3:
         del v1
-        v12, v13 = method97(v2)
+        v12, v13 = method85(v2)
         del v2
         return US7_3(v12, v13)
     elif v1 == 4:
         del v1
-        v15, v16, v17 = method99(v2)
+        v15, v16, v17 = method86(v2)
         del v2
         return US7_4(v15, v16, v17)
     else:
         del v1, v2
         raise Exception("Invalid tag.")
-def method87(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
+def method89(v0 : cp.ndarray) -> i32:
+    v1 = v0[22544:].view(cp.int32)
+    del v0
+    v2 = v1[0].item()
+    del v1
+    return v2
+def method92(v0 : cp.ndarray) -> static_array:
+    v1 = static_array(2)
+    v2 = 0
+    while method46(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
+        del v5
+        v7, v8 = method80(v6)
+        del v6
+        v9 = 0 <= v2
+        if v9:
+            v10 = v2 < 2
+            v11 = v10
+        else:
+            v11 = False
+        del v9
+        v12 = v11 == False
+        if v12:
+            v13 = "The read index needs to be in range for the static array."
+            assert v11, v13
+            del v13
+        else:
+            pass
+        del v11, v12
+        v1[v2] = (v7, v8)
+        del v7, v8
+        v2 += 1 
+    del v0, v2
+    return v1
+def method93(v0 : cp.ndarray) -> i32:
+    v1 = v0[68:].view(cp.int32)
+    del v0
+    v2 = v1[0].item()
+    del v1
+    return v2
+def method94(v0 : cp.ndarray) -> static_array:
+    v1 = static_array(3)
+    v2 = 0
+    while method68(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
+        del v5
+        v7, v8 = method80(v6)
+        del v6
+        v9 = 0 <= v2
+        if v9:
+            v10 = v2 < 3
+            v11 = v10
+        else:
+            v11 = False
+        del v9
+        v12 = v11 == False
+        if v12:
+            v13 = "The read index needs to be in range for the static array."
+            assert v11, v13
+            del v13
+        else:
+            pass
+        del v11, v12
+        v1[v2] = (v7, v8)
+        del v7, v8
+        v2 += 1 
+    del v0, v2
+    return v1
+def method95(v0 : cp.ndarray) -> static_array:
+    v1 = static_array(4)
+    v2 = 0
+    while method70(v2):
+        v4 = u64(v2)
+        v5 = v4 * 8
+        del v4
+        v6 = v0[v5:].view(cp.uint8)
+        del v5
+        v7, v8 = method80(v6)
+        del v6
+        v9 = 0 <= v2
+        if v9:
+            v10 = v2 < 4
+            v11 = v10
+        else:
+            v11 = False
+        del v9
+        v12 = v11 == False
+        if v12:
+            v13 = "The read index needs to be in range for the static array."
+            assert v11, v13
+            del v13
+        else:
+            pass
+        del v11, v12
+        v1[v2] = (v7, v8)
+        del v7, v8
+        v2 += 1 
+    del v0, v2
+    return v1
+def method91(v0 : cp.ndarray) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5]:
+    v1 = v0[0:].view(cp.int32)
+    v2 = v1[0].item()
+    del v1
+    v3 = v0[4:].view(cp.bool_)
+    v4 = v3[0].item()
+    del v3
+    v5 = static_array(2)
+    v6 = 0
+    while method46(v6):
+        v8 = u64(v6)
+        v9 = v8 * 16
+        del v8
+        v10 = 16 + v9
+        del v9
+        v11 = v0[v10:].view(cp.uint8)
+        del v10
+        v12 = method92(v11)
+        del v11
+        v13 = 0 <= v6
+        if v13:
+            v14 = v6 < 2
+            v15 = v14
+        else:
+            v15 = False
+        del v13
+        v16 = v15 == False
+        if v16:
+            v17 = "The read index needs to be in range for the static array."
+            assert v15, v17
+            del v17
+        else:
+            pass
+        del v15, v16
+        v5[v6] = v12
+        del v12
+        v6 += 1 
+    del v6
+    v18 = v0[48:].view(cp.int32)
+    v19 = v18[0].item()
+    del v18
+    v20 = static_array(2)
+    v21 = 0
+    while method46(v21):
+        v23 = u64(v21)
+        v24 = v23 * 4
+        del v23
+        v25 = 52 + v24
+        del v24
+        v26 = v0[v25:].view(cp.uint8)
+        del v25
+        v27 = method78(v26)
+        del v26
+        v28 = 0 <= v21
+        if v28:
+            v29 = v21 < 2
+            v30 = v29
+        else:
+            v30 = False
+        del v28
+        v31 = v30 == False
+        if v31:
+            v32 = "The read index needs to be in range for the static array."
+            assert v30, v32
+            del v32
+        else:
+            pass
+        del v30, v31
+        v20[v21] = v27
+        del v27
+        v21 += 1 
+    del v21
+    v33 = static_array(2)
+    v34 = 0
+    while method46(v34):
+        v36 = u64(v34)
+        v37 = v36 * 4
+        del v36
+        v38 = 60 + v37
+        del v37
+        v39 = v0[v38:].view(cp.uint8)
+        del v38
+        v40 = method78(v39)
+        del v39
+        v41 = 0 <= v34
+        if v41:
+            v42 = v34 < 2
+            v43 = v42
+        else:
+            v43 = False
+        del v41
+        v44 = v43 == False
+        if v44:
+            v45 = "The read index needs to be in range for the static array."
+            assert v43, v45
+            del v45
+        else:
+            pass
+        del v43, v44
+        v33[v34] = v40
+        del v40
+        v34 += 1 
+    del v34
+    v46 = method93(v0)
+    v47 = v0[80:].view(cp.uint8)
+    del v0
+    if v46 == 0:
+        v49 = method94(v47)
+        v56 = US5_0(v49)
+    elif v46 == 1:
+        method81(v47)
+        v56 = US5_1()
+    elif v46 == 2:
+        v52 = method88(v47)
+        v56 = US5_2(v52)
+    elif v46 == 3:
+        v54 = method95(v47)
+        v56 = US5_3(v54)
+    else:
+        raise Exception("Invalid tag.")
+    del v46, v47
+    return v2, v4, v5, v19, v20, v33, v56
+def method97(v0 : cp.ndarray) -> i32:
+    v1 = v0[128:].view(cp.int32)
+    del v0
+    v2 = v1[0].item()
+    del v1
+    return v2
+def method96(v0 : cp.ndarray) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5, US1]:
+    v1 = v0[0:].view(cp.int32)
+    v2 = v1[0].item()
+    del v1
+    v3 = v0[4:].view(cp.bool_)
+    v4 = v3[0].item()
+    del v3
+    v5 = static_array(2)
+    v6 = 0
+    while method46(v6):
+        v8 = u64(v6)
+        v9 = v8 * 16
+        del v8
+        v10 = 16 + v9
+        del v9
+        v11 = v0[v10:].view(cp.uint8)
+        del v10
+        v12 = method92(v11)
+        del v11
+        v13 = 0 <= v6
+        if v13:
+            v14 = v6 < 2
+            v15 = v14
+        else:
+            v15 = False
+        del v13
+        v16 = v15 == False
+        if v16:
+            v17 = "The read index needs to be in range for the static array."
+            assert v15, v17
+            del v17
+        else:
+            pass
+        del v15, v16
+        v5[v6] = v12
+        del v12
+        v6 += 1 
+    del v6
+    v18 = v0[48:].view(cp.int32)
+    v19 = v18[0].item()
+    del v18
+    v20 = static_array(2)
+    v21 = 0
+    while method46(v21):
+        v23 = u64(v21)
+        v24 = v23 * 4
+        del v23
+        v25 = 52 + v24
+        del v24
+        v26 = v0[v25:].view(cp.uint8)
+        del v25
+        v27 = method78(v26)
+        del v26
+        v28 = 0 <= v21
+        if v28:
+            v29 = v21 < 2
+            v30 = v29
+        else:
+            v30 = False
+        del v28
+        v31 = v30 == False
+        if v31:
+            v32 = "The read index needs to be in range for the static array."
+            assert v30, v32
+            del v32
+        else:
+            pass
+        del v30, v31
+        v20[v21] = v27
+        del v27
+        v21 += 1 
+    del v21
+    v33 = static_array(2)
+    v34 = 0
+    while method46(v34):
+        v36 = u64(v34)
+        v37 = v36 * 4
+        del v36
+        v38 = 60 + v37
+        del v37
+        v39 = v0[v38:].view(cp.uint8)
+        del v38
+        v40 = method78(v39)
+        del v39
+        v41 = 0 <= v34
+        if v41:
+            v42 = v34 < 2
+            v43 = v42
+        else:
+            v43 = False
+        del v41
+        v44 = v43 == False
+        if v44:
+            v45 = "The read index needs to be in range for the static array."
+            assert v43, v45
+            del v45
+        else:
+            pass
+        del v43, v44
+        v33[v34] = v40
+        del v40
+        v34 += 1 
+    del v34
+    v46 = method93(v0)
+    v47 = v0[80:].view(cp.uint8)
+    if v46 == 0:
+        v49 = method94(v47)
+        v56 = US5_0(v49)
+    elif v46 == 1:
+        method81(v47)
+        v56 = US5_1()
+    elif v46 == 2:
+        v52 = method88(v47)
+        v56 = US5_2(v52)
+    elif v46 == 3:
+        v54 = method95(v47)
+        v56 = US5_3(v54)
+    else:
+        raise Exception("Invalid tag.")
+    del v46, v47
+    v57 = method97(v0)
+    v58 = v0[132:].view(cp.uint8)
+    del v0
+    if v57 == 0:
+        method81(v58)
+        v64 = US1_0()
+    elif v57 == 1:
+        method81(v58)
+        v64 = US1_1()
+    elif v57 == 2:
+        v62 = method78(v58)
+        v64 = US1_2(v62)
+    else:
+        raise Exception("Invalid tag.")
+    del v57, v58
+    return v2, v4, v5, v19, v20, v33, v56, v64
+def method90(v0 : cp.ndarray) -> US4:
+    v1 = method78(v0)
+    v2 = v0[16:].view(cp.uint8)
+    del v0
+    if v1 == 0:
+        del v1
+        v4, v5, v6, v7, v8, v9, v10 = method91(v2)
+        del v2
+        return US4_0(v4, v5, v6, v7, v8, v9, v10)
+    elif v1 == 1:
+        del v1
+        v12, v13, v14, v15, v16, v17, v18 = method91(v2)
+        del v2
+        return US4_1(v12, v13, v14, v15, v16, v17, v18)
+    elif v1 == 2:
+        del v1
+        method81(v2)
+        del v2
+        return US4_2()
+    elif v1 == 3:
+        del v1
+        v21, v22, v23, v24, v25, v26, v27 = method91(v2)
+        del v2
+        return US4_3(v21, v22, v23, v24, v25, v26, v27)
+    elif v1 == 4:
+        del v1
+        v29, v30, v31, v32, v33, v34, v35 = method91(v2)
+        del v2
+        return US4_4(v29, v30, v31, v32, v33, v34, v35)
+    elif v1 == 5:
+        del v1
+        v37, v38, v39, v40, v41, v42, v43, v44 = method96(v2)
+        del v2
+        return US4_5(v37, v38, v39, v40, v41, v42, v43, v44)
+    elif v1 == 6:
+        del v1
+        v46, v47, v48, v49, v50, v51, v52 = method91(v2)
+        del v2
+        return US4_6(v46, v47, v48, v49, v50, v51, v52)
+    elif v1 == 7:
+        del v1
+        v54, v55, v56, v57, v58, v59, v60 = method91(v2)
+        del v2
+        return US4_7(v54, v55, v56, v57, v58, v59, v60)
+    else:
+        del v1, v2
+        raise Exception("Invalid tag.")
+def method98(v0 : cp.ndarray) -> US2:
+    v1 = method78(v0)
+    v2 = v0[4:].view(cp.uint8)
+    del v0
+    if v1 == 0:
+        del v1
+        method81(v2)
+        del v2
+        return US2_0()
+    elif v1 == 1:
+        del v1
+        method81(v2)
+        del v2
+        return US2_1()
+    else:
+        del v1, v2
+        raise Exception("Invalid tag.")
+def method99(v0 : cp.ndarray) -> i32:
+    v1 = v0[22728:].view(cp.int32)
+    del v0
+    v2 = v1[0].item()
+    del v1
+    return v2
+def method74(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array, US6]:
+    v1 = method75(v0)
+    v2 = static_array_list(128)
+    v3 = method76(v0)
+    v2.length = v3
+    del v3
+    v4 = v2.length
+    v5 = 0
+    while method7(v4, v5):
+        v7 = u64(v5)
+        v8 = v7 * 176
+        del v7
+        v9 = 16 + v8
+        del v8
+        v10 = v0[v9:].view(cp.uint8)
+        del v9
+        v11 = method77(v10)
+        del v10
+        v12 = 0 <= v5
+        if v12:
+            v13 = v2.length
+            v14 = v5 < v13
+            del v13
+            v15 = v14
+        else:
+            v15 = False
+        del v12
+        v16 = v15 == False
+        if v16:
+            v17 = "The set index needs to be in range for the static array list."
+            assert v15, v17
+            del v17
+        else:
+            pass
+        del v15, v16
+        v2[v5] = v11
+        del v11
+        v5 += 1 
+    del v4, v5
+    v18 = method89(v0)
+    v19 = v0[22560:].view(cp.uint8)
+    if v18 == 0:
+        method81(v19)
+        v24 = US3_0()
+    elif v18 == 1:
+        v22 = method90(v19)
+        v24 = US3_1(v22)
+    else:
+        raise Exception("Invalid tag.")
+    del v18, v19
+    v25 = static_array(2)
+    v26 = 0
+    while method46(v26):
+        v28 = u64(v26)
+        v29 = v28 * 4
+        del v28
+        v30 = 22720 + v29
+        del v29
+        v31 = v0[v30:].view(cp.uint8)
+        del v30
+        v32 = method98(v31)
+        del v31
+        v33 = 0 <= v26
+        if v33:
+            v34 = v26 < 2
+            v35 = v34
+        else:
+            v35 = False
+        del v33
+        v36 = v35 == False
+        if v36:
+            v37 = "The read index needs to be in range for the static array."
+            assert v35, v37
+            del v37
+        else:
+            pass
+        del v35, v36
+        v25[v26] = v32
+        del v32
+        v26 += 1 
+    del v26
+    v38 = method99(v0)
+    v39 = v0[22736:].view(cp.uint8)
+    del v0
+    if v38 == 0:
+        method81(v39)
+        v58 = US6_0()
+    elif v38 == 1:
+        v42, v43, v44, v45, v46, v47, v48 = method91(v39)
+        v58 = US6_1(v42, v43, v44, v45, v46, v47, v48)
+    elif v38 == 2:
+        v50, v51, v52, v53, v54, v55, v56 = method91(v39)
+        v58 = US6_2(v50, v51, v52, v53, v54, v55, v56)
+    else:
+        raise Exception("Invalid tag.")
+    del v38, v39
+    return v1, v2, v24, v25, v58
+def method101(v0 : cp.ndarray) -> i32:
+    v1 = v0[22552:].view(cp.int32)
+    del v0
+    v2 = v1[0].item()
+    del v1
+    return v2
+def method100(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
+    v1 = static_array_list(128)
+    v2 = method78(v0)
+    v1.length = v2
+    del v2
     v3 = v1.length
     v4 = 0
     while method7(v3, v4):
         v6 = u64(v4)
         v7 = v6 * 176
         del v6
-        v8 = v2 + v7
+        v8 = 16 + v7
         del v7
         v9 = v0[v8:].view(cp.uint8)
         del v8
-        v10 = method88(v9)
+        v10 = method77(v9)
         del v9
         v11 = 0 <= v4
         if v11:
@@ -15423,594 +16288,204 @@ def method87(v0 : cp.ndarray, v1 : static_array_list, v2 : u64) -> None:
         v1[v4] = v10
         del v10
         v4 += 1 
-    del v0, v1, v2, v3, v4
-    return 
-def method104(v0 : cp.ndarray) -> i32:
-    v1 = v0[22544:].view(cp.int32)
-    del v0
-    v2 = v1[0].item()
-    del v1
-    return v2
-def method108(v0 : cp.ndarray) -> static_array:
-    v1 = static_array(2)
-    v2 = 0
-    method98(v0, v1, v2)
-    del v0, v2
-    return v1
-def method107(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 16
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = method108(v8)
-        del v8
-        v10 = 0 <= v3
-        if v10:
-            v11 = v3 < 2
-            v12 = v11
+    del v3, v4
+    v17 = static_array(2)
+    v18 = 0
+    while method46(v18):
+        v20 = u64(v18)
+        v21 = v20 * 4
+        del v20
+        v22 = 22544 + v21
+        del v21
+        v23 = v0[v22:].view(cp.uint8)
+        del v22
+        v24 = method98(v23)
+        del v23
+        v25 = 0 <= v18
+        if v25:
+            v26 = v18 < 2
+            v27 = v26
         else:
-            v12 = False
-        del v10
-        v13 = v12 == False
-        if v13:
-            v14 = "The read index needs to be in range for the static array."
-            assert v12, v14
-            del v14
+            v27 = False
+        del v25
+        v28 = v27 == False
+        if v28:
+            v29 = "The read index needs to be in range for the static array."
+            assert v27, v29
+            del v29
         else:
             pass
-        del v12, v13
-        v1[v3] = v9
-        del v9
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method109(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 4
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = method89(v8)
-        del v8
-        v10 = 0 <= v3
-        if v10:
-            v11 = v3 < 2
-            v12 = v11
-        else:
-            v12 = False
-        del v10
-        v13 = v12 == False
-        if v13:
-            v14 = "The read index needs to be in range for the static array."
-            assert v12, v14
-            del v14
-        else:
-            pass
-        del v12, v13
-        v1[v3] = v9
-        del v9
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method110(v0 : cp.ndarray) -> i32:
-    v1 = v0[68:].view(cp.int32)
+        del v27, v28
+        v17[v18] = v24
+        del v24
+        v18 += 1 
+    del v18
+    v30 = method101(v0)
+    v31 = v0[22560:].view(cp.uint8)
     del v0
-    v2 = v1[0].item()
-    del v1
-    return v2
-def method112(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method77(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9, v10 = method92(v8)
-        del v8
-        v11 = 0 <= v3
-        if v11:
-            v12 = v3 < 3
-            v13 = v12
-        else:
-            v13 = False
-        del v11
-        v14 = v13 == False
-        if v14:
-            v15 = "The read index needs to be in range for the static array."
-            assert v13, v15
-            del v15
-        else:
-            pass
-        del v13, v14
-        v1[v3] = (v9, v10)
-        del v9, v10
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method111(v0 : cp.ndarray) -> static_array:
-    v1 = static_array(3)
-    v2 = 0
-    method112(v0, v1, v2)
-    del v0, v2
-    return v1
-def method114(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method80(v3):
-        v5 = u64(v3)
-        v6 = v5 * 8
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9, v10 = method92(v8)
-        del v8
-        v11 = 0 <= v3
-        if v11:
-            v12 = v3 < 4
-            v13 = v12
-        else:
-            v13 = False
-        del v11
-        v14 = v13 == False
-        if v14:
-            v15 = "The read index needs to be in range for the static array."
-            assert v13, v15
-            del v15
-        else:
-            pass
-        del v13, v14
-        v1[v3] = (v9, v10)
-        del v9, v10
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method113(v0 : cp.ndarray) -> static_array:
-    v1 = static_array(4)
-    v2 = 0
-    method114(v0, v1, v2)
-    del v0, v2
-    return v1
-def method106(v0 : cp.ndarray) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5]:
-    v1 = v0[0:].view(cp.int32)
-    v2 = v1[0].item()
-    del v1
-    v3 = v0[4:].view(cp.bool_)
-    v4 = v3[0].item()
-    del v3
-    v5 = static_array(2)
-    v6 = 16
-    method107(v0, v5, v6)
-    del v6
-    v7 = v0[48:].view(cp.int32)
-    v8 = v7[0].item()
-    del v7
-    v9 = static_array(2)
-    v10 = 52
-    method109(v0, v9, v10)
-    del v10
-    v11 = static_array(2)
-    v12 = 60
-    method109(v0, v11, v12)
-    del v12
-    v13 = method110(v0)
-    v14 = v0[80:].view(cp.uint8)
-    del v0
-    if v13 == 0:
-        v16 = method111(v14)
-        v23 = US5_0(v16)
-    elif v13 == 1:
-        method93(v14)
-        v23 = US5_1()
-    elif v13 == 2:
-        v19 = method102(v14)
-        v23 = US5_2(v19)
-    elif v13 == 3:
-        v21 = method113(v14)
-        v23 = US5_3(v21)
+    if v30 == 0:
+        method81(v31)
+        v50 = US6_0()
+    elif v30 == 1:
+        v34, v35, v36, v37, v38, v39, v40 = method91(v31)
+        v50 = US6_1(v34, v35, v36, v37, v38, v39, v40)
+    elif v30 == 2:
+        v42, v43, v44, v45, v46, v47, v48 = method91(v31)
+        v50 = US6_2(v42, v43, v44, v45, v46, v47, v48)
     else:
         raise Exception("Invalid tag.")
-    del v13, v14
-    return v2, v4, v5, v8, v9, v11, v23
-def method116(v0 : cp.ndarray) -> i32:
-    v1 = v0[128:].view(cp.int32)
-    del v0
-    v2 = v1[0].item()
-    del v1
-    return v2
-def method115(v0 : cp.ndarray) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5, US1]:
-    v1 = v0[0:].view(cp.int32)
-    v2 = v1[0].item()
-    del v1
-    v3 = v0[4:].view(cp.bool_)
-    v4 = v3[0].item()
-    del v3
-    v5 = static_array(2)
-    v6 = 16
-    method107(v0, v5, v6)
-    del v6
-    v7 = v0[48:].view(cp.int32)
-    v8 = v7[0].item()
-    del v7
-    v9 = static_array(2)
-    v10 = 52
-    method109(v0, v9, v10)
-    del v10
-    v11 = static_array(2)
-    v12 = 60
-    method109(v0, v11, v12)
-    del v12
-    v13 = method110(v0)
-    v14 = v0[80:].view(cp.uint8)
-    if v13 == 0:
-        v16 = method111(v14)
-        v23 = US5_0(v16)
-    elif v13 == 1:
-        method93(v14)
-        v23 = US5_1()
-    elif v13 == 2:
-        v19 = method102(v14)
-        v23 = US5_2(v19)
-    elif v13 == 3:
-        v21 = method113(v14)
-        v23 = US5_3(v21)
-    else:
-        raise Exception("Invalid tag.")
-    del v13, v14
-    v24 = method116(v0)
-    v25 = v0[132:].view(cp.uint8)
-    del v0
-    if v24 == 0:
-        method93(v25)
-        v31 = US1_0()
-    elif v24 == 1:
-        method93(v25)
-        v31 = US1_1()
-    elif v24 == 2:
-        v29 = method89(v25)
-        v31 = US1_2(v29)
-    else:
-        raise Exception("Invalid tag.")
-    del v24, v25
-    return v2, v4, v5, v8, v9, v11, v23, v31
-def method105(v0 : cp.ndarray) -> US4:
-    v1 = method89(v0)
-    v2 = v0[16:].view(cp.uint8)
-    del v0
-    if v1 == 0:
-        del v1
-        v4, v5, v6, v7, v8, v9, v10 = method106(v2)
-        del v2
-        return US4_0(v4, v5, v6, v7, v8, v9, v10)
-    elif v1 == 1:
-        del v1
-        v12, v13, v14, v15, v16, v17, v18 = method106(v2)
-        del v2
-        return US4_1(v12, v13, v14, v15, v16, v17, v18)
-    elif v1 == 2:
-        del v1
-        method93(v2)
-        del v2
-        return US4_2()
-    elif v1 == 3:
-        del v1
-        v21, v22, v23, v24, v25, v26, v27 = method106(v2)
-        del v2
-        return US4_3(v21, v22, v23, v24, v25, v26, v27)
-    elif v1 == 4:
-        del v1
-        v29, v30, v31, v32, v33, v34, v35 = method106(v2)
-        del v2
-        return US4_4(v29, v30, v31, v32, v33, v34, v35)
-    elif v1 == 5:
-        del v1
-        v37, v38, v39, v40, v41, v42, v43, v44 = method115(v2)
-        del v2
-        return US4_5(v37, v38, v39, v40, v41, v42, v43, v44)
-    elif v1 == 6:
-        del v1
-        v46, v47, v48, v49, v50, v51, v52 = method106(v2)
-        del v2
-        return US4_6(v46, v47, v48, v49, v50, v51, v52)
-    elif v1 == 7:
-        del v1
-        v54, v55, v56, v57, v58, v59, v60 = method106(v2)
-        del v2
-        return US4_7(v54, v55, v56, v57, v58, v59, v60)
-    else:
-        del v1, v2
-        raise Exception("Invalid tag.")
-def method118(v0 : cp.ndarray) -> US2:
-    v1 = method89(v0)
-    v2 = v0[4:].view(cp.uint8)
-    del v0
-    if v1 == 0:
-        del v1
-        method93(v2)
-        del v2
-        return US2_0()
-    elif v1 == 1:
-        del v1
-        method93(v2)
-        del v2
-        return US2_1()
-    else:
-        del v1, v2
-        raise Exception("Invalid tag.")
-def method117(v0 : cp.ndarray, v1 : static_array, v2 : u64) -> None:
-    v3 = 0
-    while method47(v3):
-        v5 = u64(v3)
-        v6 = v5 * 4
-        del v5
-        v7 = v2 + v6
-        del v6
-        v8 = v0[v7:].view(cp.uint8)
-        del v7
-        v9 = method118(v8)
-        del v8
-        v10 = 0 <= v3
-        if v10:
-            v11 = v3 < 2
-            v12 = v11
-        else:
-            v12 = False
-        del v10
-        v13 = v12 == False
-        if v13:
-            v14 = "The read index needs to be in range for the static array."
-            assert v12, v14
-            del v14
-        else:
-            pass
-        del v12, v13
-        v1[v3] = v9
-        del v9
-        v3 += 1 
-    del v0, v1, v2, v3
-    return 
-def method119(v0 : cp.ndarray) -> i32:
-    v1 = v0[22728:].view(cp.int32)
-    del v0
-    v2 = v1[0].item()
-    del v1
-    return v2
-def method84(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array, US6]:
-    v1 = method85(v0)
-    v2 = static_array_list(128)
-    v3 = method86(v0)
-    v2.length = v3
-    del v3
-    v4 = 16
-    method87(v0, v2, v4)
-    del v4
-    v5 = method104(v0)
-    v6 = v0[22560:].view(cp.uint8)
-    if v5 == 0:
-        method93(v6)
-        v11 = US3_0()
-    elif v5 == 1:
-        v9 = method105(v6)
-        v11 = US3_1(v9)
-    else:
-        raise Exception("Invalid tag.")
-    del v5, v6
-    v12 = static_array(2)
-    v13 = 22720
-    method117(v0, v12, v13)
-    del v13
-    v14 = method119(v0)
-    v15 = v0[22736:].view(cp.uint8)
-    del v0
-    if v14 == 0:
-        method93(v15)
-        v34 = US6_0()
-    elif v14 == 1:
-        v18, v19, v20, v21, v22, v23, v24 = method106(v15)
-        v34 = US6_1(v18, v19, v20, v21, v22, v23, v24)
-    elif v14 == 2:
-        v26, v27, v28, v29, v30, v31, v32 = method106(v15)
-        v34 = US6_2(v26, v27, v28, v29, v30, v31, v32)
-    else:
-        raise Exception("Invalid tag.")
-    del v14, v15
-    return v1, v2, v11, v12, v34
-def method121(v0 : cp.ndarray) -> i32:
-    v1 = v0[22552:].view(cp.int32)
-    del v0
-    v2 = v1[0].item()
-    del v1
-    return v2
-def method120(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
-    v1 = static_array_list(128)
-    v2 = method89(v0)
-    v1.length = v2
-    del v2
-    v3 = 16
-    method87(v0, v1, v3)
-    del v3
-    v4 = static_array(2)
-    v5 = 22544
-    method117(v0, v4, v5)
-    del v5
-    v6 = method121(v0)
-    v7 = v0[22560:].view(cp.uint8)
-    del v0
-    if v6 == 0:
-        method93(v7)
-        v26 = US6_0()
-    elif v6 == 1:
-        v10, v11, v12, v13, v14, v15, v16 = method106(v7)
-        v26 = US6_1(v10, v11, v12, v13, v14, v15, v16)
-    elif v6 == 2:
-        v18, v19, v20, v21, v22, v23, v24 = method106(v7)
-        v26 = US6_2(v18, v19, v20, v21, v22, v23, v24)
-    else:
-        raise Exception("Invalid tag.")
-    del v6, v7
-    return v1, v4, v26
-def method127(v0 : u64) -> object:
+    del v30, v31
+    return v1, v17, v50
+def method107(v0 : u64) -> object:
     v1 = v0
     del v0
     return v1
-def method126(v0 : u64) -> object:
-    return method127(v0)
-def method133() -> object:
+def method106(v0 : u64) -> object:
+    return method107(v0)
+def method113() -> object:
     v0 = []
     return v0
-def method132(v0 : US8) -> object:
+def method112(v0 : US8) -> object:
     match v0:
         case US8_0(): # Ace
             del v0
-            v1 = method133()
+            v1 = method113()
             v2 = "Ace"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US8_1(): # Eight
             del v0
-            v4 = method133()
+            v4 = method113()
             v5 = "Eight"
             v6 = [v5,v4]
             del v4, v5
             return v6
         case US8_2(): # Five
             del v0
-            v7 = method133()
+            v7 = method113()
             v8 = "Five"
             v9 = [v8,v7]
             del v7, v8
             return v9
         case US8_3(): # Four
             del v0
-            v10 = method133()
+            v10 = method113()
             v11 = "Four"
             v12 = [v11,v10]
             del v10, v11
             return v12
         case US8_4(): # Jack
             del v0
-            v13 = method133()
+            v13 = method113()
             v14 = "Jack"
             v15 = [v14,v13]
             del v13, v14
             return v15
         case US8_5(): # King
             del v0
-            v16 = method133()
+            v16 = method113()
             v17 = "King"
             v18 = [v17,v16]
             del v16, v17
             return v18
         case US8_6(): # Nine
             del v0
-            v19 = method133()
+            v19 = method113()
             v20 = "Nine"
             v21 = [v20,v19]
             del v19, v20
             return v21
         case US8_7(): # Queen
             del v0
-            v22 = method133()
+            v22 = method113()
             v23 = "Queen"
             v24 = [v23,v22]
             del v22, v23
             return v24
         case US8_8(): # Seven
             del v0
-            v25 = method133()
+            v25 = method113()
             v26 = "Seven"
             v27 = [v26,v25]
             del v25, v26
             return v27
         case US8_9(): # Six
             del v0
-            v28 = method133()
+            v28 = method113()
             v29 = "Six"
             v30 = [v29,v28]
             del v28, v29
             return v30
         case US8_10(): # Ten
             del v0
-            v31 = method133()
+            v31 = method113()
             v32 = "Ten"
             v33 = [v32,v31]
             del v31, v32
             return v33
         case US8_11(): # Three
             del v0
-            v34 = method133()
+            v34 = method113()
             v35 = "Three"
             v36 = [v35,v34]
             del v34, v35
             return v36
         case US8_12(): # Two
             del v0
-            v37 = method133()
+            v37 = method113()
             v38 = "Two"
             v39 = [v38,v37]
             del v37, v38
             return v39
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method134(v0 : US9) -> object:
+def method114(v0 : US9) -> object:
     match v0:
         case US9_0(): # Clubs
             del v0
-            v1 = method133()
+            v1 = method113()
             v2 = "Clubs"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US9_1(): # Diamonds
             del v0
-            v4 = method133()
+            v4 = method113()
             v5 = "Diamonds"
             v6 = [v5,v4]
             del v4, v5
             return v6
         case US9_2(): # Hearts
             del v0
-            v7 = method133()
+            v7 = method113()
             v8 = "Hearts"
             v9 = [v8,v7]
             del v7, v8
             return v9
         case US9_3(): # Spades
             del v0
-            v10 = method133()
+            v10 = method113()
             v11 = "Spades"
             v12 = [v11,v10]
             del v10, v11
             return v12
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method131(v0 : US8, v1 : US9) -> object:
+def method111(v0 : US8, v1 : US9) -> object:
     v2 = []
-    v3 = method132(v0)
+    v3 = method112(v0)
     del v0
     v2.append(v3)
     del v3
-    v4 = method134(v1)
+    v4 = method114(v1)
     del v1
     v2.append(v4)
     del v4
     v5 = v2
     del v2
     return v5
-def method130(v0 : static_array_list) -> object:
+def method110(v0 : static_array_list) -> object:
     v1 = []
     v2 = v0.length
     v3 = 0
@@ -16033,44 +16508,44 @@ def method130(v0 : static_array_list) -> object:
             pass
         del v8, v9
         v11, v12 = v0[v3]
-        v13 = method131(v11, v12)
+        v13 = method111(v11, v12)
         del v11, v12
         v1.append(v13)
         del v13
         v3 += 1 
     del v0, v2, v3
     return v1
-def method136(v0 : i32) -> object:
+def method116(v0 : i32) -> object:
     v1 = v0
     del v0
     return v1
-def method135(v0 : i32, v1 : i32) -> object:
-    v2 = method136(v0)
+def method115(v0 : i32, v1 : i32) -> object:
+    v2 = method116(v0)
     del v0
-    v3 = method136(v1)
+    v3 = method116(v1)
     del v1
     v4 = {'chips_won': v2, 'winner_id': v3}
     del v2, v3
     return v4
-def method138(v0 : US1) -> object:
+def method118(v0 : US1) -> object:
     match v0:
         case US1_0(): # A_Call
             del v0
-            v1 = method133()
+            v1 = method113()
             v2 = "A_Call"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US1_1(): # A_Fold
             del v0
-            v4 = method133()
+            v4 = method113()
             v5 = "A_Fold"
             v6 = [v5,v4]
             del v4, v5
             return v6
         case US1_2(v7): # A_Raise
             del v0
-            v8 = method136(v7)
+            v8 = method116(v7)
             del v7
             v9 = "A_Raise"
             v10 = [v9,v8]
@@ -16078,23 +16553,23 @@ def method138(v0 : US1) -> object:
             return v10
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method137(v0 : i32, v1 : US1) -> object:
+def method117(v0 : i32, v1 : US1) -> object:
     v2 = []
-    v3 = method136(v0)
+    v3 = method116(v0)
     del v0
     v2.append(v3)
     del v3
-    v4 = method138(v1)
+    v4 = method118(v1)
     del v1
     v2.append(v4)
     del v4
     v5 = v2
     del v2
     return v5
-def method140(v0 : static_array) -> object:
+def method120(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -16111,30 +16586,30 @@ def method140(v0 : static_array) -> object:
             pass
         del v6, v7
         v9, v10 = v0[v2]
-        v11 = method131(v9, v10)
+        v11 = method111(v9, v10)
         del v9, v10
         v1.append(v11)
         del v11
         v2 += 1 
     del v0, v2
     return v1
-def method139(v0 : i32, v1 : static_array) -> object:
+def method119(v0 : i32, v1 : static_array) -> object:
     v2 = []
-    v3 = method136(v0)
+    v3 = method116(v0)
     del v0
     v2.append(v3)
     del v3
-    v4 = method140(v1)
+    v4 = method120(v1)
     del v1
     v2.append(v4)
     del v4
     v5 = v2
     del v2
     return v5
-def method144(v0 : static_array) -> object:
+def method124(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method67(v2):
+    while method61(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 5
@@ -16151,18 +16626,18 @@ def method144(v0 : static_array) -> object:
             pass
         del v6, v7
         v9, v10 = v0[v2]
-        v11 = method131(v9, v10)
+        v11 = method111(v9, v10)
         del v9, v10
         v1.append(v11)
         del v11
         v2 += 1 
     del v0, v2
     return v1
-def method143(v0 : US10) -> object:
+def method123(v0 : US10) -> object:
     match v0:
         case US10_0(v1): # Flush
             del v0
-            v2 = method144(v1)
+            v2 = method124(v1)
             del v1
             v3 = "Flush"
             v4 = [v3,v2]
@@ -16170,7 +16645,7 @@ def method143(v0 : US10) -> object:
             return v4
         case US10_1(v5): # Full_House
             del v0
-            v6 = method144(v5)
+            v6 = method124(v5)
             del v5
             v7 = "Full_House"
             v8 = [v7,v6]
@@ -16178,7 +16653,7 @@ def method143(v0 : US10) -> object:
             return v8
         case US10_2(v9): # High_Card
             del v0
-            v10 = method144(v9)
+            v10 = method124(v9)
             del v9
             v11 = "High_Card"
             v12 = [v11,v10]
@@ -16186,7 +16661,7 @@ def method143(v0 : US10) -> object:
             return v12
         case US10_3(v13): # Pair
             del v0
-            v14 = method144(v13)
+            v14 = method124(v13)
             del v13
             v15 = "Pair"
             v16 = [v15,v14]
@@ -16194,7 +16669,7 @@ def method143(v0 : US10) -> object:
             return v16
         case US10_4(v17): # Quads
             del v0
-            v18 = method144(v17)
+            v18 = method124(v17)
             del v17
             v19 = "Quads"
             v20 = [v19,v18]
@@ -16202,7 +16677,7 @@ def method143(v0 : US10) -> object:
             return v20
         case US10_5(v21): # Straight
             del v0
-            v22 = method144(v21)
+            v22 = method124(v21)
             del v21
             v23 = "Straight"
             v24 = [v23,v22]
@@ -16210,7 +16685,7 @@ def method143(v0 : US10) -> object:
             return v24
         case US10_6(v25): # Straight_Flush
             del v0
-            v26 = method144(v25)
+            v26 = method124(v25)
             del v25
             v27 = "Straight_Flush"
             v28 = [v27,v26]
@@ -16218,7 +16693,7 @@ def method143(v0 : US10) -> object:
             return v28
         case US10_7(v29): # Triple
             del v0
-            v30 = method144(v29)
+            v30 = method124(v29)
             del v29
             v31 = "Triple"
             v32 = [v31,v30]
@@ -16226,7 +16701,7 @@ def method143(v0 : US10) -> object:
             return v32
         case US10_8(v33): # Two_Pair
             del v0
-            v34 = method144(v33)
+            v34 = method124(v33)
             del v33
             v35 = "Two_Pair"
             v36 = [v35,v34]
@@ -16234,10 +16709,10 @@ def method143(v0 : US10) -> object:
             return v36
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method142(v0 : static_array) -> object:
+def method122(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -16254,28 +16729,28 @@ def method142(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method143(v9)
+        v10 = method123(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method141(v0 : i32, v1 : static_array, v2 : i32) -> object:
-    v3 = method136(v0)
+def method121(v0 : i32, v1 : static_array, v2 : i32) -> object:
+    v3 = method116(v0)
     del v0
-    v4 = method142(v1)
+    v4 = method122(v1)
     del v1
-    v5 = method136(v2)
+    v5 = method116(v2)
     del v2
     v6 = {'chips_won': v3, 'hands_shown': v4, 'winner_id': v5}
     del v3, v4, v5
     return v6
-def method129(v0 : US7) -> object:
+def method109(v0 : US7) -> object:
     match v0:
         case US7_0(v1): # CommunityCardsAre
             del v0
-            v2 = method130(v1)
+            v2 = method110(v1)
             del v1
             v3 = "CommunityCardsAre"
             v4 = [v3,v2]
@@ -16283,7 +16758,7 @@ def method129(v0 : US7) -> object:
             return v4
         case US7_1(v5, v6): # Fold
             del v0
-            v7 = method135(v5, v6)
+            v7 = method115(v5, v6)
             del v5, v6
             v8 = "Fold"
             v9 = [v8,v7]
@@ -16291,7 +16766,7 @@ def method129(v0 : US7) -> object:
             return v9
         case US7_2(v10, v11): # PlayerAction
             del v0
-            v12 = method137(v10, v11)
+            v12 = method117(v10, v11)
             del v10, v11
             v13 = "PlayerAction"
             v14 = [v13,v12]
@@ -16299,7 +16774,7 @@ def method129(v0 : US7) -> object:
             return v14
         case US7_3(v15, v16): # PlayerGotCards
             del v0
-            v17 = method139(v15, v16)
+            v17 = method119(v15, v16)
             del v15, v16
             v18 = "PlayerGotCards"
             v19 = [v18,v17]
@@ -16307,7 +16782,7 @@ def method129(v0 : US7) -> object:
             return v19
         case US7_4(v20, v21, v22): # Showdown
             del v0
-            v23 = method141(v20, v21, v22)
+            v23 = method121(v20, v21, v22)
             del v20, v21, v22
             v24 = "Showdown"
             v25 = [v24,v23]
@@ -16315,7 +16790,7 @@ def method129(v0 : US7) -> object:
             return v25
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method128(v0 : static_array_list) -> object:
+def method108(v0 : static_array_list) -> object:
     v1 = []
     v2 = v0.length
     v3 = 0
@@ -16338,35 +16813,35 @@ def method128(v0 : static_array_list) -> object:
             pass
         del v8, v9
         v11 = v0[v3]
-        v12 = method129(v11)
+        v12 = method109(v11)
         del v11
         v1.append(v12)
         del v12
         v3 += 1 
     del v0, v2, v3
     return v1
-def method125(v0 : u64, v1 : static_array_list) -> object:
-    v2 = method126(v0)
+def method105(v0 : u64, v1 : static_array_list) -> object:
+    v2 = method106(v0)
     del v0
-    v3 = method128(v1)
+    v3 = method108(v1)
     del v1
     v4 = {'deck': v2, 'messages': v3}
     del v2, v3
     return v4
-def method149(v0 : i32) -> object:
-    v1 = method136(v0)
+def method129(v0 : i32) -> object:
+    v1 = method116(v0)
     del v0
     v2 = {'min_raise': v1}
     del v1
     return v2
-def method150(v0 : bool) -> object:
+def method130(v0 : bool) -> object:
     v1 = v0
     del v0
     return v1
-def method151(v0 : static_array) -> object:
+def method131(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -16383,17 +16858,17 @@ def method151(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method140(v9)
+        v10 = method120(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method152(v0 : static_array) -> object:
+def method132(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -16410,17 +16885,17 @@ def method152(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method136(v9)
+        v10 = method116(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method154(v0 : static_array) -> object:
+def method134(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method77(v2):
+    while method68(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 3
@@ -16437,17 +16912,17 @@ def method154(v0 : static_array) -> object:
             pass
         del v6, v7
         v9, v10 = v0[v2]
-        v11 = method131(v9, v10)
+        v11 = method111(v9, v10)
         del v9, v10
         v1.append(v11)
         del v11
         v2 += 1 
     del v0, v2
     return v1
-def method155(v0 : static_array) -> object:
+def method135(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method80(v2):
+    while method70(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 4
@@ -16464,18 +16939,18 @@ def method155(v0 : static_array) -> object:
             pass
         del v6, v7
         v9, v10 = v0[v2]
-        v11 = method131(v9, v10)
+        v11 = method111(v9, v10)
         del v9, v10
         v1.append(v11)
         del v11
         v2 += 1 
     del v0, v2
     return v1
-def method153(v0 : US5) -> object:
+def method133(v0 : US5) -> object:
     match v0:
         case US5_0(v1): # Flop
             del v0
-            v2 = method154(v1)
+            v2 = method134(v1)
             del v1
             v3 = "Flop"
             v4 = [v3,v2]
@@ -16483,14 +16958,14 @@ def method153(v0 : US5) -> object:
             return v4
         case US5_1(): # Preflop
             del v0
-            v5 = method133()
+            v5 = method113()
             v6 = "Preflop"
             v7 = [v6,v5]
             del v5, v6
             return v7
         case US5_2(v8): # River
             del v0
-            v9 = method144(v8)
+            v9 = method124(v8)
             del v8
             v10 = "River"
             v11 = [v10,v9]
@@ -16498,7 +16973,7 @@ def method153(v0 : US5) -> object:
             return v11
         case US5_3(v12): # Turn
             del v0
-            v13 = method155(v12)
+            v13 = method135(v12)
             del v12
             v14 = "Turn"
             v15 = [v14,v13]
@@ -16506,42 +16981,42 @@ def method153(v0 : US5) -> object:
             return v15
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method148(v0 : i32, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : static_array, v6 : US5) -> object:
-    v7 = method149(v0)
+def method128(v0 : i32, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : static_array, v6 : US5) -> object:
+    v7 = method129(v0)
     del v0
-    v8 = method150(v1)
+    v8 = method130(v1)
     del v1
-    v9 = method151(v2)
+    v9 = method131(v2)
     del v2
-    v10 = method136(v3)
+    v10 = method116(v3)
     del v3
-    v11 = method152(v4)
+    v11 = method132(v4)
     del v4
-    v12 = method152(v5)
+    v12 = method132(v5)
     del v5
-    v13 = method153(v6)
+    v13 = method133(v6)
     del v6
     v14 = {'config': v7, 'is_button_s_first_move': v8, 'pl_card': v9, 'player_turn': v10, 'pot': v11, 'stack': v12, 'street': v13}
     del v7, v8, v9, v10, v11, v12, v13
     return v14
-def method156(v0 : i32, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : static_array, v6 : US5, v7 : US1) -> object:
+def method136(v0 : i32, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : static_array, v6 : US5, v7 : US1) -> object:
     v8 = []
-    v9 = method148(v0, v1, v2, v3, v4, v5, v6)
+    v9 = method128(v0, v1, v2, v3, v4, v5, v6)
     del v0, v1, v2, v3, v4, v5, v6
     v8.append(v9)
     del v9
-    v10 = method138(v7)
+    v10 = method118(v7)
     del v7
     v8.append(v10)
     del v10
     v11 = v8
     del v8
     return v11
-def method147(v0 : US4) -> object:
+def method127(v0 : US4) -> object:
     match v0:
         case US4_0(v1, v2, v3, v4, v5, v6, v7): # G_Flop
             del v0
-            v8 = method148(v1, v2, v3, v4, v5, v6, v7)
+            v8 = method128(v1, v2, v3, v4, v5, v6, v7)
             del v1, v2, v3, v4, v5, v6, v7
             v9 = "G_Flop"
             v10 = [v9,v8]
@@ -16549,7 +17024,7 @@ def method147(v0 : US4) -> object:
             return v10
         case US4_1(v11, v12, v13, v14, v15, v16, v17): # G_Fold
             del v0
-            v18 = method148(v11, v12, v13, v14, v15, v16, v17)
+            v18 = method128(v11, v12, v13, v14, v15, v16, v17)
             del v11, v12, v13, v14, v15, v16, v17
             v19 = "G_Fold"
             v20 = [v19,v18]
@@ -16557,14 +17032,14 @@ def method147(v0 : US4) -> object:
             return v20
         case US4_2(): # G_Preflop
             del v0
-            v21 = method133()
+            v21 = method113()
             v22 = "G_Preflop"
             v23 = [v22,v21]
             del v21, v22
             return v23
         case US4_3(v24, v25, v26, v27, v28, v29, v30): # G_River
             del v0
-            v31 = method148(v24, v25, v26, v27, v28, v29, v30)
+            v31 = method128(v24, v25, v26, v27, v28, v29, v30)
             del v24, v25, v26, v27, v28, v29, v30
             v32 = "G_River"
             v33 = [v32,v31]
@@ -16572,7 +17047,7 @@ def method147(v0 : US4) -> object:
             return v33
         case US4_4(v34, v35, v36, v37, v38, v39, v40): # G_Round
             del v0
-            v41 = method148(v34, v35, v36, v37, v38, v39, v40)
+            v41 = method128(v34, v35, v36, v37, v38, v39, v40)
             del v34, v35, v36, v37, v38, v39, v40
             v42 = "G_Round"
             v43 = [v42,v41]
@@ -16580,7 +17055,7 @@ def method147(v0 : US4) -> object:
             return v43
         case US4_5(v44, v45, v46, v47, v48, v49, v50, v51): # G_Round'
             del v0
-            v52 = method156(v44, v45, v46, v47, v48, v49, v50, v51)
+            v52 = method136(v44, v45, v46, v47, v48, v49, v50, v51)
             del v44, v45, v46, v47, v48, v49, v50, v51
             v53 = "G_Round'"
             v54 = [v53,v52]
@@ -16588,7 +17063,7 @@ def method147(v0 : US4) -> object:
             return v54
         case US4_6(v55, v56, v57, v58, v59, v60, v61): # G_Showdown
             del v0
-            v62 = method148(v55, v56, v57, v58, v59, v60, v61)
+            v62 = method128(v55, v56, v57, v58, v59, v60, v61)
             del v55, v56, v57, v58, v59, v60, v61
             v63 = "G_Showdown"
             v64 = [v63,v62]
@@ -16596,7 +17071,7 @@ def method147(v0 : US4) -> object:
             return v64
         case US4_7(v65, v66, v67, v68, v69, v70, v71): # G_Turn
             del v0
-            v72 = method148(v65, v66, v67, v68, v69, v70, v71)
+            v72 = method128(v65, v66, v67, v68, v69, v70, v71)
             del v65, v66, v67, v68, v69, v70, v71
             v73 = "G_Turn"
             v74 = [v73,v72]
@@ -16604,18 +17079,18 @@ def method147(v0 : US4) -> object:
             return v74
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method146(v0 : US3) -> object:
+def method126(v0 : US3) -> object:
     match v0:
         case US3_0(): # None
             del v0
-            v1 = method133()
+            v1 = method113()
             v2 = "None"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US3_1(v4): # Some
             del v0
-            v5 = method147(v4)
+            v5 = method127(v4)
             del v4
             v6 = "Some"
             v7 = [v6,v5]
@@ -16623,28 +17098,28 @@ def method146(v0 : US3) -> object:
             return v7
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method158(v0 : US2) -> object:
+def method138(v0 : US2) -> object:
     match v0:
         case US2_0(): # Computer
             del v0
-            v1 = method133()
+            v1 = method113()
             v2 = "Computer"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US2_1(): # Human
             del v0
-            v4 = method133()
+            v4 = method113()
             v5 = "Human"
             v6 = [v5,v4]
             del v4, v5
             return v6
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method157(v0 : static_array) -> object:
+def method137(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -16661,25 +17136,25 @@ def method157(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method158(v9)
+        v10 = method138(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method159(v0 : US6) -> object:
+def method139(v0 : US6) -> object:
     match v0:
         case US6_0(): # GameNotStarted
             del v0
-            v1 = method133()
+            v1 = method113()
             v2 = "GameNotStarted"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US6_1(v4, v5, v6, v7, v8, v9, v10): # GameOver
             del v0
-            v11 = method148(v4, v5, v6, v7, v8, v9, v10)
+            v11 = method128(v4, v5, v6, v7, v8, v9, v10)
             del v4, v5, v6, v7, v8, v9, v10
             v12 = "GameOver"
             v13 = [v12,v11]
@@ -16687,7 +17162,7 @@ def method159(v0 : US6) -> object:
             return v13
         case US6_2(v14, v15, v16, v17, v18, v19, v20): # WaitingForActionFromPlayerId
             del v0
-            v21 = method148(v14, v15, v16, v17, v18, v19, v20)
+            v21 = method128(v14, v15, v16, v17, v18, v19, v20)
             del v14, v15, v16, v17, v18, v19, v20
             v22 = "WaitingForActionFromPlayerId"
             v23 = [v22,v21]
@@ -16695,56 +17170,56 @@ def method159(v0 : US6) -> object:
             return v23
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method145(v0 : US3, v1 : static_array, v2 : US6) -> object:
-    v3 = method146(v0)
+def method125(v0 : US3, v1 : static_array, v2 : US6) -> object:
+    v3 = method126(v0)
     del v0
-    v4 = method157(v1)
+    v4 = method137(v1)
     del v1
-    v5 = method159(v2)
+    v5 = method139(v2)
     del v2
     v6 = {'game': v3, 'pl_type': v4, 'ui_game_state': v5}
     del v3, v4, v5
     return v6
-def method124(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
-    v5 = method125(v0, v1)
+def method104(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
+    v5 = method105(v0, v1)
     del v0, v1
-    v6 = method145(v2, v3, v4)
+    v6 = method125(v2, v3, v4)
     del v2, v3, v4
     v7 = {'large': v5, 'small': v6}
     del v5, v6
     return v7
-def method160(v0 : static_array_list, v1 : static_array, v2 : US6) -> object:
-    v3 = method128(v0)
+def method140(v0 : static_array_list, v1 : static_array, v2 : US6) -> object:
+    v3 = method108(v0)
     del v0
-    v4 = method157(v1)
+    v4 = method137(v1)
     del v1
-    v5 = method159(v2)
+    v5 = method139(v2)
     del v2
     v6 = {'messages': v3, 'pl_type': v4, 'ui_game_state': v5}
     del v3, v4, v5
     return v6
-def method123(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
-    v8 = method124(v0, v1, v2, v3, v4)
+def method103(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
+    v8 = method104(v0, v1, v2, v3, v4)
     del v0, v1, v2, v3, v4
-    v9 = method160(v5, v6, v7)
+    v9 = method140(v5, v6, v7)
     del v5, v6, v7
     v10 = {'game_state': v8, 'ui_state': v9}
     del v8, v9
     return v10
-def method122(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
-    v8 = method123(v0, v1, v2, v3, v4, v5, v6, v7)
+def method102(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
+    v8 = method103(v0, v1, v2, v3, v4, v5, v6, v7)
     del v0, v1, v2, v3, v4, v5, v6, v7
     return v8
-def method162(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
-    v5 = method124(v0, v1, v2, v3, v4)
+def method142(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
+    v5 = method104(v0, v1, v2, v3, v4)
     del v0, v2
-    v6 = method160(v1, v3, v4)
+    v6 = method140(v1, v3, v4)
     del v1, v3, v4
     v7 = {'game_state': v5, 'ui_state': v6}
     del v5, v6
     return v7
-def method161(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
-    v5 = method162(v0, v1, v2, v3, v4)
+def method141(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
+    v5 = method142(v0, v1, v2, v3, v4)
     del v0, v1, v2, v3, v4
     return v5
 def main():
