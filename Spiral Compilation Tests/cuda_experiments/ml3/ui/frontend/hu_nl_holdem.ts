@@ -49,6 +49,10 @@ enum Card_Suit {
 }
 
 type Card = [Card_Rank, Card_Suit]
+type CardInt = number
+const suit_of = (x : CardInt): Card_Suit => x % 4 // Mask by 11
+const rank_of = (x : CardInt): Card_Rank => x / 4 % 16 // Shift two to the right and then mask by 1111
+const card_of = (x : CardInt): Card => [rank_of(x),suit_of(x)]
 
 type Action = ["A_Raise",number] | ["A_Call",[]] | ["A_Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
@@ -56,9 +60,9 @@ const players : Players[] = [["Computer",[]], ["Human",[]]]
 
 type Street =
     | ["Preflop", []]
-    | ["Flop", Card[]]
-    | ["Turn", Card[]]
-    | ["River", Card[]]
+    | ["Flop", CardInt[]]
+    | ["Turn", CardInt[]]
+    | ["River", CardInt[]]
 
 type Game_Config = {
     min_raise : number
@@ -68,7 +72,7 @@ type Table = {
     pot: [number, number],
     stack: [number, number],
     street: Street,
-    pl_card: [Card[], Card[]],
+    pl_card: [CardInt[], CardInt[]],
     is_button_s_first_move: boolean,
     player_turn: number,
     config : Game_Config,
@@ -365,7 +369,7 @@ const print_rank = (tag : Card_Rank) => {
 
 @customElement('poker-card')
 class Poker_Card extends LitElement {
-    @property({type: Array}) card : Card = [Card_Rank.King, Card_Suit.Hearts]
+    @property({type: Number}) card : CardInt = 34
     @property({type: Boolean}) is_visible = true;
 
     static styles = css`
@@ -390,7 +394,10 @@ class Poker_Card extends LitElement {
         }
     `
 
-    print_card = ([rank,suit] : Card) => html`<span style="color: ${color_of_suit(suit)}">${print_rank(rank)}</span>`
+    print_card = (x : CardInt) => {
+        const [rank,suit] = card_of(x);
+        html`<span style="color: ${color_of_suit(suit)}">${print_rank(rank)}</span>`
+    }
     render() {
         return html`${this.is_visible ? this.print_card(this.card) : " "}`
     }
@@ -409,7 +416,7 @@ class Poker_Cards extends LitElement {
             white-space: pre;
         }
 `
-    @property({type: Array}) cards : Card[] = [];
+    @property({type: Array}) cards : CardInt[] = [];
     @property({type: Boolean}) is_visible = true;
 
     print_card = ([rank,suit] : Card) => `${print_rank(rank)}${print_suit(suit)}`
@@ -423,12 +430,12 @@ class Poker_Cards extends LitElement {
 @customElement('nl-holdem-game')
 class Game extends GameElement {
     @property({type: Array}) state : Game_State = ["WaitingForActionFromPlayerId", {
-        pl_card: [[[Card_Rank.King, Card_Suit.Clubs],[Card_Rank.Eight,Card_Suit.Diamonds]], [[Card_Rank.Five,Card_Suit.Spades],[Card_Rank.Nine,Card_Suit.Hearts]]],
+        pl_card: [[1,2],[3,4]],
         stack: [96,97],
         pot: [4,3],
         is_button_s_first_move: true,
         player_turn: 0,
-        street: ["Flop",[[Card_Rank.Six,Card_Suit.Clubs],[Card_Rank.Ace,Card_Suit.Clubs],[Card_Rank.Nine,Card_Suit.Spades]]],
+        street: ["Flop",[5,6,7]],
         config: {
             min_raise: 2
         }
