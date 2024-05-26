@@ -72,16 +72,30 @@ union game_node =
     | G_Round' : table * action
     | G_Fold : table
 
+let go_next_street (table : table) =
+    match table.street with
+    | Preflop => G_Flop table
+    | Flop => G_Turn table
+    | Turn => G_River table
+    | River => G_Showdown table
+
 // Toggles the player turn.
 inl toggle (player_turn : int) : int = player_turn ^^^ 1
+let try_round (table : table) =
+    let player_can_act (table : table) =
+        inl has_chips_left = index table.stack table.player_turn > 0
+        inl is_first_to_act = table.is_button_s_first_move
+        inl needs_calling = index table.pot table.player_turn < arraym.reduce max table.pot
+        has_chips_left && (needs_calling || is_first_to_act) // If this condition is not true, then the player is in an all-in state.
+    listm.foldBack (fun table next () =>
+        if player_can_act table then G_Round table else next()
+        ) // Tries out these tables in order, testing whether the player on that turn act, and if so returns the table.
+        [ table; {table with is_button_s_first_move = false; player_turn#=toggle} ] 
+        // If all players are all in, goes to the next street.
+        (fun () => go_next_street table)
+        ()
 
 inl round (table : table) (action : action) =
-    inl go_next_street (table : table) =
-        match table.street with
-        | Preflop => G_Flop table
-        | Flop => G_Turn table
-        | Turn => G_River table
-        | River => G_Showdown table
     match action with
     | A_Fold => G_Fold table
     | A_Call =>
@@ -91,7 +105,7 @@ inl round (table : table) (action : action) =
             arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
         inl stack = arraym.map2 (-) full_stack pot
         if table.is_button_s_first_move then
-            G_Round {table with 
+            try_round {table with 
                 pot stack
                 is_button_s_first_move=false
                 player_turn#=toggle
@@ -103,27 +117,27 @@ inl round (table : table) (action : action) =
             inl pot_size_needed_to_call = arraym.reduce max table.pot
             arraym.update table.player_turn (min (pot_size_needed_to_call + raise_amount)) full_stack
         inl stack = arraym.map2 (-) full_stack pot
-        G_Round {table with 
+        try_round {table with 
             pot stack
             is_button_s_first_move=false
             player_turn#=toggle
             }
 inl flop (table : table) (cards : sam.sa 3 card) =
-    G_Round {table with 
+    try_round {table with 
         is_button_s_first_move = true; player_turn = 0
         street #= function Preflop => Flop cards | _ => failwith "Invalid street in flop."
         }
 inl turn (table : table) (cards : sam.sa 1 card) =
-    G_Round {table with 
+    try_round {table with 
         is_button_s_first_move = true; player_turn = 0
         street #= function Flop x => Turn (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in turn."
         }
 inl river (table : table) (cards : sam.sa 1 card) =
-    G_Round {table with 
+    try_round {table with 
         is_button_s_first_move = true; player_turn = 0
         street #= function Turn x => River (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in river."
         }
-inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) = G_Round (init_table pl_card)
+inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) = try_round (init_table pl_card)
 inl fold (table : table) = G_Fold table
 inl showdown (table : table) = G_Showdown table
 inl start () = G_Preflop
