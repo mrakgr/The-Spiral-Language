@@ -101,15 +101,13 @@ inl round (table : table) (action : action) =
         inl full_stack = arraym.map2 (+) table.stack table.pot
         inl pot = 
             inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
+            arraym.update table.player_turn (min (pot_size_needed_to_call + raise_amount)) full_stack
         inl stack = arraym.map2 (-) full_stack pot
-        if index stack (toggle table.player_turn) > 0 then // As long as the opponent has money left in his stack, continue betting.
-            G_Round {table with 
-                pot stack
-                is_button_s_first_move=false
-                player_turn#=toggle
-                }
-        else go_next_street {table with pot stack}
+        G_Round {table with 
+            pot stack
+            is_button_s_first_move=false
+            player_turn#=toggle
+            }
 inl flop (table : table) (cards : sam.sa 3 card) =
     G_Round {table with 
         is_button_s_first_move = true; player_turn = 0
