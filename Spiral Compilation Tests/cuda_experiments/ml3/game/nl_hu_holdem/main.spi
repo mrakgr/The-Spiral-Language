@@ -23,8 +23,7 @@ type table =
         stack : sam.sa 2 int
         street : street
         pl_card : sam.sa 2 (sam.sa 2 card)
-        is_button_s_first_move : bool
-        player_turn : int
+        round_turn : int
         config : {
             min_raise : int
         }
@@ -55,8 +54,7 @@ inl init_table (pl_card : sam.sa 2 (sam.sa 2 card)) : table =
         stack = arraym.map (fun x => stack_size - x) pot
         street = Preflop
         pl_card
-        is_button_s_first_move = true
-        player_turn = 0
+        round_turn = 0
         config = {
             min_raise
         }
@@ -79,62 +77,61 @@ let go_next_street (table : table) =
     | Turn => G_River table
     | River => G_Showdown table
 
-// Toggles the player turn.
-inl toggle (player_turn : int) : int = player_turn ^^^ 1
+inl next_turn (player_turn : int) : int = player_turn + 1
+inl player_turn (table : table) = table.round_turn % 2
 let try_round (table : table) =
     let player_can_act (table : table) =
-        inl has_chips_left = index table.stack table.player_turn > 0
-        inl is_first_to_act = table.is_button_s_first_move
-        inl needs_calling = index table.pot table.player_turn < arraym.reduce max table.pot
-        has_chips_left && (needs_calling || is_first_to_act) // If this condition is not true, then the player is in an all-in state.
+        inl player_turn = player_turn table
+        inl has_chips_left = index table.stack player_turn > 0
+        inl needs_calling = index table.pot player_turn < arraym.reduce max table.pot
+        has_chips_left && (needs_calling || player_turn < 2) // If this condition is not true, then the player is in an all-in state.
     listm.foldBack (fun table next () =>
         if player_can_act table then G_Round table else next()
         ) // Tries out these tables in order, testing whether the player on that turn act, and if so returns the table.
-        [ table; {table with is_button_s_first_move = false; player_turn#=toggle} ] 
+        [ table; {table with round_turn#=next_turn} ] 
         // If all players are all in, goes to the next street.
         (fun () => go_next_street table)
         ()
 
 inl round (table : table) (action : action) =
+    inl player_turn = player_turn table
     match action with
     | A_Fold => G_Fold table
     | A_Call =>
         inl full_stack = arraym.map2 (+) table.stack table.pot
         inl pot =
             inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
+            arraym.update player_turn (min pot_size_needed_to_call) full_stack
         inl stack = arraym.map2 (-) full_stack pot
-        if table.is_button_s_first_move then
+        if player_turn < 2 then
             try_round {table with 
                 pot stack
-                is_button_s_first_move=false
-                player_turn#=toggle
+                round_turn#=next_turn
                 }
         else go_next_street {table with pot stack}
     | A_Raise raise_amount =>
         inl full_stack = arraym.map2 (+) table.stack table.pot
         inl pot = 
             inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update table.player_turn (min (pot_size_needed_to_call + raise_amount)) full_stack
+            arraym.update player_turn (min (pot_size_needed_to_call + raise_amount)) full_stack
         inl stack = arraym.map2 (-) full_stack pot
         try_round {table with 
             pot stack
-            is_button_s_first_move=false
-            player_turn#=toggle
+            round_turn#=next_turn
             }
 inl flop (table : table) (cards : sam.sa 3 card) =
     try_round {table with 
-        is_button_s_first_move = true; player_turn = 0
+        round_turn = 0
         street #= function Preflop => Flop cards | _ => failwith "Invalid street in flop."
         }
 inl turn (table : table) (cards : sam.sa 1 card) =
     try_round {table with 
-        is_button_s_first_move = true; player_turn = 0
+        round_turn = 0
         street #= function Flop x => Turn (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in turn."
         }
 inl river (table : table) (cards : sam.sa 1 card) =
     try_round {table with 
-        is_button_s_first_move = true; player_turn = 0
+        round_turn = 0
         street #= function Turn x => River (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in river."
         }
 inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) = try_round (init_table pl_card)
@@ -206,23 +203,24 @@ inl large_to_refs (large : state_large) : state_large_ref =
     }
 
 inl random_action = fun rng (table : table) =>
+    inl player_turn = player_turn table
     inl full_stack = arraym.map2 (+) table.stack table.pot
     inl pot_size_needed_to_call = arraym.reduce max table.pot
-    inl pot_after_calling = arraym.update table.player_turn (min pot_size_needed_to_call) full_stack
+    inl pot_after_calling = arraym.update player_turn (min pot_size_needed_to_call) full_stack
     inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
     inl pot_bet_size = arraym.reduce (+) pot_after_calling
     inl raise x = // Only do the raise if there are enough chips in the stack after calling.
-        inl prob = if x <= index stack_after_calling table.player_turn then 1 else 0
+        inl prob = if x <= index stack_after_calling player_turn then 1 else 0
         A_Raise x, prob
     inl actions : sam.sa 8 (action * f32) = arraym.fromList [
-        A_Fold, if index table.pot table.player_turn < index table.pot (toggle table.player_turn) then 1 else 0
+        A_Fold, if index table.pot player_turn < pot_size_needed_to_call then 1 else 0
         A_Call, 2
         raise (pot_bet_size / 4)
         raise (pot_bet_size / 3)
         raise (pot_bet_size / 2)
         raise pot_bet_size
         raise (pot_bet_size * 3 / 2)
-        raise (index stack_after_calling table.player_turn) // all-in bet
+        raise (index stack_after_calling player_turn) // all-in bet
         ]
     random.sample_discrete actions rng
     
@@ -256,8 +254,8 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
         match node with
         | G_Fold table =>
             inl msg = 
-                inl chips_won = index table.pot table.player_turn
-                Fold {chips_won winner_id=toggle table.player_turn}
+                inl chips_won = index table.pot (player_turn table)
+                Fold {chips_won winner_id=next_turn table.round_turn}
             push_message msg
             done node
         | G_Showdown table => 
@@ -266,7 +264,7 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
                 inl h i : sam.sa 7 lib.cardm.card = sam.merge (index table.pl_card i) community_cards |> nominal_recreate
                 inl s0, s1 = lib.hand_rankerm.score (h 0), lib.hand_rankerm.score (h 1)
                 inl chips_won, winner_id =
-                    inl chips_won = index table.pot table.player_turn
+                    inl chips_won = index table.pot (player_turn table)
                     match comp s0 s1 with
                     | Gt => chips_won, 0
                     | Eq => 0, -1
@@ -276,16 +274,17 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
             push_message msg
             done node
         | G_Round table =>
-            match index pl_type table.player_turn with
+            inl player_turn = player_turn table
+            match index pl_type player_turn with
             | Human =>
                 done node
             | Computer =>
                 inl action = random_action state.rng table
-                inl msg = PlayerAction(table.player_turn, action)
+                inl msg = PlayerAction(player_turn, action)
                 push_message msg
                 continue (round table action)
         | G_Round'(table,action) =>
-            inl msg = PlayerAction(table.player_turn, action)
+            inl msg = PlayerAction(player_turn table, action)
             push_message msg
             continue (round table action)
         | G_Flop table => go_street table flop

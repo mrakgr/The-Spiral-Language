@@ -73,8 +73,7 @@ type Table = {
     stack: [number, number],
     street: Street,
     pl_card: [CardInt[], CardInt[]],
-    is_button_s_first_move: boolean,
-    player_turn: number,
+    round_turn: number,
     config : Game_Config,
 }
 
@@ -433,8 +432,7 @@ class Game extends GameElement {
         pl_card: [[1,2],[3,4]],
         stack: [96,97],
         pot: [4,3],
-        is_button_s_first_move: true,
-        player_turn: 0,
+        round_turn: 0,
         street: ["Flop",[5,6,7]],
         config: {
             min_raise: 2
@@ -551,7 +549,8 @@ class Game extends GameElement {
             `
             case "WaitingForActionFromPlayerId":{ 
                 const table = arg;
-                const f_ = (c : number) => f(table.player_turn === c, table.player_turn === c, c, table)
+                const player_turn = table.round_turn % 2;
+                const f_ = (c : number) => f(player_turn === c, player_turn === c, c, table)
                 return html`
                     ${f_(0)}
                     <div class="row">
