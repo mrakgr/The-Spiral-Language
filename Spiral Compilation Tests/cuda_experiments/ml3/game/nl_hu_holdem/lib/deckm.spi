@@ -16,7 +16,7 @@ let draw_card rng deck : card * deck =
     inl d = conv_u64 deck
     inl base = u32_ubound (intrinsic.popc_u64 d |> conv) rng
     inl i = sample_masked_bit_u64 d (conv base)
-    card {suit=conv i / 13; rank=conv i % 13}, toggle deck (conv i)
+    card (conv i), toggle deck (conv i)
 
 // Draws an array of cards from a deck.
 let draw_cards forall dim. rng deck : sam.sa dim card * deck =

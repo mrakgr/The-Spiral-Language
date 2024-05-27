@@ -3,16 +3,14 @@ open corecuda
 
 type card_t = u8
 
-// Is imported in the card function (3 lines down.)
 nominal card = u8
-inl card {suit=(suit : card_t) rank=(rank : card_t)} : card = card ((rank <<< 2) ||| suit)
 
 prototype suit t : t -> card_t
 prototype rank t : t -> card_t
 prototype full t : t -> card_t
 
-instance suit card = fun (card x) => x &&& ((x <<< 2) - 1) // Mask by 11
-instance rank card = fun (card x) => (x >>> 2) &&& ((1 <<< 4) - 1) // Shift 2 to the right and mask by 1111
+instance suit card = fun (card x) => x % 4
+instance rank card = fun (card x) => x / 4
 instance full card = fun (card x) => x
 
 instance equable card = fun a b => full a = full b

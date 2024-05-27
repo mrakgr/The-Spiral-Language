@@ -50,8 +50,8 @@ enum Card_Suit {
 
 type Card = [Card_Rank, Card_Suit]
 type CardInt = number
-const suit_of = (x : CardInt): Card_Suit => x % 4 // Mask by 11
-const rank_of = (x : CardInt): Card_Rank => x / 4 % 16 // Shift two to the right and then mask by 1111
+const suit_of = (x : CardInt): Card_Suit => x % 4
+const rank_of = (x : CardInt): Card_Rank => x / 4
 const card_of = (x : CardInt): Card => [rank_of(x),suit_of(x)]
 
 type Action = ["A_Raise",number] | ["A_Call",[]] | ["A_Fold",[]]
