@@ -2182,7 +2182,7 @@ __device__ bool player_can_act_39(long v0, static_array<static_array<unsigned ch
             return true;
         } else {
             bool v29;
-            v29 = v6 < 2l;
+            v29 = v3 < 2l;
             return v29;
         }
     } else {
@@ -6899,54 +6899,54 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
     Tuple9 tmp16 = Tuple9(true, v4);
     v7 = tmp16.v0; v8 = tmp16.v1;
     while (while_method_5(v7, v8)){
-        bool v775; US5 v776;
+        bool v776; US5 v777;
         switch (v8.tag) {
             case 0: { // G_Flop
-                long v599 = v8.v.case0.v0; static_array<static_array<unsigned char,2l>,2l> v600 = v8.v.case0.v1; static_array<long,2l> v601 = v8.v.case0.v2; long v602 = v8.v.case0.v3; static_array<long,2l> v603 = v8.v.case0.v4; US6 v604 = v8.v.case0.v5;
-                static_array<unsigned char,3l> v605; unsigned long long v606;
+                long v600 = v8.v.case0.v0; static_array<static_array<unsigned char,2l>,2l> v601 = v8.v.case0.v1; static_array<long,2l> v602 = v8.v.case0.v2; long v603 = v8.v.case0.v3; static_array<long,2l> v604 = v8.v.case0.v4; US6 v605 = v8.v.case0.v5;
+                static_array<unsigned char,3l> v606; unsigned long long v607;
                 Tuple10 tmp19 = draw_cards_34(v2, v6);
-                v605 = tmp19.v0; v606 = tmp19.v1;
-                v0 = v606;
-                static_array_list<unsigned char,5l,long> v607;
-                v607 = get_community_cards_37(v604, v605);
-                long v608;
-                v608 = v5.length;
-                bool v609;
-                v609 = v608 < 128l;
+                v606 = tmp19.v0; v607 = tmp19.v1;
+                v0 = v607;
+                static_array_list<unsigned char,5l,long> v608;
+                v608 = get_community_cards_37(v605, v606);
+                long v609;
+                v609 = v5.length;
                 bool v610;
-                v610 = v609 == false;
-                if (v610){
-                    assert("The length has to be less than the maximum length of the array." && v609);
+                v610 = v609 < 128l;
+                bool v611;
+                v611 = v610 == false;
+                if (v611){
+                    assert("The length has to be less than the maximum length of the array." && v610);
                 } else {
                 }
-                long v611;
-                v611 = v608 + 1l;
-                v5.length = v611;
-                bool v612;
-                v612 = 0l <= v608;
-                bool v615;
-                if (v612){
-                    long v613;
-                    v613 = v5.length;
-                    bool v614;
-                    v614 = v608 < v613;
-                    v615 = v614;
-                } else {
-                    v615 = false;
-                }
+                long v612;
+                v612 = v609 + 1l;
+                v5.length = v612;
+                bool v613;
+                v613 = 0l <= v609;
                 bool v616;
-                v616 = v615 == false;
-                if (v616){
-                    assert("The set index needs to be in range for the static array list." && v615);
+                if (v613){
+                    long v614;
+                    v614 = v5.length;
+                    bool v615;
+                    v615 = v609 < v614;
+                    v616 = v615;
+                } else {
+                    v616 = false;
+                }
+                bool v617;
+                v617 = v616 == false;
+                if (v617){
+                    assert("The set index needs to be in range for the static array list." && v616);
                 } else {
                 }
-                US3 v617;
-                v617 = US3_0(v607);
-                v5.v[v608] = v617;
-                US6 v620;
-                switch (v604.tag) {
+                US3 v618;
+                v618 = US3_0(v608);
+                v5.v[v609] = v618;
+                US6 v621;
+                switch (v605.tag) {
                     case 1: { // Preflop
-                        v620 = US6_0(v605);
+                        v621 = US6_0(v606);
                         break;
                     }
                     default: {
@@ -6954,11 +6954,11 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                long v621;
-                v621 = 0l;
-                US5 v622;
-                v622 = try_round_38(v599, v600, v601, v621, v603, v620);
-                v775 = true; v776 = v622;
+                long v622;
+                v622 = 0l;
+                US5 v623;
+                v623 = try_round_38(v600, v601, v602, v622, v604, v621);
+                v776 = true; v777 = v623;
                 break;
             }
             case 1: { // G_Fold
@@ -6986,305 +6986,307 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 long v22;
                 v22 = v13 + 1l;
                 long v23;
-                v23 = v5.length;
-                bool v24;
-                v24 = v23 < 128l;
+                v23 = v22 % 2l;
+                long v24;
+                v24 = v5.length;
                 bool v25;
-                v25 = v24 == false;
-                if (v25){
-                    assert("The length has to be less than the maximum length of the array." && v24);
+                v25 = v24 < 128l;
+                bool v26;
+                v26 = v25 == false;
+                if (v26){
+                    assert("The length has to be less than the maximum length of the array." && v25);
                 } else {
                 }
-                long v26;
-                v26 = v23 + 1l;
-                v5.length = v26;
-                bool v27;
-                v27 = 0l <= v23;
-                bool v30;
-                if (v27){
-                    long v28;
-                    v28 = v5.length;
-                    bool v29;
-                    v29 = v23 < v28;
-                    v30 = v29;
-                } else {
-                    v30 = false;
-                }
+                long v27;
+                v27 = v24 + 1l;
+                v5.length = v27;
+                bool v28;
+                v28 = 0l <= v24;
                 bool v31;
-                v31 = v30 == false;
-                if (v31){
-                    assert("The set index needs to be in range for the static array list." && v30);
+                if (v28){
+                    long v29;
+                    v29 = v5.length;
+                    bool v30;
+                    v30 = v24 < v29;
+                    v31 = v30;
+                } else {
+                    v31 = false;
+                }
+                bool v32;
+                v32 = v31 == false;
+                if (v32){
+                    assert("The set index needs to be in range for the static array list." && v31);
                 } else {
                 }
-                US3 v32;
-                v32 = US3_1(v21, v22);
-                v5.v[v23] = v32;
-                v775 = false; v776 = v8;
+                US3 v33;
+                v33 = US3_1(v21, v23);
+                v5.v[v24] = v33;
+                v776 = false; v777 = v8;
                 break;
             }
             case 2: { // G_Preflop
-                static_array<unsigned char,2l> v719; unsigned long long v720;
+                static_array<unsigned char,2l> v720; unsigned long long v721;
                 Tuple13 tmp23 = draw_cards_41(v2, v6);
-                v719 = tmp23.v0; v720 = tmp23.v1;
-                v0 = v720;
-                static_array<unsigned char,2l> v721; unsigned long long v722;
+                v720 = tmp23.v0; v721 = tmp23.v1;
+                v0 = v721;
+                static_array<unsigned char,2l> v722; unsigned long long v723;
                 Tuple13 tmp24 = draw_cards_41(v2, v6);
-                v721 = tmp24.v0; v722 = tmp24.v1;
-                v0 = v722;
-                long v723;
-                v723 = v5.length;
-                bool v724;
-                v724 = v723 < 128l;
+                v722 = tmp24.v0; v723 = tmp24.v1;
+                v0 = v723;
+                long v724;
+                v724 = v5.length;
                 bool v725;
-                v725 = v724 == false;
-                if (v725){
-                    assert("The length has to be less than the maximum length of the array." && v724);
+                v725 = v724 < 128l;
+                bool v726;
+                v726 = v725 == false;
+                if (v726){
+                    assert("The length has to be less than the maximum length of the array." && v725);
                 } else {
                 }
-                long v726;
-                v726 = v723 + 1l;
-                v5.length = v726;
-                bool v727;
-                v727 = 0l <= v723;
-                bool v730;
-                if (v727){
-                    long v728;
-                    v728 = v5.length;
-                    bool v729;
-                    v729 = v723 < v728;
-                    v730 = v729;
-                } else {
-                    v730 = false;
-                }
+                long v727;
+                v727 = v724 + 1l;
+                v5.length = v727;
+                bool v728;
+                v728 = 0l <= v724;
                 bool v731;
-                v731 = v730 == false;
-                if (v731){
-                    assert("The set index needs to be in range for the static array list." && v730);
+                if (v728){
+                    long v729;
+                    v729 = v5.length;
+                    bool v730;
+                    v730 = v724 < v729;
+                    v731 = v730;
+                } else {
+                    v731 = false;
+                }
+                bool v732;
+                v732 = v731 == false;
+                if (v732){
+                    assert("The set index needs to be in range for the static array list." && v731);
                 } else {
                 }
-                US3 v732;
-                v732 = US3_3(0l, v719);
-                v5.v[v723] = v732;
-                long v733;
-                v733 = v5.length;
-                bool v734;
-                v734 = v733 < 128l;
+                US3 v733;
+                v733 = US3_3(0l, v720);
+                v5.v[v724] = v733;
+                long v734;
+                v734 = v5.length;
                 bool v735;
-                v735 = v734 == false;
-                if (v735){
-                    assert("The length has to be less than the maximum length of the array." && v734);
+                v735 = v734 < 128l;
+                bool v736;
+                v736 = v735 == false;
+                if (v736){
+                    assert("The length has to be less than the maximum length of the array." && v735);
                 } else {
                 }
-                long v736;
-                v736 = v733 + 1l;
-                v5.length = v736;
-                bool v737;
-                v737 = 0l <= v733;
-                bool v740;
-                if (v737){
-                    long v738;
-                    v738 = v5.length;
-                    bool v739;
-                    v739 = v733 < v738;
-                    v740 = v739;
-                } else {
-                    v740 = false;
-                }
+                long v737;
+                v737 = v734 + 1l;
+                v5.length = v737;
+                bool v738;
+                v738 = 0l <= v734;
                 bool v741;
-                v741 = v740 == false;
-                if (v741){
-                    assert("The set index needs to be in range for the static array list." && v740);
+                if (v738){
+                    long v739;
+                    v739 = v5.length;
+                    bool v740;
+                    v740 = v734 < v739;
+                    v741 = v740;
+                } else {
+                    v741 = false;
+                }
+                bool v742;
+                v742 = v741 == false;
+                if (v742){
+                    assert("The set index needs to be in range for the static array list." && v741);
                 } else {
                 }
-                US3 v742;
-                v742 = US3_3(1l, v721);
-                v5.v[v733] = v742;
-                static_array<static_array<unsigned char,2l>,2l> v743;
-                v743.v[0l] = v719;
-                v743.v[1l] = v721;
-                static_array<long,2l> v744;
-                v744.v[0l] = 2l;
-                v744.v[1l] = 1l;
+                US3 v743;
+                v743 = US3_3(1l, v722);
+                v5.v[v734] = v743;
+                static_array<static_array<unsigned char,2l>,2l> v744;
+                v744.v[0l] = v720;
+                v744.v[1l] = v722;
                 static_array<long,2l> v745;
-                long v746;
-                v746 = 0l;
-                while (while_method_0(v746)){
-                    bool v748;
-                    v748 = 0l <= v746;
-                    bool v750;
-                    if (v748){
-                        bool v749;
-                        v749 = v746 < 2l;
-                        v750 = v749;
-                    } else {
-                        v750 = false;
-                    }
+                v745.v[0l] = 2l;
+                v745.v[1l] = 1l;
+                static_array<long,2l> v746;
+                long v747;
+                v747 = 0l;
+                while (while_method_0(v747)){
+                    bool v749;
+                    v749 = 0l <= v747;
                     bool v751;
-                    v751 = v750 == false;
-                    if (v751){
-                        assert("The read index needs to be in range for the static array." && v750);
+                    if (v749){
+                        bool v750;
+                        v750 = v747 < 2l;
+                        v751 = v750;
+                    } else {
+                        v751 = false;
+                    }
+                    bool v752;
+                    v752 = v751 == false;
+                    if (v752){
+                        assert("The read index needs to be in range for the static array." && v751);
                     } else {
                     }
-                    long v752;
-                    v752 = v744.v[v746];
                     long v753;
-                    v753 = 100l - v752;
-                    bool v755;
-                    if (v748){
-                        bool v754;
-                        v754 = v746 < 2l;
-                        v755 = v754;
-                    } else {
-                        v755 = false;
-                    }
+                    v753 = v745.v[v747];
+                    long v754;
+                    v754 = 100l - v753;
                     bool v756;
-                    v756 = v755 == false;
-                    if (v756){
-                        assert("The read index needs to be in range for the static array." && v755);
+                    if (v749){
+                        bool v755;
+                        v755 = v747 < 2l;
+                        v756 = v755;
+                    } else {
+                        v756 = false;
+                    }
+                    bool v757;
+                    v757 = v756 == false;
+                    if (v757){
+                        assert("The read index needs to be in range for the static array." && v756);
                     } else {
                     }
-                    v745.v[v746] = v753;
-                    v746 += 1l ;
+                    v746.v[v747] = v754;
+                    v747 += 1l ;
                 }
-                long v757;
-                v757 = 2l;
                 long v758;
-                v758 = 0l;
-                US6 v759;
-                v759 = US6_1();
-                US5 v760;
-                v760 = try_round_38(v757, v743, v744, v758, v745, v759);
-                v775 = true; v776 = v760;
+                v758 = 2l;
+                long v759;
+                v759 = 0l;
+                US6 v760;
+                v760 = US6_1();
+                US5 v761;
+                v761 = try_round_38(v758, v744, v745, v759, v746, v760);
+                v776 = true; v777 = v761;
                 break;
             }
             case 3: { // G_River
-                long v671 = v8.v.case3.v0; static_array<static_array<unsigned char,2l>,2l> v672 = v8.v.case3.v1; static_array<long,2l> v673 = v8.v.case3.v2; long v674 = v8.v.case3.v3; static_array<long,2l> v675 = v8.v.case3.v4; US6 v676 = v8.v.case3.v5;
-                static_array<unsigned char,1l> v677; unsigned long long v678;
+                long v672 = v8.v.case3.v0; static_array<static_array<unsigned char,2l>,2l> v673 = v8.v.case3.v1; static_array<long,2l> v674 = v8.v.case3.v2; long v675 = v8.v.case3.v3; static_array<long,2l> v676 = v8.v.case3.v4; US6 v677 = v8.v.case3.v5;
+                static_array<unsigned char,1l> v678; unsigned long long v679;
                 Tuple14 tmp27 = draw_cards_42(v2, v6);
-                v677 = tmp27.v0; v678 = tmp27.v1;
-                v0 = v678;
-                static_array_list<unsigned char,5l,long> v679;
-                v679 = get_community_cards_43(v676, v677);
-                long v680;
-                v680 = v5.length;
-                bool v681;
-                v681 = v680 < 128l;
+                v678 = tmp27.v0; v679 = tmp27.v1;
+                v0 = v679;
+                static_array_list<unsigned char,5l,long> v680;
+                v680 = get_community_cards_43(v677, v678);
+                long v681;
+                v681 = v5.length;
                 bool v682;
-                v682 = v681 == false;
-                if (v682){
-                    assert("The length has to be less than the maximum length of the array." && v681);
+                v682 = v681 < 128l;
+                bool v683;
+                v683 = v682 == false;
+                if (v683){
+                    assert("The length has to be less than the maximum length of the array." && v682);
                 } else {
                 }
-                long v683;
-                v683 = v680 + 1l;
-                v5.length = v683;
-                bool v684;
-                v684 = 0l <= v680;
-                bool v687;
-                if (v684){
-                    long v685;
-                    v685 = v5.length;
-                    bool v686;
-                    v686 = v680 < v685;
-                    v687 = v686;
-                } else {
-                    v687 = false;
-                }
+                long v684;
+                v684 = v681 + 1l;
+                v5.length = v684;
+                bool v685;
+                v685 = 0l <= v681;
                 bool v688;
-                v688 = v687 == false;
-                if (v688){
-                    assert("The set index needs to be in range for the static array list." && v687);
+                if (v685){
+                    long v686;
+                    v686 = v5.length;
+                    bool v687;
+                    v687 = v681 < v686;
+                    v688 = v687;
+                } else {
+                    v688 = false;
+                }
+                bool v689;
+                v689 = v688 == false;
+                if (v689){
+                    assert("The set index needs to be in range for the static array list." && v688);
                 } else {
                 }
-                US3 v689;
-                v689 = US3_0(v679);
-                v5.v[v680] = v689;
-                US6 v716;
-                switch (v676.tag) {
+                US3 v690;
+                v690 = US3_0(v680);
+                v5.v[v681] = v690;
+                US6 v717;
+                switch (v677.tag) {
                     case 3: { // Turn
-                        static_array<unsigned char,4l> v690 = v676.v.case3.v0;
-                        static_array<unsigned char,5l> v691;
-                        long v692;
-                        v692 = 0l;
-                        while (while_method_4(v692)){
-                            bool v694;
-                            v694 = 0l <= v692;
-                            bool v696;
-                            if (v694){
-                                bool v695;
-                                v695 = v692 < 4l;
-                                v696 = v695;
-                            } else {
-                                v696 = false;
-                            }
+                        static_array<unsigned char,4l> v691 = v677.v.case3.v0;
+                        static_array<unsigned char,5l> v692;
+                        long v693;
+                        v693 = 0l;
+                        while (while_method_4(v693)){
+                            bool v695;
+                            v695 = 0l <= v693;
                             bool v697;
-                            v697 = v696 == false;
-                            if (v697){
-                                assert("The read index needs to be in range for the static array." && v696);
+                            if (v695){
+                                bool v696;
+                                v696 = v693 < 4l;
+                                v697 = v696;
+                            } else {
+                                v697 = false;
+                            }
+                            bool v698;
+                            v698 = v697 == false;
+                            if (v698){
+                                assert("The read index needs to be in range for the static array." && v697);
                             } else {
                             }
-                            unsigned char v698;
-                            v698 = v690.v[v692];
-                            bool v700;
-                            if (v694){
-                                bool v699;
-                                v699 = v692 < 5l;
-                                v700 = v699;
-                            } else {
-                                v700 = false;
-                            }
+                            unsigned char v699;
+                            v699 = v691.v[v693];
                             bool v701;
-                            v701 = v700 == false;
-                            if (v701){
-                                assert("The read index needs to be in range for the static array." && v700);
+                            if (v695){
+                                bool v700;
+                                v700 = v693 < 5l;
+                                v701 = v700;
+                            } else {
+                                v701 = false;
+                            }
+                            bool v702;
+                            v702 = v701 == false;
+                            if (v702){
+                                assert("The read index needs to be in range for the static array." && v701);
                             } else {
                             }
-                            v691.v[v692] = v698;
-                            v692 += 1l ;
+                            v692.v[v693] = v699;
+                            v693 += 1l ;
                         }
-                        long v702;
-                        v702 = 0l;
-                        while (while_method_6(v702)){
-                            bool v704;
-                            v704 = 0l <= v702;
-                            bool v706;
-                            if (v704){
-                                bool v705;
-                                v705 = v702 < 1l;
-                                v706 = v705;
-                            } else {
-                                v706 = false;
-                            }
+                        long v703;
+                        v703 = 0l;
+                        while (while_method_6(v703)){
+                            bool v705;
+                            v705 = 0l <= v703;
                             bool v707;
-                            v707 = v706 == false;
-                            if (v707){
-                                assert("The read index needs to be in range for the static array." && v706);
+                            if (v705){
+                                bool v706;
+                                v706 = v703 < 1l;
+                                v707 = v706;
+                            } else {
+                                v707 = false;
+                            }
+                            bool v708;
+                            v708 = v707 == false;
+                            if (v708){
+                                assert("The read index needs to be in range for the static array." && v707);
                             } else {
                             }
-                            unsigned char v708;
-                            v708 = v677.v[v702];
-                            long v709;
-                            v709 = 4l + v702;
-                            bool v710;
-                            v710 = 0l <= v709;
-                            bool v712;
-                            if (v710){
-                                bool v711;
-                                v711 = v709 < 5l;
-                                v712 = v711;
-                            } else {
-                                v712 = false;
-                            }
+                            unsigned char v709;
+                            v709 = v678.v[v703];
+                            long v710;
+                            v710 = 4l + v703;
+                            bool v711;
+                            v711 = 0l <= v710;
                             bool v713;
-                            v713 = v712 == false;
-                            if (v713){
-                                assert("The read index needs to be in range for the static array." && v712);
+                            if (v711){
+                                bool v712;
+                                v712 = v710 < 5l;
+                                v713 = v712;
+                            } else {
+                                v713 = false;
+                            }
+                            bool v714;
+                            v714 = v713 == false;
+                            if (v714){
+                                assert("The read index needs to be in range for the static array." && v713);
                             } else {
                             }
-                            v691.v[v709] = v708;
-                            v702 += 1l ;
+                            v692.v[v710] = v709;
+                            v703 += 1l ;
                         }
-                        v716 = US6_2(v691);
+                        v717 = US6_2(v692);
                         break;
                     }
                     default: {
@@ -7292,1023 +7294,1023 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                long v717;
-                v717 = 0l;
-                US5 v718;
-                v718 = try_round_38(v671, v672, v673, v717, v675, v716);
-                v775 = true; v776 = v718;
+                long v718;
+                v718 = 0l;
+                US5 v719;
+                v719 = try_round_38(v672, v673, v674, v718, v676, v717);
+                v776 = true; v777 = v719;
                 break;
             }
             case 4: { // G_Round
-                long v146 = v8.v.case4.v0; static_array<static_array<unsigned char,2l>,2l> v147 = v8.v.case4.v1; static_array<long,2l> v148 = v8.v.case4.v2; long v149 = v8.v.case4.v3; static_array<long,2l> v150 = v8.v.case4.v4; US6 v151 = v8.v.case4.v5;
-                long v152;
-                v152 = v149 % 2l;
-                bool v153;
-                v153 = 0l <= v152;
-                bool v155;
-                if (v153){
-                    bool v154;
-                    v154 = v152 < 2l;
-                    v155 = v154;
-                } else {
-                    v155 = false;
-                }
+                long v147 = v8.v.case4.v0; static_array<static_array<unsigned char,2l>,2l> v148 = v8.v.case4.v1; static_array<long,2l> v149 = v8.v.case4.v2; long v150 = v8.v.case4.v3; static_array<long,2l> v151 = v8.v.case4.v4; US6 v152 = v8.v.case4.v5;
+                long v153;
+                v153 = v150 % 2l;
+                bool v154;
+                v154 = 0l <= v153;
                 bool v156;
-                v156 = v155 == false;
-                if (v156){
-                    assert("The read index needs to be in range for the static array." && v155);
+                if (v154){
+                    bool v155;
+                    v155 = v153 < 2l;
+                    v156 = v155;
+                } else {
+                    v156 = false;
+                }
+                bool v157;
+                v157 = v156 == false;
+                if (v157){
+                    assert("The read index needs to be in range for the static array." && v156);
                 } else {
                 }
-                US2 v157;
-                v157 = v3.v[v152];
-                switch (v157.tag) {
+                US2 v158;
+                v158 = v3.v[v153];
+                switch (v158.tag) {
                     case 0: { // Computer
-                        static_array<long,2l> v158;
-                        long v159;
-                        v159 = 0l;
-                        while (while_method_0(v159)){
-                            bool v161;
-                            v161 = 0l <= v159;
-                            bool v163;
-                            if (v161){
-                                bool v162;
-                                v162 = v159 < 2l;
-                                v163 = v162;
-                            } else {
-                                v163 = false;
-                            }
+                        static_array<long,2l> v159;
+                        long v160;
+                        v160 = 0l;
+                        while (while_method_0(v160)){
+                            bool v162;
+                            v162 = 0l <= v160;
                             bool v164;
-                            v164 = v163 == false;
-                            if (v164){
-                                assert("The read index needs to be in range for the static array." && v163);
+                            if (v162){
+                                bool v163;
+                                v163 = v160 < 2l;
+                                v164 = v163;
+                            } else {
+                                v164 = false;
+                            }
+                            bool v165;
+                            v165 = v164 == false;
+                            if (v165){
+                                assert("The read index needs to be in range for the static array." && v164);
                             } else {
                             }
-                            long v165;
-                            v165 = v150.v[v159];
-                            bool v167;
-                            if (v161){
-                                bool v166;
-                                v166 = v159 < 2l;
-                                v167 = v166;
-                            } else {
-                                v167 = false;
-                            }
+                            long v166;
+                            v166 = v151.v[v160];
                             bool v168;
-                            v168 = v167 == false;
-                            if (v168){
-                                assert("The read index needs to be in range for the static array." && v167);
+                            if (v162){
+                                bool v167;
+                                v167 = v160 < 2l;
+                                v168 = v167;
+                            } else {
+                                v168 = false;
+                            }
+                            bool v169;
+                            v169 = v168 == false;
+                            if (v169){
+                                assert("The read index needs to be in range for the static array." && v168);
                             } else {
                             }
-                            long v169;
-                            v169 = v148.v[v159];
                             long v170;
-                            v170 = v165 + v169;
-                            bool v172;
-                            if (v161){
-                                bool v171;
-                                v171 = v159 < 2l;
-                                v172 = v171;
-                            } else {
-                                v172 = false;
-                            }
+                            v170 = v149.v[v160];
+                            long v171;
+                            v171 = v166 + v170;
                             bool v173;
-                            v173 = v172 == false;
-                            if (v173){
-                                assert("The read index needs to be in range for the static array." && v172);
+                            if (v162){
+                                bool v172;
+                                v172 = v160 < 2l;
+                                v173 = v172;
+                            } else {
+                                v173 = false;
+                            }
+                            bool v174;
+                            v174 = v173 == false;
+                            if (v174){
+                                assert("The read index needs to be in range for the static array." && v173);
                             } else {
                             }
-                            v158.v[v159] = v170;
-                            v159 += 1l ;
+                            v159.v[v160] = v171;
+                            v160 += 1l ;
                         }
-                        long v174;
-                        v174 = v148.v[0l];
-                        long v175; long v176;
-                        Tuple2 tmp28 = Tuple2(1l, v174);
-                        v175 = tmp28.v0; v176 = tmp28.v1;
-                        while (while_method_0(v175)){
-                            bool v178;
-                            v178 = 0l <= v175;
-                            bool v180;
-                            if (v178){
-                                bool v179;
-                                v179 = v175 < 2l;
-                                v180 = v179;
-                            } else {
-                                v180 = false;
-                            }
+                        long v175;
+                        v175 = v149.v[0l];
+                        long v176; long v177;
+                        Tuple2 tmp28 = Tuple2(1l, v175);
+                        v176 = tmp28.v0; v177 = tmp28.v1;
+                        while (while_method_0(v176)){
+                            bool v179;
+                            v179 = 0l <= v176;
                             bool v181;
-                            v181 = v180 == false;
-                            if (v181){
-                                assert("The read index needs to be in range for the static array." && v180);
+                            if (v179){
+                                bool v180;
+                                v180 = v176 < 2l;
+                                v181 = v180;
+                            } else {
+                                v181 = false;
+                            }
+                            bool v182;
+                            v182 = v181 == false;
+                            if (v182){
+                                assert("The read index needs to be in range for the static array." && v181);
                             } else {
                             }
-                            long v182;
-                            v182 = v148.v[v175];
-                            bool v183;
-                            v183 = v176 >= v182;
-                            long v184;
-                            if (v183){
-                                v184 = v176;
+                            long v183;
+                            v183 = v149.v[v176];
+                            bool v184;
+                            v184 = v177 >= v183;
+                            long v185;
+                            if (v184){
+                                v185 = v177;
                             } else {
-                                v184 = v182;
+                                v185 = v183;
                             }
-                            v176 = v184;
-                            v175 += 1l ;
-                        }
-                        bool v186;
-                        if (v153){
-                            bool v185;
-                            v185 = v152 < 2l;
-                            v186 = v185;
-                        } else {
-                            v186 = false;
+                            v177 = v185;
+                            v176 += 1l ;
                         }
                         bool v187;
-                        v187 = v186 == false;
-                        if (v187){
-                            assert("The read index needs to be in range for the static array." && v186);
+                        if (v154){
+                            bool v186;
+                            v186 = v153 < 2l;
+                            v187 = v186;
+                        } else {
+                            v187 = false;
+                        }
+                        bool v188;
+                        v188 = v187 == false;
+                        if (v188){
+                            assert("The read index needs to be in range for the static array." && v187);
                         } else {
                         }
-                        long v188;
-                        v188 = v158.v[v152];
-                        bool v189;
-                        v189 = v176 < v188;
-                        long v190;
-                        if (v189){
-                            v190 = v176;
+                        long v189;
+                        v189 = v159.v[v153];
+                        bool v190;
+                        v190 = v177 < v189;
+                        long v191;
+                        if (v190){
+                            v191 = v177;
                         } else {
-                            v190 = v188;
+                            v191 = v189;
                         }
-                        static_array<long,2l> v191;
-                        long v192;
-                        v192 = 0l;
-                        while (while_method_0(v192)){
-                            bool v194;
-                            v194 = 0l <= v192;
-                            bool v196;
-                            if (v194){
-                                bool v195;
-                                v195 = v192 < 2l;
-                                v196 = v195;
-                            } else {
-                                v196 = false;
-                            }
+                        static_array<long,2l> v192;
+                        long v193;
+                        v193 = 0l;
+                        while (while_method_0(v193)){
+                            bool v195;
+                            v195 = 0l <= v193;
                             bool v197;
-                            v197 = v196 == false;
-                            if (v197){
-                                assert("The read index needs to be in range for the static array." && v196);
+                            if (v195){
+                                bool v196;
+                                v196 = v193 < 2l;
+                                v197 = v196;
+                            } else {
+                                v197 = false;
+                            }
+                            bool v198;
+                            v198 = v197 == false;
+                            if (v198){
+                                assert("The read index needs to be in range for the static array." && v197);
                             } else {
                             }
-                            long v198;
-                            v198 = v148.v[v192];
-                            bool v199;
-                            v199 = v152 == v192;
-                            long v200;
-                            if (v199){
-                                v200 = v190;
+                            long v199;
+                            v199 = v149.v[v193];
+                            bool v200;
+                            v200 = v153 == v193;
+                            long v201;
+                            if (v200){
+                                v201 = v191;
                             } else {
-                                v200 = v198;
-                            }
-                            bool v202;
-                            if (v194){
-                                bool v201;
-                                v201 = v192 < 2l;
-                                v202 = v201;
-                            } else {
-                                v202 = false;
+                                v201 = v199;
                             }
                             bool v203;
-                            v203 = v202 == false;
-                            if (v203){
-                                assert("The read index needs to be in range for the static array." && v202);
+                            if (v195){
+                                bool v202;
+                                v202 = v193 < 2l;
+                                v203 = v202;
+                            } else {
+                                v203 = false;
+                            }
+                            bool v204;
+                            v204 = v203 == false;
+                            if (v204){
+                                assert("The read index needs to be in range for the static array." && v203);
                             } else {
                             }
-                            v191.v[v192] = v200;
-                            v192 += 1l ;
+                            v192.v[v193] = v201;
+                            v193 += 1l ;
                         }
-                        static_array<long,2l> v204;
-                        long v205;
-                        v205 = 0l;
-                        while (while_method_0(v205)){
-                            bool v207;
-                            v207 = 0l <= v205;
-                            bool v209;
-                            if (v207){
-                                bool v208;
-                                v208 = v205 < 2l;
-                                v209 = v208;
-                            } else {
-                                v209 = false;
-                            }
+                        static_array<long,2l> v205;
+                        long v206;
+                        v206 = 0l;
+                        while (while_method_0(v206)){
+                            bool v208;
+                            v208 = 0l <= v206;
                             bool v210;
-                            v210 = v209 == false;
-                            if (v210){
-                                assert("The read index needs to be in range for the static array." && v209);
+                            if (v208){
+                                bool v209;
+                                v209 = v206 < 2l;
+                                v210 = v209;
+                            } else {
+                                v210 = false;
+                            }
+                            bool v211;
+                            v211 = v210 == false;
+                            if (v211){
+                                assert("The read index needs to be in range for the static array." && v210);
                             } else {
                             }
-                            long v211;
-                            v211 = v158.v[v205];
-                            bool v213;
-                            if (v207){
-                                bool v212;
-                                v212 = v205 < 2l;
-                                v213 = v212;
-                            } else {
-                                v213 = false;
-                            }
+                            long v212;
+                            v212 = v159.v[v206];
                             bool v214;
-                            v214 = v213 == false;
-                            if (v214){
-                                assert("The read index needs to be in range for the static array." && v213);
+                            if (v208){
+                                bool v213;
+                                v213 = v206 < 2l;
+                                v214 = v213;
+                            } else {
+                                v214 = false;
+                            }
+                            bool v215;
+                            v215 = v214 == false;
+                            if (v215){
+                                assert("The read index needs to be in range for the static array." && v214);
                             } else {
                             }
-                            long v215;
-                            v215 = v191.v[v205];
                             long v216;
-                            v216 = v211 - v215;
-                            bool v218;
-                            if (v207){
-                                bool v217;
-                                v217 = v205 < 2l;
-                                v218 = v217;
-                            } else {
-                                v218 = false;
-                            }
+                            v216 = v192.v[v206];
+                            long v217;
+                            v217 = v212 - v216;
                             bool v219;
-                            v219 = v218 == false;
-                            if (v219){
-                                assert("The read index needs to be in range for the static array." && v218);
+                            if (v208){
+                                bool v218;
+                                v218 = v206 < 2l;
+                                v219 = v218;
+                            } else {
+                                v219 = false;
+                            }
+                            bool v220;
+                            v220 = v219 == false;
+                            if (v220){
+                                assert("The read index needs to be in range for the static array." && v219);
                             } else {
                             }
-                            v204.v[v205] = v216;
-                            v205 += 1l ;
+                            v205.v[v206] = v217;
+                            v206 += 1l ;
                         }
-                        long v220;
-                        v220 = v191.v[0l];
-                        long v221; long v222;
-                        Tuple2 tmp29 = Tuple2(1l, v220);
-                        v221 = tmp29.v0; v222 = tmp29.v1;
-                        while (while_method_0(v221)){
-                            bool v224;
-                            v224 = 0l <= v221;
-                            bool v226;
-                            if (v224){
-                                bool v225;
-                                v225 = v221 < 2l;
-                                v226 = v225;
-                            } else {
-                                v226 = false;
-                            }
+                        long v221;
+                        v221 = v192.v[0l];
+                        long v222; long v223;
+                        Tuple2 tmp29 = Tuple2(1l, v221);
+                        v222 = tmp29.v0; v223 = tmp29.v1;
+                        while (while_method_0(v222)){
+                            bool v225;
+                            v225 = 0l <= v222;
                             bool v227;
-                            v227 = v226 == false;
-                            if (v227){
-                                assert("The read index needs to be in range for the static array." && v226);
+                            if (v225){
+                                bool v226;
+                                v226 = v222 < 2l;
+                                v227 = v226;
+                            } else {
+                                v227 = false;
+                            }
+                            bool v228;
+                            v228 = v227 == false;
+                            if (v228){
+                                assert("The read index needs to be in range for the static array." && v227);
                             } else {
                             }
-                            long v228;
-                            v228 = v191.v[v221];
                             long v229;
-                            v229 = v222 + v228;
-                            v222 = v229;
-                            v221 += 1l ;
-                        }
-                        bool v231;
-                        if (v153){
-                            bool v230;
-                            v230 = v152 < 2l;
-                            v231 = v230;
-                        } else {
-                            v231 = false;
+                            v229 = v192.v[v222];
+                            long v230;
+                            v230 = v223 + v229;
+                            v223 = v230;
+                            v222 += 1l ;
                         }
                         bool v232;
-                        v232 = v231 == false;
-                        if (v232){
-                            assert("The read index needs to be in range for the static array." && v231);
+                        if (v154){
+                            bool v231;
+                            v231 = v153 < 2l;
+                            v232 = v231;
+                        } else {
+                            v232 = false;
+                        }
+                        bool v233;
+                        v233 = v232 == false;
+                        if (v233){
+                            assert("The read index needs to be in range for the static array." && v232);
                         } else {
                         }
-                        long v233;
-                        v233 = v148.v[v152];
-                        bool v234;
-                        v234 = v233 < v176;
-                        float v235;
-                        if (v234){
-                            v235 = 1.0f;
+                        long v234;
+                        v234 = v149.v[v153];
+                        bool v235;
+                        v235 = v234 < v177;
+                        float v236;
+                        if (v235){
+                            v236 = 1.0f;
                         } else {
-                            v235 = 0.0f;
+                            v236 = 0.0f;
                         }
-                        long v236;
-                        v236 = v222 / 4l;
-                        bool v238;
-                        if (v153){
-                            bool v237;
-                            v237 = v152 < 2l;
-                            v238 = v237;
-                        } else {
-                            v238 = false;
-                        }
+                        long v237;
+                        v237 = v223 / 4l;
                         bool v239;
-                        v239 = v238 == false;
-                        if (v239){
-                            assert("The read index needs to be in range for the static array." && v238);
+                        if (v154){
+                            bool v238;
+                            v238 = v153 < 2l;
+                            v239 = v238;
+                        } else {
+                            v239 = false;
+                        }
+                        bool v240;
+                        v240 = v239 == false;
+                        if (v240){
+                            assert("The read index needs to be in range for the static array." && v239);
                         } else {
                         }
-                        long v240;
-                        v240 = v204.v[v152];
-                        bool v241;
-                        v241 = v236 <= v240;
-                        float v242;
-                        if (v241){
-                            v242 = 1.0f;
+                        long v241;
+                        v241 = v205.v[v153];
+                        bool v242;
+                        v242 = v237 <= v241;
+                        float v243;
+                        if (v242){
+                            v243 = 1.0f;
                         } else {
-                            v242 = 0.0f;
+                            v243 = 0.0f;
                         }
-                        long v243;
-                        v243 = v222 / 3l;
-                        bool v245;
-                        if (v153){
-                            bool v244;
-                            v244 = v152 < 2l;
-                            v245 = v244;
-                        } else {
-                            v245 = false;
-                        }
+                        long v244;
+                        v244 = v223 / 3l;
                         bool v246;
-                        v246 = v245 == false;
-                        if (v246){
-                            assert("The read index needs to be in range for the static array." && v245);
+                        if (v154){
+                            bool v245;
+                            v245 = v153 < 2l;
+                            v246 = v245;
+                        } else {
+                            v246 = false;
+                        }
+                        bool v247;
+                        v247 = v246 == false;
+                        if (v247){
+                            assert("The read index needs to be in range for the static array." && v246);
                         } else {
                         }
-                        long v247;
-                        v247 = v204.v[v152];
-                        bool v248;
-                        v248 = v243 <= v247;
-                        float v249;
-                        if (v248){
-                            v249 = 1.0f;
+                        long v248;
+                        v248 = v205.v[v153];
+                        bool v249;
+                        v249 = v244 <= v248;
+                        float v250;
+                        if (v249){
+                            v250 = 1.0f;
                         } else {
-                            v249 = 0.0f;
+                            v250 = 0.0f;
                         }
-                        long v250;
-                        v250 = v222 / 2l;
-                        bool v252;
-                        if (v153){
-                            bool v251;
-                            v251 = v152 < 2l;
-                            v252 = v251;
-                        } else {
-                            v252 = false;
-                        }
+                        long v251;
+                        v251 = v223 / 2l;
                         bool v253;
-                        v253 = v252 == false;
-                        if (v253){
-                            assert("The read index needs to be in range for the static array." && v252);
+                        if (v154){
+                            bool v252;
+                            v252 = v153 < 2l;
+                            v253 = v252;
+                        } else {
+                            v253 = false;
+                        }
+                        bool v254;
+                        v254 = v253 == false;
+                        if (v254){
+                            assert("The read index needs to be in range for the static array." && v253);
                         } else {
                         }
-                        long v254;
-                        v254 = v204.v[v152];
-                        bool v255;
-                        v255 = v250 <= v254;
-                        float v256;
-                        if (v255){
-                            v256 = 1.0f;
+                        long v255;
+                        v255 = v205.v[v153];
+                        bool v256;
+                        v256 = v251 <= v255;
+                        float v257;
+                        if (v256){
+                            v257 = 1.0f;
                         } else {
-                            v256 = 0.0f;
-                        }
-                        bool v258;
-                        if (v153){
-                            bool v257;
-                            v257 = v152 < 2l;
-                            v258 = v257;
-                        } else {
-                            v258 = false;
+                            v257 = 0.0f;
                         }
                         bool v259;
-                        v259 = v258 == false;
-                        if (v259){
-                            assert("The read index needs to be in range for the static array." && v258);
+                        if (v154){
+                            bool v258;
+                            v258 = v153 < 2l;
+                            v259 = v258;
+                        } else {
+                            v259 = false;
+                        }
+                        bool v260;
+                        v260 = v259 == false;
+                        if (v260){
+                            assert("The read index needs to be in range for the static array." && v259);
                         } else {
                         }
-                        long v260;
-                        v260 = v204.v[v152];
-                        bool v261;
-                        v261 = v222 <= v260;
-                        float v262;
-                        if (v261){
-                            v262 = 1.0f;
+                        long v261;
+                        v261 = v205.v[v153];
+                        bool v262;
+                        v262 = v223 <= v261;
+                        float v263;
+                        if (v262){
+                            v263 = 1.0f;
                         } else {
-                            v262 = 0.0f;
+                            v263 = 0.0f;
                         }
-                        long v263;
-                        v263 = v222 * 3l;
                         long v264;
-                        v264 = v263 / 2l;
-                        bool v266;
-                        if (v153){
-                            bool v265;
-                            v265 = v152 < 2l;
-                            v266 = v265;
-                        } else {
-                            v266 = false;
-                        }
+                        v264 = v223 * 3l;
+                        long v265;
+                        v265 = v264 / 2l;
                         bool v267;
-                        v267 = v266 == false;
-                        if (v267){
-                            assert("The read index needs to be in range for the static array." && v266);
+                        if (v154){
+                            bool v266;
+                            v266 = v153 < 2l;
+                            v267 = v266;
+                        } else {
+                            v267 = false;
+                        }
+                        bool v268;
+                        v268 = v267 == false;
+                        if (v268){
+                            assert("The read index needs to be in range for the static array." && v267);
                         } else {
                         }
-                        long v268;
-                        v268 = v204.v[v152];
-                        bool v269;
-                        v269 = v264 <= v268;
-                        float v270;
-                        if (v269){
-                            v270 = 1.0f;
+                        long v269;
+                        v269 = v205.v[v153];
+                        bool v270;
+                        v270 = v265 <= v269;
+                        float v271;
+                        if (v270){
+                            v271 = 1.0f;
                         } else {
-                            v270 = 0.0f;
-                        }
-                        bool v272;
-                        if (v153){
-                            bool v271;
-                            v271 = v152 < 2l;
-                            v272 = v271;
-                        } else {
-                            v272 = false;
+                            v271 = 0.0f;
                         }
                         bool v273;
-                        v273 = v272 == false;
-                        if (v273){
-                            assert("The read index needs to be in range for the static array." && v272);
+                        if (v154){
+                            bool v272;
+                            v272 = v153 < 2l;
+                            v273 = v272;
+                        } else {
+                            v273 = false;
+                        }
+                        bool v274;
+                        v274 = v273 == false;
+                        if (v274){
+                            assert("The read index needs to be in range for the static array." && v273);
                         } else {
                         }
-                        long v274;
-                        v274 = v204.v[v152];
-                        bool v276;
-                        if (v153){
-                            bool v275;
-                            v275 = v152 < 2l;
-                            v276 = v275;
-                        } else {
-                            v276 = false;
-                        }
+                        long v275;
+                        v275 = v205.v[v153];
                         bool v277;
-                        v277 = v276 == false;
-                        if (v277){
-                            assert("The read index needs to be in range for the static array." && v276);
+                        if (v154){
+                            bool v276;
+                            v276 = v153 < 2l;
+                            v277 = v276;
+                        } else {
+                            v277 = false;
+                        }
+                        bool v278;
+                        v278 = v277 == false;
+                        if (v278){
+                            assert("The read index needs to be in range for the static array." && v277);
                         } else {
                         }
-                        long v278;
-                        v278 = v204.v[v152];
-                        bool v279;
-                        v279 = v274 <= v278;
-                        float v280;
-                        if (v279){
-                            v280 = 1.0f;
+                        long v279;
+                        v279 = v205.v[v153];
+                        bool v280;
+                        v280 = v275 <= v279;
+                        float v281;
+                        if (v280){
+                            v281 = 1.0f;
                         } else {
-                            v280 = 0.0f;
+                            v281 = 0.0f;
                         }
-                        static_array<Tuple15,8l> v281;
-                        US1 v282;
-                        v282 = US1_1();
-                        v281.v[0l] = Tuple15(v282, v235);
+                        static_array<Tuple15,8l> v282;
                         US1 v283;
-                        v283 = US1_0();
-                        v281.v[1l] = Tuple15(v283, 2.0f);
+                        v283 = US1_1();
+                        v282.v[0l] = Tuple15(v283, v236);
                         US1 v284;
-                        v284 = US1_2(v236);
-                        v281.v[2l] = Tuple15(v284, v242);
+                        v284 = US1_0();
+                        v282.v[1l] = Tuple15(v284, 2.0f);
                         US1 v285;
-                        v285 = US1_2(v243);
-                        v281.v[3l] = Tuple15(v285, v249);
+                        v285 = US1_2(v237);
+                        v282.v[2l] = Tuple15(v285, v243);
                         US1 v286;
-                        v286 = US1_2(v250);
-                        v281.v[4l] = Tuple15(v286, v256);
+                        v286 = US1_2(v244);
+                        v282.v[3l] = Tuple15(v286, v250);
                         US1 v287;
-                        v287 = US1_2(v222);
-                        v281.v[5l] = Tuple15(v287, v262);
+                        v287 = US1_2(v251);
+                        v282.v[4l] = Tuple15(v287, v257);
                         US1 v288;
-                        v288 = US1_2(v264);
-                        v281.v[6l] = Tuple15(v288, v270);
+                        v288 = US1_2(v223);
+                        v282.v[5l] = Tuple15(v288, v263);
                         US1 v289;
-                        v289 = US1_2(v274);
-                        v281.v[7l] = Tuple15(v289, v280);
+                        v289 = US1_2(v265);
+                        v282.v[6l] = Tuple15(v289, v271);
                         US1 v290;
-                        v290 = sample_discrete_44(v281, v2);
-                        long v291;
-                        v291 = v5.length;
-                        bool v292;
-                        v292 = v291 < 128l;
+                        v290 = US1_2(v275);
+                        v282.v[7l] = Tuple15(v290, v281);
+                        US1 v291;
+                        v291 = sample_discrete_44(v282, v2);
+                        long v292;
+                        v292 = v5.length;
                         bool v293;
-                        v293 = v292 == false;
-                        if (v293){
-                            assert("The length has to be less than the maximum length of the array." && v292);
+                        v293 = v292 < 128l;
+                        bool v294;
+                        v294 = v293 == false;
+                        if (v294){
+                            assert("The length has to be less than the maximum length of the array." && v293);
                         } else {
                         }
-                        long v294;
-                        v294 = v291 + 1l;
-                        v5.length = v294;
-                        bool v295;
-                        v295 = 0l <= v291;
-                        bool v298;
-                        if (v295){
-                            long v296;
-                            v296 = v5.length;
-                            bool v297;
-                            v297 = v291 < v296;
-                            v298 = v297;
-                        } else {
-                            v298 = false;
-                        }
+                        long v295;
+                        v295 = v292 + 1l;
+                        v5.length = v295;
+                        bool v296;
+                        v296 = 0l <= v292;
                         bool v299;
-                        v299 = v298 == false;
-                        if (v299){
-                            assert("The set index needs to be in range for the static array list." && v298);
+                        if (v296){
+                            long v297;
+                            v297 = v5.length;
+                            bool v298;
+                            v298 = v292 < v297;
+                            v299 = v298;
+                        } else {
+                            v299 = false;
+                        }
+                        bool v300;
+                        v300 = v299 == false;
+                        if (v300){
+                            assert("The set index needs to be in range for the static array list." && v299);
                         } else {
                         }
-                        US3 v300;
-                        v300 = US3_2(v152, v290);
-                        v5.v[v291] = v300;
-                        US5 v437;
-                        switch (v290.tag) {
+                        US3 v301;
+                        v301 = US3_2(v153, v291);
+                        v5.v[v292] = v301;
+                        US5 v438;
+                        switch (v291.tag) {
                             case 0: { // A_Call
-                                static_array<long,2l> v302;
-                                long v303;
-                                v303 = 0l;
-                                while (while_method_0(v303)){
-                                    bool v305;
-                                    v305 = 0l <= v303;
-                                    bool v307;
-                                    if (v305){
-                                        bool v306;
-                                        v306 = v303 < 2l;
-                                        v307 = v306;
-                                    } else {
-                                        v307 = false;
-                                    }
+                                static_array<long,2l> v303;
+                                long v304;
+                                v304 = 0l;
+                                while (while_method_0(v304)){
+                                    bool v306;
+                                    v306 = 0l <= v304;
                                     bool v308;
-                                    v308 = v307 == false;
-                                    if (v308){
-                                        assert("The read index needs to be in range for the static array." && v307);
+                                    if (v306){
+                                        bool v307;
+                                        v307 = v304 < 2l;
+                                        v308 = v307;
+                                    } else {
+                                        v308 = false;
+                                    }
+                                    bool v309;
+                                    v309 = v308 == false;
+                                    if (v309){
+                                        assert("The read index needs to be in range for the static array." && v308);
                                     } else {
                                     }
-                                    long v309;
-                                    v309 = v150.v[v303];
-                                    bool v311;
-                                    if (v305){
-                                        bool v310;
-                                        v310 = v303 < 2l;
-                                        v311 = v310;
-                                    } else {
-                                        v311 = false;
-                                    }
+                                    long v310;
+                                    v310 = v151.v[v304];
                                     bool v312;
-                                    v312 = v311 == false;
-                                    if (v312){
-                                        assert("The read index needs to be in range for the static array." && v311);
+                                    if (v306){
+                                        bool v311;
+                                        v311 = v304 < 2l;
+                                        v312 = v311;
+                                    } else {
+                                        v312 = false;
+                                    }
+                                    bool v313;
+                                    v313 = v312 == false;
+                                    if (v313){
+                                        assert("The read index needs to be in range for the static array." && v312);
                                     } else {
                                     }
-                                    long v313;
-                                    v313 = v148.v[v303];
                                     long v314;
-                                    v314 = v309 + v313;
-                                    bool v316;
-                                    if (v305){
-                                        bool v315;
-                                        v315 = v303 < 2l;
-                                        v316 = v315;
-                                    } else {
-                                        v316 = false;
-                                    }
+                                    v314 = v149.v[v304];
+                                    long v315;
+                                    v315 = v310 + v314;
                                     bool v317;
-                                    v317 = v316 == false;
-                                    if (v317){
-                                        assert("The read index needs to be in range for the static array." && v316);
+                                    if (v306){
+                                        bool v316;
+                                        v316 = v304 < 2l;
+                                        v317 = v316;
+                                    } else {
+                                        v317 = false;
+                                    }
+                                    bool v318;
+                                    v318 = v317 == false;
+                                    if (v318){
+                                        assert("The read index needs to be in range for the static array." && v317);
                                     } else {
                                     }
-                                    v302.v[v303] = v314;
-                                    v303 += 1l ;
+                                    v303.v[v304] = v315;
+                                    v304 += 1l ;
                                 }
-                                long v318;
-                                v318 = v148.v[0l];
-                                long v319; long v320;
-                                Tuple2 tmp32 = Tuple2(1l, v318);
-                                v319 = tmp32.v0; v320 = tmp32.v1;
-                                while (while_method_0(v319)){
-                                    bool v322;
-                                    v322 = 0l <= v319;
-                                    bool v324;
-                                    if (v322){
-                                        bool v323;
-                                        v323 = v319 < 2l;
-                                        v324 = v323;
-                                    } else {
-                                        v324 = false;
-                                    }
+                                long v319;
+                                v319 = v149.v[0l];
+                                long v320; long v321;
+                                Tuple2 tmp32 = Tuple2(1l, v319);
+                                v320 = tmp32.v0; v321 = tmp32.v1;
+                                while (while_method_0(v320)){
+                                    bool v323;
+                                    v323 = 0l <= v320;
                                     bool v325;
-                                    v325 = v324 == false;
-                                    if (v325){
-                                        assert("The read index needs to be in range for the static array." && v324);
+                                    if (v323){
+                                        bool v324;
+                                        v324 = v320 < 2l;
+                                        v325 = v324;
+                                    } else {
+                                        v325 = false;
+                                    }
+                                    bool v326;
+                                    v326 = v325 == false;
+                                    if (v326){
+                                        assert("The read index needs to be in range for the static array." && v325);
                                     } else {
                                     }
-                                    long v326;
-                                    v326 = v148.v[v319];
-                                    bool v327;
-                                    v327 = v320 >= v326;
-                                    long v328;
-                                    if (v327){
-                                        v328 = v320;
+                                    long v327;
+                                    v327 = v149.v[v320];
+                                    bool v328;
+                                    v328 = v321 >= v327;
+                                    long v329;
+                                    if (v328){
+                                        v329 = v321;
                                     } else {
-                                        v328 = v326;
+                                        v329 = v327;
                                     }
-                                    v320 = v328;
-                                    v319 += 1l ;
-                                }
-                                bool v330;
-                                if (v153){
-                                    bool v329;
-                                    v329 = v152 < 2l;
-                                    v330 = v329;
-                                } else {
-                                    v330 = false;
+                                    v321 = v329;
+                                    v320 += 1l ;
                                 }
                                 bool v331;
-                                v331 = v330 == false;
-                                if (v331){
-                                    assert("The read index needs to be in range for the static array." && v330);
+                                if (v154){
+                                    bool v330;
+                                    v330 = v153 < 2l;
+                                    v331 = v330;
+                                } else {
+                                    v331 = false;
+                                }
+                                bool v332;
+                                v332 = v331 == false;
+                                if (v332){
+                                    assert("The read index needs to be in range for the static array." && v331);
                                 } else {
                                 }
-                                long v332;
-                                v332 = v302.v[v152];
-                                bool v333;
-                                v333 = v320 < v332;
-                                long v334;
-                                if (v333){
-                                    v334 = v320;
+                                long v333;
+                                v333 = v303.v[v153];
+                                bool v334;
+                                v334 = v321 < v333;
+                                long v335;
+                                if (v334){
+                                    v335 = v321;
                                 } else {
-                                    v334 = v332;
+                                    v335 = v333;
                                 }
-                                static_array<long,2l> v335;
-                                long v336;
-                                v336 = 0l;
-                                while (while_method_0(v336)){
-                                    bool v338;
-                                    v338 = 0l <= v336;
-                                    bool v340;
-                                    if (v338){
-                                        bool v339;
-                                        v339 = v336 < 2l;
-                                        v340 = v339;
-                                    } else {
-                                        v340 = false;
-                                    }
+                                static_array<long,2l> v336;
+                                long v337;
+                                v337 = 0l;
+                                while (while_method_0(v337)){
+                                    bool v339;
+                                    v339 = 0l <= v337;
                                     bool v341;
-                                    v341 = v340 == false;
-                                    if (v341){
-                                        assert("The read index needs to be in range for the static array." && v340);
+                                    if (v339){
+                                        bool v340;
+                                        v340 = v337 < 2l;
+                                        v341 = v340;
+                                    } else {
+                                        v341 = false;
+                                    }
+                                    bool v342;
+                                    v342 = v341 == false;
+                                    if (v342){
+                                        assert("The read index needs to be in range for the static array." && v341);
                                     } else {
                                     }
-                                    long v342;
-                                    v342 = v148.v[v336];
-                                    bool v343;
-                                    v343 = v152 == v336;
-                                    long v344;
-                                    if (v343){
-                                        v344 = v334;
+                                    long v343;
+                                    v343 = v149.v[v337];
+                                    bool v344;
+                                    v344 = v153 == v337;
+                                    long v345;
+                                    if (v344){
+                                        v345 = v335;
                                     } else {
-                                        v344 = v342;
-                                    }
-                                    bool v346;
-                                    if (v338){
-                                        bool v345;
-                                        v345 = v336 < 2l;
-                                        v346 = v345;
-                                    } else {
-                                        v346 = false;
+                                        v345 = v343;
                                     }
                                     bool v347;
-                                    v347 = v346 == false;
-                                    if (v347){
-                                        assert("The read index needs to be in range for the static array." && v346);
+                                    if (v339){
+                                        bool v346;
+                                        v346 = v337 < 2l;
+                                        v347 = v346;
+                                    } else {
+                                        v347 = false;
+                                    }
+                                    bool v348;
+                                    v348 = v347 == false;
+                                    if (v348){
+                                        assert("The read index needs to be in range for the static array." && v347);
                                     } else {
                                     }
-                                    v335.v[v336] = v344;
-                                    v336 += 1l ;
+                                    v336.v[v337] = v345;
+                                    v337 += 1l ;
                                 }
-                                static_array<long,2l> v348;
-                                long v349;
-                                v349 = 0l;
-                                while (while_method_0(v349)){
-                                    bool v351;
-                                    v351 = 0l <= v349;
-                                    bool v353;
-                                    if (v351){
-                                        bool v352;
-                                        v352 = v349 < 2l;
-                                        v353 = v352;
-                                    } else {
-                                        v353 = false;
-                                    }
+                                static_array<long,2l> v349;
+                                long v350;
+                                v350 = 0l;
+                                while (while_method_0(v350)){
+                                    bool v352;
+                                    v352 = 0l <= v350;
                                     bool v354;
-                                    v354 = v353 == false;
-                                    if (v354){
-                                        assert("The read index needs to be in range for the static array." && v353);
+                                    if (v352){
+                                        bool v353;
+                                        v353 = v350 < 2l;
+                                        v354 = v353;
+                                    } else {
+                                        v354 = false;
+                                    }
+                                    bool v355;
+                                    v355 = v354 == false;
+                                    if (v355){
+                                        assert("The read index needs to be in range for the static array." && v354);
                                     } else {
                                     }
-                                    long v355;
-                                    v355 = v302.v[v349];
-                                    bool v357;
-                                    if (v351){
-                                        bool v356;
-                                        v356 = v349 < 2l;
-                                        v357 = v356;
-                                    } else {
-                                        v357 = false;
-                                    }
+                                    long v356;
+                                    v356 = v303.v[v350];
                                     bool v358;
-                                    v358 = v357 == false;
-                                    if (v358){
-                                        assert("The read index needs to be in range for the static array." && v357);
+                                    if (v352){
+                                        bool v357;
+                                        v357 = v350 < 2l;
+                                        v358 = v357;
+                                    } else {
+                                        v358 = false;
+                                    }
+                                    bool v359;
+                                    v359 = v358 == false;
+                                    if (v359){
+                                        assert("The read index needs to be in range for the static array." && v358);
                                     } else {
                                     }
-                                    long v359;
-                                    v359 = v335.v[v349];
                                     long v360;
-                                    v360 = v355 - v359;
-                                    bool v362;
-                                    if (v351){
-                                        bool v361;
-                                        v361 = v349 < 2l;
-                                        v362 = v361;
-                                    } else {
-                                        v362 = false;
-                                    }
+                                    v360 = v336.v[v350];
+                                    long v361;
+                                    v361 = v356 - v360;
                                     bool v363;
-                                    v363 = v362 == false;
-                                    if (v363){
-                                        assert("The read index needs to be in range for the static array." && v362);
+                                    if (v352){
+                                        bool v362;
+                                        v362 = v350 < 2l;
+                                        v363 = v362;
+                                    } else {
+                                        v363 = false;
+                                    }
+                                    bool v364;
+                                    v364 = v363 == false;
+                                    if (v364){
+                                        assert("The read index needs to be in range for the static array." && v363);
                                     } else {
                                     }
-                                    v348.v[v349] = v360;
-                                    v349 += 1l ;
+                                    v349.v[v350] = v361;
+                                    v350 += 1l ;
                                 }
-                                bool v364;
-                                v364 = v152 < 2l;
-                                if (v364){
-                                    long v365;
-                                    v365 = v149 + 1l;
-                                    v437 = try_round_38(v146, v147, v335, v365, v348, v151);
+                                bool v365;
+                                v365 = v153 < 2l;
+                                if (v365){
+                                    long v366;
+                                    v366 = v150 + 1l;
+                                    v438 = try_round_38(v147, v148, v336, v366, v349, v152);
                                 } else {
-                                    v437 = go_next_street_40(v146, v147, v335, v149, v348, v151);
+                                    v438 = go_next_street_40(v147, v148, v336, v150, v349, v152);
                                 }
                                 break;
                             }
                             case 1: { // A_Fold
-                                v437 = US5_1(v146, v147, v148, v149, v150, v151);
+                                v438 = US5_1(v147, v148, v149, v150, v151, v152);
                                 break;
                             }
                             case 2: { // A_Raise
-                                long v369 = v290.v.case2.v0;
-                                write_47(v148);
+                                long v370 = v291.v.case2.v0;
+                                write_47(v149);
                                 printf("\n");
-                                write_47(v150);
+                                write_47(v151);
                                 printf("\n");
-                                static_array<long,2l> v370;
-                                long v371;
-                                v371 = 0l;
-                                while (while_method_0(v371)){
-                                    bool v373;
-                                    v373 = 0l <= v371;
-                                    bool v375;
-                                    if (v373){
-                                        bool v374;
-                                        v374 = v371 < 2l;
-                                        v375 = v374;
-                                    } else {
-                                        v375 = false;
-                                    }
+                                static_array<long,2l> v371;
+                                long v372;
+                                v372 = 0l;
+                                while (while_method_0(v372)){
+                                    bool v374;
+                                    v374 = 0l <= v372;
                                     bool v376;
-                                    v376 = v375 == false;
-                                    if (v376){
-                                        assert("The read index needs to be in range for the static array." && v375);
+                                    if (v374){
+                                        bool v375;
+                                        v375 = v372 < 2l;
+                                        v376 = v375;
+                                    } else {
+                                        v376 = false;
+                                    }
+                                    bool v377;
+                                    v377 = v376 == false;
+                                    if (v377){
+                                        assert("The read index needs to be in range for the static array." && v376);
                                     } else {
                                     }
-                                    long v377;
-                                    v377 = v150.v[v371];
-                                    bool v379;
-                                    if (v373){
-                                        bool v378;
-                                        v378 = v371 < 2l;
-                                        v379 = v378;
-                                    } else {
-                                        v379 = false;
-                                    }
+                                    long v378;
+                                    v378 = v151.v[v372];
                                     bool v380;
-                                    v380 = v379 == false;
-                                    if (v380){
-                                        assert("The read index needs to be in range for the static array." && v379);
+                                    if (v374){
+                                        bool v379;
+                                        v379 = v372 < 2l;
+                                        v380 = v379;
+                                    } else {
+                                        v380 = false;
+                                    }
+                                    bool v381;
+                                    v381 = v380 == false;
+                                    if (v381){
+                                        assert("The read index needs to be in range for the static array." && v380);
                                     } else {
                                     }
-                                    long v381;
-                                    v381 = v148.v[v371];
                                     long v382;
-                                    v382 = v377 + v381;
-                                    bool v384;
-                                    if (v373){
-                                        bool v383;
-                                        v383 = v371 < 2l;
-                                        v384 = v383;
-                                    } else {
-                                        v384 = false;
-                                    }
+                                    v382 = v149.v[v372];
+                                    long v383;
+                                    v383 = v378 + v382;
                                     bool v385;
-                                    v385 = v384 == false;
-                                    if (v385){
-                                        assert("The read index needs to be in range for the static array." && v384);
+                                    if (v374){
+                                        bool v384;
+                                        v384 = v372 < 2l;
+                                        v385 = v384;
+                                    } else {
+                                        v385 = false;
+                                    }
+                                    bool v386;
+                                    v386 = v385 == false;
+                                    if (v386){
+                                        assert("The read index needs to be in range for the static array." && v385);
                                     } else {
                                     }
-                                    v370.v[v371] = v382;
-                                    v371 += 1l ;
+                                    v371.v[v372] = v383;
+                                    v372 += 1l ;
                                 }
-                                long v386;
-                                v386 = v148.v[0l];
-                                long v387; long v388;
-                                Tuple2 tmp33 = Tuple2(1l, v386);
-                                v387 = tmp33.v0; v388 = tmp33.v1;
-                                while (while_method_0(v387)){
-                                    bool v390;
-                                    v390 = 0l <= v387;
-                                    bool v392;
-                                    if (v390){
-                                        bool v391;
-                                        v391 = v387 < 2l;
-                                        v392 = v391;
-                                    } else {
-                                        v392 = false;
-                                    }
+                                long v387;
+                                v387 = v149.v[0l];
+                                long v388; long v389;
+                                Tuple2 tmp33 = Tuple2(1l, v387);
+                                v388 = tmp33.v0; v389 = tmp33.v1;
+                                while (while_method_0(v388)){
+                                    bool v391;
+                                    v391 = 0l <= v388;
                                     bool v393;
-                                    v393 = v392 == false;
-                                    if (v393){
-                                        assert("The read index needs to be in range for the static array." && v392);
+                                    if (v391){
+                                        bool v392;
+                                        v392 = v388 < 2l;
+                                        v393 = v392;
+                                    } else {
+                                        v393 = false;
+                                    }
+                                    bool v394;
+                                    v394 = v393 == false;
+                                    if (v394){
+                                        assert("The read index needs to be in range for the static array." && v393);
                                     } else {
                                     }
-                                    long v394;
-                                    v394 = v148.v[v387];
-                                    bool v395;
-                                    v395 = v388 >= v394;
-                                    long v396;
-                                    if (v395){
-                                        v396 = v388;
+                                    long v395;
+                                    v395 = v149.v[v388];
+                                    bool v396;
+                                    v396 = v389 >= v395;
+                                    long v397;
+                                    if (v396){
+                                        v397 = v389;
                                     } else {
-                                        v396 = v394;
+                                        v397 = v395;
                                     }
-                                    v388 = v396;
-                                    v387 += 1l ;
+                                    v389 = v397;
+                                    v388 += 1l ;
                                 }
-                                long v397;
-                                v397 = v388 + v369;
-                                bool v399;
-                                if (v153){
-                                    bool v398;
-                                    v398 = v152 < 2l;
-                                    v399 = v398;
-                                } else {
-                                    v399 = false;
-                                }
+                                long v398;
+                                v398 = v389 + v370;
                                 bool v400;
-                                v400 = v399 == false;
-                                if (v400){
-                                    assert("The read index needs to be in range for the static array." && v399);
+                                if (v154){
+                                    bool v399;
+                                    v399 = v153 < 2l;
+                                    v400 = v399;
+                                } else {
+                                    v400 = false;
+                                }
+                                bool v401;
+                                v401 = v400 == false;
+                                if (v401){
+                                    assert("The read index needs to be in range for the static array." && v400);
                                 } else {
                                 }
-                                long v401;
-                                v401 = v370.v[v152];
-                                bool v402;
-                                v402 = v397 < v401;
-                                long v403;
-                                if (v402){
-                                    v403 = v397;
+                                long v402;
+                                v402 = v371.v[v153];
+                                bool v403;
+                                v403 = v398 < v402;
+                                long v404;
+                                if (v403){
+                                    v404 = v398;
                                 } else {
-                                    v403 = v401;
+                                    v404 = v402;
                                 }
-                                static_array<long,2l> v404;
-                                long v405;
-                                v405 = 0l;
-                                while (while_method_0(v405)){
-                                    bool v407;
-                                    v407 = 0l <= v405;
-                                    bool v409;
-                                    if (v407){
-                                        bool v408;
-                                        v408 = v405 < 2l;
-                                        v409 = v408;
-                                    } else {
-                                        v409 = false;
-                                    }
+                                static_array<long,2l> v405;
+                                long v406;
+                                v406 = 0l;
+                                while (while_method_0(v406)){
+                                    bool v408;
+                                    v408 = 0l <= v406;
                                     bool v410;
-                                    v410 = v409 == false;
-                                    if (v410){
-                                        assert("The read index needs to be in range for the static array." && v409);
+                                    if (v408){
+                                        bool v409;
+                                        v409 = v406 < 2l;
+                                        v410 = v409;
+                                    } else {
+                                        v410 = false;
+                                    }
+                                    bool v411;
+                                    v411 = v410 == false;
+                                    if (v411){
+                                        assert("The read index needs to be in range for the static array." && v410);
                                     } else {
                                     }
-                                    long v411;
-                                    v411 = v148.v[v405];
-                                    bool v412;
-                                    v412 = v152 == v405;
-                                    long v413;
-                                    if (v412){
-                                        v413 = v403;
+                                    long v412;
+                                    v412 = v149.v[v406];
+                                    bool v413;
+                                    v413 = v153 == v406;
+                                    long v414;
+                                    if (v413){
+                                        v414 = v404;
                                     } else {
-                                        v413 = v411;
-                                    }
-                                    bool v415;
-                                    if (v407){
-                                        bool v414;
-                                        v414 = v405 < 2l;
-                                        v415 = v414;
-                                    } else {
-                                        v415 = false;
+                                        v414 = v412;
                                     }
                                     bool v416;
-                                    v416 = v415 == false;
-                                    if (v416){
-                                        assert("The read index needs to be in range for the static array." && v415);
+                                    if (v408){
+                                        bool v415;
+                                        v415 = v406 < 2l;
+                                        v416 = v415;
+                                    } else {
+                                        v416 = false;
+                                    }
+                                    bool v417;
+                                    v417 = v416 == false;
+                                    if (v417){
+                                        assert("The read index needs to be in range for the static array." && v416);
                                     } else {
                                     }
-                                    v404.v[v405] = v413;
-                                    v405 += 1l ;
+                                    v405.v[v406] = v414;
+                                    v406 += 1l ;
                                 }
-                                static_array<long,2l> v417;
-                                long v418;
-                                v418 = 0l;
-                                while (while_method_0(v418)){
-                                    bool v420;
-                                    v420 = 0l <= v418;
-                                    bool v422;
-                                    if (v420){
-                                        bool v421;
-                                        v421 = v418 < 2l;
-                                        v422 = v421;
-                                    } else {
-                                        v422 = false;
-                                    }
+                                static_array<long,2l> v418;
+                                long v419;
+                                v419 = 0l;
+                                while (while_method_0(v419)){
+                                    bool v421;
+                                    v421 = 0l <= v419;
                                     bool v423;
-                                    v423 = v422 == false;
-                                    if (v423){
-                                        assert("The read index needs to be in range for the static array." && v422);
+                                    if (v421){
+                                        bool v422;
+                                        v422 = v419 < 2l;
+                                        v423 = v422;
+                                    } else {
+                                        v423 = false;
+                                    }
+                                    bool v424;
+                                    v424 = v423 == false;
+                                    if (v424){
+                                        assert("The read index needs to be in range for the static array." && v423);
                                     } else {
                                     }
-                                    long v424;
-                                    v424 = v370.v[v418];
-                                    bool v426;
-                                    if (v420){
-                                        bool v425;
-                                        v425 = v418 < 2l;
-                                        v426 = v425;
-                                    } else {
-                                        v426 = false;
-                                    }
+                                    long v425;
+                                    v425 = v371.v[v419];
                                     bool v427;
-                                    v427 = v426 == false;
-                                    if (v427){
-                                        assert("The read index needs to be in range for the static array." && v426);
+                                    if (v421){
+                                        bool v426;
+                                        v426 = v419 < 2l;
+                                        v427 = v426;
+                                    } else {
+                                        v427 = false;
+                                    }
+                                    bool v428;
+                                    v428 = v427 == false;
+                                    if (v428){
+                                        assert("The read index needs to be in range for the static array." && v427);
                                     } else {
                                     }
-                                    long v428;
-                                    v428 = v404.v[v418];
                                     long v429;
-                                    v429 = v424 - v428;
-                                    bool v431;
-                                    if (v420){
-                                        bool v430;
-                                        v430 = v418 < 2l;
-                                        v431 = v430;
-                                    } else {
-                                        v431 = false;
-                                    }
+                                    v429 = v405.v[v419];
+                                    long v430;
+                                    v430 = v425 - v429;
                                     bool v432;
-                                    v432 = v431 == false;
-                                    if (v432){
-                                        assert("The read index needs to be in range for the static array." && v431);
+                                    if (v421){
+                                        bool v431;
+                                        v431 = v419 < 2l;
+                                        v432 = v431;
+                                    } else {
+                                        v432 = false;
+                                    }
+                                    bool v433;
+                                    v433 = v432 == false;
+                                    if (v433){
+                                        assert("The read index needs to be in range for the static array." && v432);
                                     } else {
                                     }
-                                    v417.v[v418] = v429;
-                                    v418 += 1l ;
+                                    v418.v[v419] = v430;
+                                    v419 += 1l ;
                                 }
-                                write_47(v404);
+                                write_47(v405);
                                 printf("\n");
-                                long v433;
-                                v433 = v149 + 1l;
-                                v437 = try_round_38(v146, v147, v404, v433, v417, v151);
+                                long v434;
+                                v434 = v150 + 1l;
+                                v438 = try_round_38(v147, v148, v405, v434, v418, v152);
                                 break;
                             }
                             default: {
                                 assert("Invalid tag." && false);
                             }
                         }
-                        v775 = true; v776 = v437;
+                        v776 = true; v777 = v438;
                         break;
                     }
                     case 1: { // Human
-                        v775 = false; v776 = v8;
+                        v776 = false; v777 = v8;
                         break;
                     }
                     default: {
@@ -8318,534 +8320,534 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 break;
             }
             case 5: { // G_Round'
-                long v442 = v8.v.case5.v0; static_array<static_array<unsigned char,2l>,2l> v443 = v8.v.case5.v1; static_array<long,2l> v444 = v8.v.case5.v2; long v445 = v8.v.case5.v3; static_array<long,2l> v446 = v8.v.case5.v4; US6 v447 = v8.v.case5.v5; US1 v448 = v8.v.case5.v6;
-                long v449;
-                v449 = v445 % 2l;
+                long v443 = v8.v.case5.v0; static_array<static_array<unsigned char,2l>,2l> v444 = v8.v.case5.v1; static_array<long,2l> v445 = v8.v.case5.v2; long v446 = v8.v.case5.v3; static_array<long,2l> v447 = v8.v.case5.v4; US6 v448 = v8.v.case5.v5; US1 v449 = v8.v.case5.v6;
                 long v450;
-                v450 = v5.length;
-                bool v451;
-                v451 = v450 < 128l;
+                v450 = v446 % 2l;
+                long v451;
+                v451 = v5.length;
                 bool v452;
-                v452 = v451 == false;
-                if (v452){
-                    assert("The length has to be less than the maximum length of the array." && v451);
+                v452 = v451 < 128l;
+                bool v453;
+                v453 = v452 == false;
+                if (v453){
+                    assert("The length has to be less than the maximum length of the array." && v452);
                 } else {
                 }
-                long v453;
-                v453 = v450 + 1l;
-                v5.length = v453;
-                bool v454;
-                v454 = 0l <= v450;
-                bool v457;
-                if (v454){
-                    long v455;
-                    v455 = v5.length;
-                    bool v456;
-                    v456 = v450 < v455;
-                    v457 = v456;
-                } else {
-                    v457 = false;
-                }
+                long v454;
+                v454 = v451 + 1l;
+                v5.length = v454;
+                bool v455;
+                v455 = 0l <= v451;
                 bool v458;
-                v458 = v457 == false;
-                if (v458){
-                    assert("The set index needs to be in range for the static array list." && v457);
+                if (v455){
+                    long v456;
+                    v456 = v5.length;
+                    bool v457;
+                    v457 = v451 < v456;
+                    v458 = v457;
+                } else {
+                    v458 = false;
+                }
+                bool v459;
+                v459 = v458 == false;
+                if (v459){
+                    assert("The set index needs to be in range for the static array list." && v458);
                 } else {
                 }
-                US3 v459;
-                v459 = US3_2(v449, v448);
-                v5.v[v450] = v459;
-                US5 v598;
-                switch (v448.tag) {
+                US3 v460;
+                v460 = US3_2(v450, v449);
+                v5.v[v451] = v460;
+                US5 v599;
+                switch (v449.tag) {
                     case 0: { // A_Call
-                        static_array<long,2l> v461;
-                        long v462;
-                        v462 = 0l;
-                        while (while_method_0(v462)){
-                            bool v464;
-                            v464 = 0l <= v462;
-                            bool v466;
-                            if (v464){
-                                bool v465;
-                                v465 = v462 < 2l;
-                                v466 = v465;
-                            } else {
-                                v466 = false;
-                            }
+                        static_array<long,2l> v462;
+                        long v463;
+                        v463 = 0l;
+                        while (while_method_0(v463)){
+                            bool v465;
+                            v465 = 0l <= v463;
                             bool v467;
-                            v467 = v466 == false;
-                            if (v467){
-                                assert("The read index needs to be in range for the static array." && v466);
+                            if (v465){
+                                bool v466;
+                                v466 = v463 < 2l;
+                                v467 = v466;
+                            } else {
+                                v467 = false;
+                            }
+                            bool v468;
+                            v468 = v467 == false;
+                            if (v468){
+                                assert("The read index needs to be in range for the static array." && v467);
                             } else {
                             }
-                            long v468;
-                            v468 = v446.v[v462];
-                            bool v470;
-                            if (v464){
-                                bool v469;
-                                v469 = v462 < 2l;
-                                v470 = v469;
-                            } else {
-                                v470 = false;
-                            }
+                            long v469;
+                            v469 = v447.v[v463];
                             bool v471;
-                            v471 = v470 == false;
-                            if (v471){
-                                assert("The read index needs to be in range for the static array." && v470);
+                            if (v465){
+                                bool v470;
+                                v470 = v463 < 2l;
+                                v471 = v470;
+                            } else {
+                                v471 = false;
+                            }
+                            bool v472;
+                            v472 = v471 == false;
+                            if (v472){
+                                assert("The read index needs to be in range for the static array." && v471);
                             } else {
                             }
-                            long v472;
-                            v472 = v444.v[v462];
                             long v473;
-                            v473 = v468 + v472;
-                            bool v475;
-                            if (v464){
-                                bool v474;
-                                v474 = v462 < 2l;
-                                v475 = v474;
-                            } else {
-                                v475 = false;
-                            }
+                            v473 = v445.v[v463];
+                            long v474;
+                            v474 = v469 + v473;
                             bool v476;
-                            v476 = v475 == false;
-                            if (v476){
-                                assert("The read index needs to be in range for the static array." && v475);
+                            if (v465){
+                                bool v475;
+                                v475 = v463 < 2l;
+                                v476 = v475;
+                            } else {
+                                v476 = false;
+                            }
+                            bool v477;
+                            v477 = v476 == false;
+                            if (v477){
+                                assert("The read index needs to be in range for the static array." && v476);
                             } else {
                             }
-                            v461.v[v462] = v473;
-                            v462 += 1l ;
+                            v462.v[v463] = v474;
+                            v463 += 1l ;
                         }
-                        long v477;
-                        v477 = v444.v[0l];
-                        long v478; long v479;
-                        Tuple2 tmp34 = Tuple2(1l, v477);
-                        v478 = tmp34.v0; v479 = tmp34.v1;
-                        while (while_method_0(v478)){
-                            bool v481;
-                            v481 = 0l <= v478;
-                            bool v483;
-                            if (v481){
-                                bool v482;
-                                v482 = v478 < 2l;
-                                v483 = v482;
-                            } else {
-                                v483 = false;
-                            }
+                        long v478;
+                        v478 = v445.v[0l];
+                        long v479; long v480;
+                        Tuple2 tmp34 = Tuple2(1l, v478);
+                        v479 = tmp34.v0; v480 = tmp34.v1;
+                        while (while_method_0(v479)){
+                            bool v482;
+                            v482 = 0l <= v479;
                             bool v484;
-                            v484 = v483 == false;
-                            if (v484){
-                                assert("The read index needs to be in range for the static array." && v483);
+                            if (v482){
+                                bool v483;
+                                v483 = v479 < 2l;
+                                v484 = v483;
+                            } else {
+                                v484 = false;
+                            }
+                            bool v485;
+                            v485 = v484 == false;
+                            if (v485){
+                                assert("The read index needs to be in range for the static array." && v484);
                             } else {
                             }
-                            long v485;
-                            v485 = v444.v[v478];
-                            bool v486;
-                            v486 = v479 >= v485;
-                            long v487;
-                            if (v486){
-                                v487 = v479;
+                            long v486;
+                            v486 = v445.v[v479];
+                            bool v487;
+                            v487 = v480 >= v486;
+                            long v488;
+                            if (v487){
+                                v488 = v480;
                             } else {
-                                v487 = v485;
+                                v488 = v486;
                             }
-                            v479 = v487;
-                            v478 += 1l ;
+                            v480 = v488;
+                            v479 += 1l ;
                         }
-                        bool v488;
-                        v488 = 0l <= v449;
-                        bool v490;
-                        if (v488){
-                            bool v489;
-                            v489 = v449 < 2l;
-                            v490 = v489;
-                        } else {
-                            v490 = false;
-                        }
+                        bool v489;
+                        v489 = 0l <= v450;
                         bool v491;
-                        v491 = v490 == false;
-                        if (v491){
-                            assert("The read index needs to be in range for the static array." && v490);
+                        if (v489){
+                            bool v490;
+                            v490 = v450 < 2l;
+                            v491 = v490;
+                        } else {
+                            v491 = false;
+                        }
+                        bool v492;
+                        v492 = v491 == false;
+                        if (v492){
+                            assert("The read index needs to be in range for the static array." && v491);
                         } else {
                         }
-                        long v492;
-                        v492 = v461.v[v449];
-                        bool v493;
-                        v493 = v479 < v492;
-                        long v494;
-                        if (v493){
-                            v494 = v479;
+                        long v493;
+                        v493 = v462.v[v450];
+                        bool v494;
+                        v494 = v480 < v493;
+                        long v495;
+                        if (v494){
+                            v495 = v480;
                         } else {
-                            v494 = v492;
+                            v495 = v493;
                         }
-                        static_array<long,2l> v495;
-                        long v496;
-                        v496 = 0l;
-                        while (while_method_0(v496)){
-                            bool v498;
-                            v498 = 0l <= v496;
-                            bool v500;
-                            if (v498){
-                                bool v499;
-                                v499 = v496 < 2l;
-                                v500 = v499;
-                            } else {
-                                v500 = false;
-                            }
+                        static_array<long,2l> v496;
+                        long v497;
+                        v497 = 0l;
+                        while (while_method_0(v497)){
+                            bool v499;
+                            v499 = 0l <= v497;
                             bool v501;
-                            v501 = v500 == false;
-                            if (v501){
-                                assert("The read index needs to be in range for the static array." && v500);
+                            if (v499){
+                                bool v500;
+                                v500 = v497 < 2l;
+                                v501 = v500;
+                            } else {
+                                v501 = false;
+                            }
+                            bool v502;
+                            v502 = v501 == false;
+                            if (v502){
+                                assert("The read index needs to be in range for the static array." && v501);
                             } else {
                             }
-                            long v502;
-                            v502 = v444.v[v496];
-                            bool v503;
-                            v503 = v449 == v496;
-                            long v504;
-                            if (v503){
-                                v504 = v494;
+                            long v503;
+                            v503 = v445.v[v497];
+                            bool v504;
+                            v504 = v450 == v497;
+                            long v505;
+                            if (v504){
+                                v505 = v495;
                             } else {
-                                v504 = v502;
-                            }
-                            bool v506;
-                            if (v498){
-                                bool v505;
-                                v505 = v496 < 2l;
-                                v506 = v505;
-                            } else {
-                                v506 = false;
+                                v505 = v503;
                             }
                             bool v507;
-                            v507 = v506 == false;
-                            if (v507){
-                                assert("The read index needs to be in range for the static array." && v506);
+                            if (v499){
+                                bool v506;
+                                v506 = v497 < 2l;
+                                v507 = v506;
+                            } else {
+                                v507 = false;
+                            }
+                            bool v508;
+                            v508 = v507 == false;
+                            if (v508){
+                                assert("The read index needs to be in range for the static array." && v507);
                             } else {
                             }
-                            v495.v[v496] = v504;
-                            v496 += 1l ;
+                            v496.v[v497] = v505;
+                            v497 += 1l ;
                         }
-                        static_array<long,2l> v508;
-                        long v509;
-                        v509 = 0l;
-                        while (while_method_0(v509)){
-                            bool v511;
-                            v511 = 0l <= v509;
-                            bool v513;
-                            if (v511){
-                                bool v512;
-                                v512 = v509 < 2l;
-                                v513 = v512;
-                            } else {
-                                v513 = false;
-                            }
+                        static_array<long,2l> v509;
+                        long v510;
+                        v510 = 0l;
+                        while (while_method_0(v510)){
+                            bool v512;
+                            v512 = 0l <= v510;
                             bool v514;
-                            v514 = v513 == false;
-                            if (v514){
-                                assert("The read index needs to be in range for the static array." && v513);
+                            if (v512){
+                                bool v513;
+                                v513 = v510 < 2l;
+                                v514 = v513;
+                            } else {
+                                v514 = false;
+                            }
+                            bool v515;
+                            v515 = v514 == false;
+                            if (v515){
+                                assert("The read index needs to be in range for the static array." && v514);
                             } else {
                             }
-                            long v515;
-                            v515 = v461.v[v509];
-                            bool v517;
-                            if (v511){
-                                bool v516;
-                                v516 = v509 < 2l;
-                                v517 = v516;
-                            } else {
-                                v517 = false;
-                            }
+                            long v516;
+                            v516 = v462.v[v510];
                             bool v518;
-                            v518 = v517 == false;
-                            if (v518){
-                                assert("The read index needs to be in range for the static array." && v517);
+                            if (v512){
+                                bool v517;
+                                v517 = v510 < 2l;
+                                v518 = v517;
+                            } else {
+                                v518 = false;
+                            }
+                            bool v519;
+                            v519 = v518 == false;
+                            if (v519){
+                                assert("The read index needs to be in range for the static array." && v518);
                             } else {
                             }
-                            long v519;
-                            v519 = v495.v[v509];
                             long v520;
-                            v520 = v515 - v519;
-                            bool v522;
-                            if (v511){
-                                bool v521;
-                                v521 = v509 < 2l;
-                                v522 = v521;
-                            } else {
-                                v522 = false;
-                            }
+                            v520 = v496.v[v510];
+                            long v521;
+                            v521 = v516 - v520;
                             bool v523;
-                            v523 = v522 == false;
-                            if (v523){
-                                assert("The read index needs to be in range for the static array." && v522);
+                            if (v512){
+                                bool v522;
+                                v522 = v510 < 2l;
+                                v523 = v522;
+                            } else {
+                                v523 = false;
+                            }
+                            bool v524;
+                            v524 = v523 == false;
+                            if (v524){
+                                assert("The read index needs to be in range for the static array." && v523);
                             } else {
                             }
-                            v508.v[v509] = v520;
-                            v509 += 1l ;
+                            v509.v[v510] = v521;
+                            v510 += 1l ;
                         }
-                        bool v524;
-                        v524 = v449 < 2l;
-                        if (v524){
-                            long v525;
-                            v525 = v445 + 1l;
-                            v598 = try_round_38(v442, v443, v495, v525, v508, v447);
+                        bool v525;
+                        v525 = v450 < 2l;
+                        if (v525){
+                            long v526;
+                            v526 = v446 + 1l;
+                            v599 = try_round_38(v443, v444, v496, v526, v509, v448);
                         } else {
-                            v598 = go_next_street_40(v442, v443, v495, v445, v508, v447);
+                            v599 = go_next_street_40(v443, v444, v496, v446, v509, v448);
                         }
                         break;
                     }
                     case 1: { // A_Fold
-                        v598 = US5_1(v442, v443, v444, v445, v446, v447);
+                        v599 = US5_1(v443, v444, v445, v446, v447, v448);
                         break;
                     }
                     case 2: { // A_Raise
-                        long v529 = v448.v.case2.v0;
-                        write_47(v444);
+                        long v530 = v449.v.case2.v0;
+                        write_47(v445);
                         printf("\n");
-                        write_47(v446);
+                        write_47(v447);
                         printf("\n");
-                        static_array<long,2l> v530;
-                        long v531;
-                        v531 = 0l;
-                        while (while_method_0(v531)){
-                            bool v533;
-                            v533 = 0l <= v531;
-                            bool v535;
-                            if (v533){
-                                bool v534;
-                                v534 = v531 < 2l;
-                                v535 = v534;
-                            } else {
-                                v535 = false;
-                            }
+                        static_array<long,2l> v531;
+                        long v532;
+                        v532 = 0l;
+                        while (while_method_0(v532)){
+                            bool v534;
+                            v534 = 0l <= v532;
                             bool v536;
-                            v536 = v535 == false;
-                            if (v536){
-                                assert("The read index needs to be in range for the static array." && v535);
+                            if (v534){
+                                bool v535;
+                                v535 = v532 < 2l;
+                                v536 = v535;
+                            } else {
+                                v536 = false;
+                            }
+                            bool v537;
+                            v537 = v536 == false;
+                            if (v537){
+                                assert("The read index needs to be in range for the static array." && v536);
                             } else {
                             }
-                            long v537;
-                            v537 = v446.v[v531];
-                            bool v539;
-                            if (v533){
-                                bool v538;
-                                v538 = v531 < 2l;
-                                v539 = v538;
-                            } else {
-                                v539 = false;
-                            }
+                            long v538;
+                            v538 = v447.v[v532];
                             bool v540;
-                            v540 = v539 == false;
-                            if (v540){
-                                assert("The read index needs to be in range for the static array." && v539);
+                            if (v534){
+                                bool v539;
+                                v539 = v532 < 2l;
+                                v540 = v539;
+                            } else {
+                                v540 = false;
+                            }
+                            bool v541;
+                            v541 = v540 == false;
+                            if (v541){
+                                assert("The read index needs to be in range for the static array." && v540);
                             } else {
                             }
-                            long v541;
-                            v541 = v444.v[v531];
                             long v542;
-                            v542 = v537 + v541;
-                            bool v544;
-                            if (v533){
-                                bool v543;
-                                v543 = v531 < 2l;
-                                v544 = v543;
-                            } else {
-                                v544 = false;
-                            }
+                            v542 = v445.v[v532];
+                            long v543;
+                            v543 = v538 + v542;
                             bool v545;
-                            v545 = v544 == false;
-                            if (v545){
-                                assert("The read index needs to be in range for the static array." && v544);
+                            if (v534){
+                                bool v544;
+                                v544 = v532 < 2l;
+                                v545 = v544;
+                            } else {
+                                v545 = false;
+                            }
+                            bool v546;
+                            v546 = v545 == false;
+                            if (v546){
+                                assert("The read index needs to be in range for the static array." && v545);
                             } else {
                             }
-                            v530.v[v531] = v542;
-                            v531 += 1l ;
+                            v531.v[v532] = v543;
+                            v532 += 1l ;
                         }
-                        long v546;
-                        v546 = v444.v[0l];
-                        long v547; long v548;
-                        Tuple2 tmp35 = Tuple2(1l, v546);
-                        v547 = tmp35.v0; v548 = tmp35.v1;
-                        while (while_method_0(v547)){
-                            bool v550;
-                            v550 = 0l <= v547;
-                            bool v552;
-                            if (v550){
-                                bool v551;
-                                v551 = v547 < 2l;
-                                v552 = v551;
-                            } else {
-                                v552 = false;
-                            }
+                        long v547;
+                        v547 = v445.v[0l];
+                        long v548; long v549;
+                        Tuple2 tmp35 = Tuple2(1l, v547);
+                        v548 = tmp35.v0; v549 = tmp35.v1;
+                        while (while_method_0(v548)){
+                            bool v551;
+                            v551 = 0l <= v548;
                             bool v553;
-                            v553 = v552 == false;
-                            if (v553){
-                                assert("The read index needs to be in range for the static array." && v552);
+                            if (v551){
+                                bool v552;
+                                v552 = v548 < 2l;
+                                v553 = v552;
+                            } else {
+                                v553 = false;
+                            }
+                            bool v554;
+                            v554 = v553 == false;
+                            if (v554){
+                                assert("The read index needs to be in range for the static array." && v553);
                             } else {
                             }
-                            long v554;
-                            v554 = v444.v[v547];
-                            bool v555;
-                            v555 = v548 >= v554;
-                            long v556;
-                            if (v555){
-                                v556 = v548;
+                            long v555;
+                            v555 = v445.v[v548];
+                            bool v556;
+                            v556 = v549 >= v555;
+                            long v557;
+                            if (v556){
+                                v557 = v549;
                             } else {
-                                v556 = v554;
+                                v557 = v555;
                             }
-                            v548 = v556;
-                            v547 += 1l ;
+                            v549 = v557;
+                            v548 += 1l ;
                         }
-                        long v557;
-                        v557 = v548 + v529;
-                        bool v558;
-                        v558 = 0l <= v449;
-                        bool v560;
-                        if (v558){
-                            bool v559;
-                            v559 = v449 < 2l;
-                            v560 = v559;
-                        } else {
-                            v560 = false;
-                        }
+                        long v558;
+                        v558 = v549 + v530;
+                        bool v559;
+                        v559 = 0l <= v450;
                         bool v561;
-                        v561 = v560 == false;
-                        if (v561){
-                            assert("The read index needs to be in range for the static array." && v560);
+                        if (v559){
+                            bool v560;
+                            v560 = v450 < 2l;
+                            v561 = v560;
+                        } else {
+                            v561 = false;
+                        }
+                        bool v562;
+                        v562 = v561 == false;
+                        if (v562){
+                            assert("The read index needs to be in range for the static array." && v561);
                         } else {
                         }
-                        long v562;
-                        v562 = v530.v[v449];
-                        bool v563;
-                        v563 = v557 < v562;
-                        long v564;
-                        if (v563){
-                            v564 = v557;
+                        long v563;
+                        v563 = v531.v[v450];
+                        bool v564;
+                        v564 = v558 < v563;
+                        long v565;
+                        if (v564){
+                            v565 = v558;
                         } else {
-                            v564 = v562;
+                            v565 = v563;
                         }
-                        static_array<long,2l> v565;
-                        long v566;
-                        v566 = 0l;
-                        while (while_method_0(v566)){
-                            bool v568;
-                            v568 = 0l <= v566;
-                            bool v570;
-                            if (v568){
-                                bool v569;
-                                v569 = v566 < 2l;
-                                v570 = v569;
-                            } else {
-                                v570 = false;
-                            }
+                        static_array<long,2l> v566;
+                        long v567;
+                        v567 = 0l;
+                        while (while_method_0(v567)){
+                            bool v569;
+                            v569 = 0l <= v567;
                             bool v571;
-                            v571 = v570 == false;
-                            if (v571){
-                                assert("The read index needs to be in range for the static array." && v570);
+                            if (v569){
+                                bool v570;
+                                v570 = v567 < 2l;
+                                v571 = v570;
+                            } else {
+                                v571 = false;
+                            }
+                            bool v572;
+                            v572 = v571 == false;
+                            if (v572){
+                                assert("The read index needs to be in range for the static array." && v571);
                             } else {
                             }
-                            long v572;
-                            v572 = v444.v[v566];
-                            bool v573;
-                            v573 = v449 == v566;
-                            long v574;
-                            if (v573){
-                                v574 = v564;
+                            long v573;
+                            v573 = v445.v[v567];
+                            bool v574;
+                            v574 = v450 == v567;
+                            long v575;
+                            if (v574){
+                                v575 = v565;
                             } else {
-                                v574 = v572;
-                            }
-                            bool v576;
-                            if (v568){
-                                bool v575;
-                                v575 = v566 < 2l;
-                                v576 = v575;
-                            } else {
-                                v576 = false;
+                                v575 = v573;
                             }
                             bool v577;
-                            v577 = v576 == false;
-                            if (v577){
-                                assert("The read index needs to be in range for the static array." && v576);
+                            if (v569){
+                                bool v576;
+                                v576 = v567 < 2l;
+                                v577 = v576;
+                            } else {
+                                v577 = false;
+                            }
+                            bool v578;
+                            v578 = v577 == false;
+                            if (v578){
+                                assert("The read index needs to be in range for the static array." && v577);
                             } else {
                             }
-                            v565.v[v566] = v574;
-                            v566 += 1l ;
+                            v566.v[v567] = v575;
+                            v567 += 1l ;
                         }
-                        static_array<long,2l> v578;
-                        long v579;
-                        v579 = 0l;
-                        while (while_method_0(v579)){
-                            bool v581;
-                            v581 = 0l <= v579;
-                            bool v583;
-                            if (v581){
-                                bool v582;
-                                v582 = v579 < 2l;
-                                v583 = v582;
-                            } else {
-                                v583 = false;
-                            }
+                        static_array<long,2l> v579;
+                        long v580;
+                        v580 = 0l;
+                        while (while_method_0(v580)){
+                            bool v582;
+                            v582 = 0l <= v580;
                             bool v584;
-                            v584 = v583 == false;
-                            if (v584){
-                                assert("The read index needs to be in range for the static array." && v583);
+                            if (v582){
+                                bool v583;
+                                v583 = v580 < 2l;
+                                v584 = v583;
+                            } else {
+                                v584 = false;
+                            }
+                            bool v585;
+                            v585 = v584 == false;
+                            if (v585){
+                                assert("The read index needs to be in range for the static array." && v584);
                             } else {
                             }
-                            long v585;
-                            v585 = v530.v[v579];
-                            bool v587;
-                            if (v581){
-                                bool v586;
-                                v586 = v579 < 2l;
-                                v587 = v586;
-                            } else {
-                                v587 = false;
-                            }
+                            long v586;
+                            v586 = v531.v[v580];
                             bool v588;
-                            v588 = v587 == false;
-                            if (v588){
-                                assert("The read index needs to be in range for the static array." && v587);
+                            if (v582){
+                                bool v587;
+                                v587 = v580 < 2l;
+                                v588 = v587;
+                            } else {
+                                v588 = false;
+                            }
+                            bool v589;
+                            v589 = v588 == false;
+                            if (v589){
+                                assert("The read index needs to be in range for the static array." && v588);
                             } else {
                             }
-                            long v589;
-                            v589 = v565.v[v579];
                             long v590;
-                            v590 = v585 - v589;
-                            bool v592;
-                            if (v581){
-                                bool v591;
-                                v591 = v579 < 2l;
-                                v592 = v591;
-                            } else {
-                                v592 = false;
-                            }
+                            v590 = v566.v[v580];
+                            long v591;
+                            v591 = v586 - v590;
                             bool v593;
-                            v593 = v592 == false;
-                            if (v593){
-                                assert("The read index needs to be in range for the static array." && v592);
+                            if (v582){
+                                bool v592;
+                                v592 = v580 < 2l;
+                                v593 = v592;
+                            } else {
+                                v593 = false;
+                            }
+                            bool v594;
+                            v594 = v593 == false;
+                            if (v594){
+                                assert("The read index needs to be in range for the static array." && v593);
                             } else {
                             }
-                            v578.v[v579] = v590;
-                            v579 += 1l ;
+                            v579.v[v580] = v591;
+                            v580 += 1l ;
                         }
-                        write_47(v565);
+                        write_47(v566);
                         printf("\n");
-                        long v594;
-                        v594 = v445 + 1l;
-                        v598 = try_round_38(v442, v443, v565, v594, v578, v447);
+                        long v595;
+                        v595 = v446 + 1l;
+                        v599 = try_round_38(v443, v444, v566, v595, v579, v448);
                         break;
                     }
                     default: {
                         assert("Invalid tag." && false);
                     }
                 }
-                v775 = true; v776 = v598;
+                v776 = true; v777 = v599;
                 break;
             }
             case 6: { // G_Showdown
-                long v33 = v8.v.case6.v0; static_array<static_array<unsigned char,2l>,2l> v34 = v8.v.case6.v1; static_array<long,2l> v35 = v8.v.case6.v2; long v36 = v8.v.case6.v3; static_array<long,2l> v37 = v8.v.case6.v4; US6 v38 = v8.v.case6.v5;
-                static_array<unsigned char,5l> v41;
-                switch (v38.tag) {
+                long v34 = v8.v.case6.v0; static_array<static_array<unsigned char,2l>,2l> v35 = v8.v.case6.v1; static_array<long,2l> v36 = v8.v.case6.v2; long v37 = v8.v.case6.v3; static_array<long,2l> v38 = v8.v.case6.v4; US6 v39 = v8.v.case6.v5;
+                static_array<unsigned char,5l> v42;
+                switch (v39.tag) {
                     case 2: { // River
-                        static_array<unsigned char,5l> v39 = v38.v.case2.v0;
-                        v41 = v39;
+                        static_array<unsigned char,5l> v40 = v39.v.case2.v0;
+                        v42 = v40;
                         break;
                     }
                     default: {
@@ -8853,480 +8855,480 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                static_array<unsigned char,2l> v42;
-                v42 = v34.v[0l];
-                static_array<unsigned char,7l> v43;
-                long v44;
-                v44 = 0l;
-                while (while_method_0(v44)){
-                    bool v46;
-                    v46 = 0l <= v44;
-                    bool v48;
-                    if (v46){
-                        bool v47;
-                        v47 = v44 < 2l;
-                        v48 = v47;
-                    } else {
-                        v48 = false;
-                    }
+                static_array<unsigned char,2l> v43;
+                v43 = v35.v[0l];
+                static_array<unsigned char,7l> v44;
+                long v45;
+                v45 = 0l;
+                while (while_method_0(v45)){
+                    bool v47;
+                    v47 = 0l <= v45;
                     bool v49;
-                    v49 = v48 == false;
-                    if (v49){
-                        assert("The read index needs to be in range for the static array." && v48);
+                    if (v47){
+                        bool v48;
+                        v48 = v45 < 2l;
+                        v49 = v48;
+                    } else {
+                        v49 = false;
+                    }
+                    bool v50;
+                    v50 = v49 == false;
+                    if (v50){
+                        assert("The read index needs to be in range for the static array." && v49);
                     } else {
                     }
-                    unsigned char v50;
-                    v50 = v42.v[v44];
-                    bool v52;
-                    if (v46){
-                        bool v51;
-                        v51 = v44 < 7l;
-                        v52 = v51;
-                    } else {
-                        v52 = false;
-                    }
+                    unsigned char v51;
+                    v51 = v43.v[v45];
                     bool v53;
-                    v53 = v52 == false;
-                    if (v53){
-                        assert("The read index needs to be in range for the static array." && v52);
+                    if (v47){
+                        bool v52;
+                        v52 = v45 < 7l;
+                        v53 = v52;
+                    } else {
+                        v53 = false;
+                    }
+                    bool v54;
+                    v54 = v53 == false;
+                    if (v54){
+                        assert("The read index needs to be in range for the static array." && v53);
                     } else {
                     }
-                    v43.v[v44] = v50;
-                    v44 += 1l ;
+                    v44.v[v45] = v51;
+                    v45 += 1l ;
                 }
-                long v54;
-                v54 = 0l;
-                while (while_method_2(v54)){
-                    bool v56;
-                    v56 = 0l <= v54;
-                    bool v58;
-                    if (v56){
-                        bool v57;
-                        v57 = v54 < 5l;
-                        v58 = v57;
-                    } else {
-                        v58 = false;
-                    }
+                long v55;
+                v55 = 0l;
+                while (while_method_2(v55)){
+                    bool v57;
+                    v57 = 0l <= v55;
                     bool v59;
-                    v59 = v58 == false;
-                    if (v59){
-                        assert("The read index needs to be in range for the static array." && v58);
+                    if (v57){
+                        bool v58;
+                        v58 = v55 < 5l;
+                        v59 = v58;
+                    } else {
+                        v59 = false;
+                    }
+                    bool v60;
+                    v60 = v59 == false;
+                    if (v60){
+                        assert("The read index needs to be in range for the static array." && v59);
                     } else {
                     }
-                    unsigned char v60;
-                    v60 = v41.v[v54];
-                    long v61;
-                    v61 = 2l + v54;
-                    bool v62;
-                    v62 = 0l <= v61;
-                    bool v64;
-                    if (v62){
-                        bool v63;
-                        v63 = v61 < 7l;
-                        v64 = v63;
-                    } else {
-                        v64 = false;
-                    }
+                    unsigned char v61;
+                    v61 = v42.v[v55];
+                    long v62;
+                    v62 = 2l + v55;
+                    bool v63;
+                    v63 = 0l <= v62;
                     bool v65;
-                    v65 = v64 == false;
-                    if (v65){
-                        assert("The read index needs to be in range for the static array." && v64);
+                    if (v63){
+                        bool v64;
+                        v64 = v62 < 7l;
+                        v65 = v64;
+                    } else {
+                        v65 = false;
+                    }
+                    bool v66;
+                    v66 = v65 == false;
+                    if (v66){
+                        assert("The read index needs to be in range for the static array." && v65);
                     } else {
                     }
-                    v43.v[v61] = v60;
-                    v54 += 1l ;
+                    v44.v[v62] = v61;
+                    v55 += 1l ;
                 }
-                static_array<unsigned char,5l> v66; char v67;
-                Tuple0 tmp60 = score_49(v43);
-                v66 = tmp60.v0; v67 = tmp60.v1;
-                static_array<unsigned char,2l> v68;
-                v68 = v34.v[1l];
-                static_array<unsigned char,7l> v69;
-                long v70;
-                v70 = 0l;
-                while (while_method_0(v70)){
-                    bool v72;
-                    v72 = 0l <= v70;
-                    bool v74;
-                    if (v72){
-                        bool v73;
-                        v73 = v70 < 2l;
-                        v74 = v73;
-                    } else {
-                        v74 = false;
-                    }
+                static_array<unsigned char,5l> v67; char v68;
+                Tuple0 tmp60 = score_49(v44);
+                v67 = tmp60.v0; v68 = tmp60.v1;
+                static_array<unsigned char,2l> v69;
+                v69 = v35.v[1l];
+                static_array<unsigned char,7l> v70;
+                long v71;
+                v71 = 0l;
+                while (while_method_0(v71)){
+                    bool v73;
+                    v73 = 0l <= v71;
                     bool v75;
-                    v75 = v74 == false;
-                    if (v75){
-                        assert("The read index needs to be in range for the static array." && v74);
+                    if (v73){
+                        bool v74;
+                        v74 = v71 < 2l;
+                        v75 = v74;
+                    } else {
+                        v75 = false;
+                    }
+                    bool v76;
+                    v76 = v75 == false;
+                    if (v76){
+                        assert("The read index needs to be in range for the static array." && v75);
                     } else {
                     }
-                    unsigned char v76;
-                    v76 = v68.v[v70];
-                    bool v78;
-                    if (v72){
-                        bool v77;
-                        v77 = v70 < 7l;
-                        v78 = v77;
-                    } else {
-                        v78 = false;
-                    }
+                    unsigned char v77;
+                    v77 = v69.v[v71];
                     bool v79;
-                    v79 = v78 == false;
-                    if (v79){
-                        assert("The read index needs to be in range for the static array." && v78);
+                    if (v73){
+                        bool v78;
+                        v78 = v71 < 7l;
+                        v79 = v78;
+                    } else {
+                        v79 = false;
+                    }
+                    bool v80;
+                    v80 = v79 == false;
+                    if (v80){
+                        assert("The read index needs to be in range for the static array." && v79);
                     } else {
                     }
-                    v69.v[v70] = v76;
-                    v70 += 1l ;
+                    v70.v[v71] = v77;
+                    v71 += 1l ;
                 }
-                long v80;
-                v80 = 0l;
-                while (while_method_2(v80)){
-                    bool v82;
-                    v82 = 0l <= v80;
-                    bool v84;
-                    if (v82){
-                        bool v83;
-                        v83 = v80 < 5l;
-                        v84 = v83;
-                    } else {
-                        v84 = false;
-                    }
+                long v81;
+                v81 = 0l;
+                while (while_method_2(v81)){
+                    bool v83;
+                    v83 = 0l <= v81;
                     bool v85;
-                    v85 = v84 == false;
-                    if (v85){
-                        assert("The read index needs to be in range for the static array." && v84);
+                    if (v83){
+                        bool v84;
+                        v84 = v81 < 5l;
+                        v85 = v84;
+                    } else {
+                        v85 = false;
+                    }
+                    bool v86;
+                    v86 = v85 == false;
+                    if (v86){
+                        assert("The read index needs to be in range for the static array." && v85);
                     } else {
                     }
-                    unsigned char v86;
-                    v86 = v41.v[v80];
-                    long v87;
-                    v87 = 2l + v80;
-                    bool v88;
-                    v88 = 0l <= v87;
-                    bool v90;
-                    if (v88){
-                        bool v89;
-                        v89 = v87 < 7l;
-                        v90 = v89;
-                    } else {
-                        v90 = false;
-                    }
+                    unsigned char v87;
+                    v87 = v42.v[v81];
+                    long v88;
+                    v88 = 2l + v81;
+                    bool v89;
+                    v89 = 0l <= v88;
                     bool v91;
-                    v91 = v90 == false;
-                    if (v91){
-                        assert("The read index needs to be in range for the static array." && v90);
+                    if (v89){
+                        bool v90;
+                        v90 = v88 < 7l;
+                        v91 = v90;
+                    } else {
+                        v91 = false;
+                    }
+                    bool v92;
+                    v92 = v91 == false;
+                    if (v92){
+                        assert("The read index needs to be in range for the static array." && v91);
                     } else {
                     }
-                    v69.v[v87] = v86;
-                    v80 += 1l ;
+                    v70.v[v88] = v87;
+                    v81 += 1l ;
                 }
-                static_array<unsigned char,5l> v92; char v93;
-                Tuple0 tmp61 = score_49(v69);
-                v92 = tmp61.v0; v93 = tmp61.v1;
-                long v94;
-                v94 = v36 % 2l;
-                bool v95;
-                v95 = 0l <= v94;
-                bool v97;
-                if (v95){
-                    bool v96;
-                    v96 = v94 < 2l;
-                    v97 = v96;
-                } else {
-                    v97 = false;
-                }
+                static_array<unsigned char,5l> v93; char v94;
+                Tuple0 tmp61 = score_49(v70);
+                v93 = tmp61.v0; v94 = tmp61.v1;
+                long v95;
+                v95 = v37 % 2l;
+                bool v96;
+                v96 = 0l <= v95;
                 bool v98;
-                v98 = v97 == false;
-                if (v98){
-                    assert("The read index needs to be in range for the static array." && v97);
+                if (v96){
+                    bool v97;
+                    v97 = v95 < 2l;
+                    v98 = v97;
+                } else {
+                    v98 = false;
+                }
+                bool v99;
+                v99 = v98 == false;
+                if (v99){
+                    assert("The read index needs to be in range for the static array." && v98);
                 } else {
                 }
-                long v99;
-                v99 = v35.v[v94];
-                bool v100;
-                v100 = v67 < v93;
-                US8 v106;
-                if (v100){
-                    v106 = US8_2();
+                long v100;
+                v100 = v36.v[v95];
+                bool v101;
+                v101 = v68 < v94;
+                US8 v107;
+                if (v101){
+                    v107 = US8_2();
                 } else {
-                    bool v102;
-                    v102 = v67 > v93;
-                    if (v102){
-                        v106 = US8_1();
+                    bool v103;
+                    v103 = v68 > v94;
+                    if (v103){
+                        v107 = US8_1();
                     } else {
-                        v106 = US8_0();
+                        v107 = US8_0();
                     }
                 }
-                US8 v128;
-                switch (v106.tag) {
+                US8 v129;
+                switch (v107.tag) {
                     case 0: { // Eq
-                        US8 v107;
-                        v107 = US8_0();
-                        long v108;
-                        v108 = 0l;
-                        while (while_method_2(v108)){
-                            bool v110;
-                            v110 = 0l <= v108;
-                            bool v112;
-                            if (v110){
-                                bool v111;
-                                v111 = v108 < 5l;
-                                v112 = v111;
-                            } else {
-                                v112 = false;
-                            }
+                        US8 v108;
+                        v108 = US8_0();
+                        long v109;
+                        v109 = 0l;
+                        while (while_method_2(v109)){
+                            bool v111;
+                            v111 = 0l <= v109;
                             bool v113;
-                            v113 = v112 == false;
-                            if (v113){
-                                assert("The read index needs to be in range for the static array." && v112);
+                            if (v111){
+                                bool v112;
+                                v112 = v109 < 5l;
+                                v113 = v112;
+                            } else {
+                                v113 = false;
+                            }
+                            bool v114;
+                            v114 = v113 == false;
+                            if (v114){
+                                assert("The read index needs to be in range for the static array." && v113);
                             } else {
                             }
-                            unsigned char v114;
-                            v114 = v66.v[v108];
-                            bool v116;
-                            if (v110){
-                                bool v115;
-                                v115 = v108 < 5l;
-                                v116 = v115;
-                            } else {
-                                v116 = false;
-                            }
+                            unsigned char v115;
+                            v115 = v67.v[v109];
                             bool v117;
-                            v117 = v116 == false;
-                            if (v117){
-                                assert("The read index needs to be in range for the static array." && v116);
+                            if (v111){
+                                bool v116;
+                                v116 = v109 < 5l;
+                                v117 = v116;
+                            } else {
+                                v117 = false;
+                            }
+                            bool v118;
+                            v118 = v117 == false;
+                            if (v118){
+                                assert("The read index needs to be in range for the static array." && v117);
                             } else {
                             }
-                            unsigned char v118;
-                            v118 = v92.v[v108];
-                            bool v119;
-                            v119 = v114 < v118;
-                            US8 v125;
-                            if (v119){
-                                v125 = US8_2();
+                            unsigned char v119;
+                            v119 = v93.v[v109];
+                            bool v120;
+                            v120 = v115 < v119;
+                            US8 v126;
+                            if (v120){
+                                v126 = US8_2();
                             } else {
-                                bool v121;
-                                v121 = v114 > v118;
-                                if (v121){
-                                    v125 = US8_1();
+                                bool v122;
+                                v122 = v115 > v119;
+                                if (v122){
+                                    v126 = US8_1();
                                 } else {
-                                    v125 = US8_0();
-                                }
-                            }
-                            bool v126;
-                            switch (v125.tag) {
-                                case 0: { // Eq
-                                    v126 = true;
-                                    break;
-                                }
-                                default: {
-                                    v126 = false;
+                                    v126 = US8_0();
                                 }
                             }
                             bool v127;
-                            v127 = v126 == false;
-                            if (v127){
-                                v107 = v125;
+                            switch (v126.tag) {
+                                case 0: { // Eq
+                                    v127 = true;
+                                    break;
+                                }
+                                default: {
+                                    v127 = false;
+                                }
+                            }
+                            bool v128;
+                            v128 = v127 == false;
+                            if (v128){
+                                v108 = v126;
                                 break;
                             } else {
                             }
-                            v108 += 1l ;
+                            v109 += 1l ;
                         }
-                        v128 = v107;
+                        v129 = v108;
                         break;
                     }
                     default: {
-                        v128 = v106;
+                        v129 = v107;
                     }
                 }
-                long v133; long v134;
-                switch (v128.tag) {
+                long v134; long v135;
+                switch (v129.tag) {
                     case 0: { // Eq
-                        v133 = 0l; v134 = -1l;
+                        v134 = 0l; v135 = -1l;
                         break;
                     }
                     case 1: { // Gt
-                        v133 = v99; v134 = 0l;
+                        v134 = v100; v135 = 0l;
                         break;
                     }
                     case 2: { // Lt
-                        v133 = v99; v134 = 1l;
+                        v134 = v100; v135 = 1l;
                         break;
                     }
                     default: {
                         assert("Invalid tag." && false);
                     }
                 }
-                static_array<Tuple0,2l> v135;
-                v135.v[0l] = Tuple0(v66, v67);
-                v135.v[1l] = Tuple0(v92, v93);
-                long v136;
-                v136 = v5.length;
-                bool v137;
-                v137 = v136 < 128l;
+                static_array<Tuple0,2l> v136;
+                v136.v[0l] = Tuple0(v67, v68);
+                v136.v[1l] = Tuple0(v93, v94);
+                long v137;
+                v137 = v5.length;
                 bool v138;
-                v138 = v137 == false;
-                if (v138){
-                    assert("The length has to be less than the maximum length of the array." && v137);
+                v138 = v137 < 128l;
+                bool v139;
+                v139 = v138 == false;
+                if (v139){
+                    assert("The length has to be less than the maximum length of the array." && v138);
                 } else {
                 }
-                long v139;
-                v139 = v136 + 1l;
-                v5.length = v139;
-                bool v140;
-                v140 = 0l <= v136;
-                bool v143;
-                if (v140){
-                    long v141;
-                    v141 = v5.length;
-                    bool v142;
-                    v142 = v136 < v141;
-                    v143 = v142;
-                } else {
-                    v143 = false;
-                }
+                long v140;
+                v140 = v137 + 1l;
+                v5.length = v140;
+                bool v141;
+                v141 = 0l <= v137;
                 bool v144;
-                v144 = v143 == false;
-                if (v144){
-                    assert("The set index needs to be in range for the static array list." && v143);
+                if (v141){
+                    long v142;
+                    v142 = v5.length;
+                    bool v143;
+                    v143 = v137 < v142;
+                    v144 = v143;
+                } else {
+                    v144 = false;
+                }
+                bool v145;
+                v145 = v144 == false;
+                if (v145){
+                    assert("The set index needs to be in range for the static array list." && v144);
                 } else {
                 }
-                US3 v145;
-                v145 = US3_4(v133, v135, v134);
-                v5.v[v136] = v145;
-                v775 = false; v776 = v8;
+                US3 v146;
+                v146 = US3_4(v134, v136, v135);
+                v5.v[v137] = v146;
+                v776 = false; v777 = v8;
                 break;
             }
             case 7: { // G_Turn
-                long v623 = v8.v.case7.v0; static_array<static_array<unsigned char,2l>,2l> v624 = v8.v.case7.v1; static_array<long,2l> v625 = v8.v.case7.v2; long v626 = v8.v.case7.v3; static_array<long,2l> v627 = v8.v.case7.v4; US6 v628 = v8.v.case7.v5;
-                static_array<unsigned char,1l> v629; unsigned long long v630;
+                long v624 = v8.v.case7.v0; static_array<static_array<unsigned char,2l>,2l> v625 = v8.v.case7.v1; static_array<long,2l> v626 = v8.v.case7.v2; long v627 = v8.v.case7.v3; static_array<long,2l> v628 = v8.v.case7.v4; US6 v629 = v8.v.case7.v5;
+                static_array<unsigned char,1l> v630; unsigned long long v631;
                 Tuple14 tmp62 = draw_cards_42(v2, v6);
-                v629 = tmp62.v0; v630 = tmp62.v1;
-                v0 = v630;
-                static_array_list<unsigned char,5l,long> v631;
-                v631 = get_community_cards_43(v628, v629);
-                long v632;
-                v632 = v5.length;
-                bool v633;
-                v633 = v632 < 128l;
+                v630 = tmp62.v0; v631 = tmp62.v1;
+                v0 = v631;
+                static_array_list<unsigned char,5l,long> v632;
+                v632 = get_community_cards_43(v629, v630);
+                long v633;
+                v633 = v5.length;
                 bool v634;
-                v634 = v633 == false;
-                if (v634){
-                    assert("The length has to be less than the maximum length of the array." && v633);
+                v634 = v633 < 128l;
+                bool v635;
+                v635 = v634 == false;
+                if (v635){
+                    assert("The length has to be less than the maximum length of the array." && v634);
                 } else {
                 }
-                long v635;
-                v635 = v632 + 1l;
-                v5.length = v635;
-                bool v636;
-                v636 = 0l <= v632;
-                bool v639;
-                if (v636){
-                    long v637;
-                    v637 = v5.length;
-                    bool v638;
-                    v638 = v632 < v637;
-                    v639 = v638;
-                } else {
-                    v639 = false;
-                }
+                long v636;
+                v636 = v633 + 1l;
+                v5.length = v636;
+                bool v637;
+                v637 = 0l <= v633;
                 bool v640;
-                v640 = v639 == false;
-                if (v640){
-                    assert("The set index needs to be in range for the static array list." && v639);
+                if (v637){
+                    long v638;
+                    v638 = v5.length;
+                    bool v639;
+                    v639 = v633 < v638;
+                    v640 = v639;
+                } else {
+                    v640 = false;
+                }
+                bool v641;
+                v641 = v640 == false;
+                if (v641){
+                    assert("The set index needs to be in range for the static array list." && v640);
                 } else {
                 }
-                US3 v641;
-                v641 = US3_0(v631);
-                v5.v[v632] = v641;
-                US6 v668;
-                switch (v628.tag) {
+                US3 v642;
+                v642 = US3_0(v632);
+                v5.v[v633] = v642;
+                US6 v669;
+                switch (v629.tag) {
                     case 0: { // Flop
-                        static_array<unsigned char,3l> v642 = v628.v.case0.v0;
-                        static_array<unsigned char,4l> v643;
-                        long v644;
-                        v644 = 0l;
-                        while (while_method_3(v644)){
-                            bool v646;
-                            v646 = 0l <= v644;
-                            bool v648;
-                            if (v646){
-                                bool v647;
-                                v647 = v644 < 3l;
-                                v648 = v647;
-                            } else {
-                                v648 = false;
-                            }
+                        static_array<unsigned char,3l> v643 = v629.v.case0.v0;
+                        static_array<unsigned char,4l> v644;
+                        long v645;
+                        v645 = 0l;
+                        while (while_method_3(v645)){
+                            bool v647;
+                            v647 = 0l <= v645;
                             bool v649;
-                            v649 = v648 == false;
-                            if (v649){
-                                assert("The read index needs to be in range for the static array." && v648);
+                            if (v647){
+                                bool v648;
+                                v648 = v645 < 3l;
+                                v649 = v648;
+                            } else {
+                                v649 = false;
+                            }
+                            bool v650;
+                            v650 = v649 == false;
+                            if (v650){
+                                assert("The read index needs to be in range for the static array." && v649);
                             } else {
                             }
-                            unsigned char v650;
-                            v650 = v642.v[v644];
-                            bool v652;
-                            if (v646){
-                                bool v651;
-                                v651 = v644 < 4l;
-                                v652 = v651;
-                            } else {
-                                v652 = false;
-                            }
+                            unsigned char v651;
+                            v651 = v643.v[v645];
                             bool v653;
-                            v653 = v652 == false;
-                            if (v653){
-                                assert("The read index needs to be in range for the static array." && v652);
+                            if (v647){
+                                bool v652;
+                                v652 = v645 < 4l;
+                                v653 = v652;
+                            } else {
+                                v653 = false;
+                            }
+                            bool v654;
+                            v654 = v653 == false;
+                            if (v654){
+                                assert("The read index needs to be in range for the static array." && v653);
                             } else {
                             }
-                            v643.v[v644] = v650;
-                            v644 += 1l ;
+                            v644.v[v645] = v651;
+                            v645 += 1l ;
                         }
-                        long v654;
-                        v654 = 0l;
-                        while (while_method_6(v654)){
-                            bool v656;
-                            v656 = 0l <= v654;
-                            bool v658;
-                            if (v656){
-                                bool v657;
-                                v657 = v654 < 1l;
-                                v658 = v657;
-                            } else {
-                                v658 = false;
-                            }
+                        long v655;
+                        v655 = 0l;
+                        while (while_method_6(v655)){
+                            bool v657;
+                            v657 = 0l <= v655;
                             bool v659;
-                            v659 = v658 == false;
-                            if (v659){
-                                assert("The read index needs to be in range for the static array." && v658);
+                            if (v657){
+                                bool v658;
+                                v658 = v655 < 1l;
+                                v659 = v658;
+                            } else {
+                                v659 = false;
+                            }
+                            bool v660;
+                            v660 = v659 == false;
+                            if (v660){
+                                assert("The read index needs to be in range for the static array." && v659);
                             } else {
                             }
-                            unsigned char v660;
-                            v660 = v629.v[v654];
-                            long v661;
-                            v661 = 3l + v654;
-                            bool v662;
-                            v662 = 0l <= v661;
-                            bool v664;
-                            if (v662){
-                                bool v663;
-                                v663 = v661 < 4l;
-                                v664 = v663;
-                            } else {
-                                v664 = false;
-                            }
+                            unsigned char v661;
+                            v661 = v630.v[v655];
+                            long v662;
+                            v662 = 3l + v655;
+                            bool v663;
+                            v663 = 0l <= v662;
                             bool v665;
-                            v665 = v664 == false;
-                            if (v665){
-                                assert("The read index needs to be in range for the static array." && v664);
+                            if (v663){
+                                bool v664;
+                                v664 = v662 < 4l;
+                                v665 = v664;
+                            } else {
+                                v665 = false;
+                            }
+                            bool v666;
+                            v666 = v665 == false;
+                            if (v666){
+                                assert("The read index needs to be in range for the static array." && v665);
                             } else {
                             }
-                            v643.v[v661] = v660;
-                            v654 += 1l ;
+                            v644.v[v662] = v661;
+                            v655 += 1l ;
                         }
-                        v668 = US6_3(v643);
+                        v669 = US6_3(v644);
                         break;
                     }
                     default: {
@@ -9334,19 +9336,19 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                long v669;
-                v669 = 0l;
-                US5 v670;
-                v670 = try_round_38(v623, v624, v625, v669, v627, v668);
-                v775 = true; v776 = v670;
+                long v670;
+                v670 = 0l;
+                US5 v671;
+                v671 = try_round_38(v624, v625, v626, v670, v628, v669);
+                v776 = true; v777 = v671;
                 break;
             }
             default: {
                 assert("Invalid tag." && false);
             }
         }
-        v7 = v775;
-        v8 = v776;
+        v7 = v776;
+        v8 = v777;
     }
     return v8;
 }

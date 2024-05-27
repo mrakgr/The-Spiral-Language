@@ -33,8 +33,8 @@ union message =
     | PlayerGotCards : int * sam.sa 2 card
     | CommunityCardsAre : sa_listm.sa_list 5 card
     | PlayerAction : int * action
-    | Fold : {winner_id : int; chips_won : int}
     | Showdown : {winner_id : int; chips_won : int; hands_shown : sam.sa 2 lib.hand_rankerm.hand_score}
+    | Fold : {winner_id : int; chips_won : int}
 
 type deck = lib.deckm.deck
 type player_types = sam.sa 2 player_type
@@ -77,14 +77,15 @@ let go_next_street (table : table) =
     | Turn => G_River table
     | River => G_Showdown table
 
+inl num_players() = 2 : int
 inl next_turn (player_turn : int) : int = player_turn + 1
-inl player_turn (table : table) = table.round_turn % 2
+inl player_turn (table : table) = table.round_turn % num_players()
 let try_round (table : table) =
     let player_can_act (table : table) =
         inl player_turn = player_turn table
         inl has_chips_left = index table.stack player_turn > 0
         inl needs_calling = index table.pot player_turn < arraym.reduce max table.pot
-        has_chips_left && (needs_calling || player_turn < 2) // If this condition is not true, then the player is in an all-in state.
+        has_chips_left && (needs_calling || table.round_turn < 2) // If this condition is not true, then the player is in an all-in state.
     listm.foldBack (fun table next () =>
         if player_can_act table then G_Round table else next()
         ) // Tries out these tables in order, testing whether the player on that turn act, and if so returns the table.
@@ -258,7 +259,7 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
         | G_Fold table =>
             inl msg = 
                 inl chips_won = index table.pot (player_turn table)
-                Fold {chips_won winner_id=next_turn table.round_turn}
+                Fold {chips_won winner_id=next_turn table.round_turn % num_players()}
             push_message msg
             done node
         | G_Showdown table => 

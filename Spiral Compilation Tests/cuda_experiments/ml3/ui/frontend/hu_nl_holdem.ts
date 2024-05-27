@@ -1,6 +1,7 @@
-import { LitElement, PropertyValueMap, css, html } from 'lit';
+import { LitElement, PropertyValueMap, TemplateResult, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { io } from 'socket.io-client'
 
 const assert_tag_is_never = (tag : never): never => { throw new Error(`Invalid tag. Got: ${tag}`)};
@@ -8,7 +9,7 @@ const min = (a : number,b : number) => a < b ? a : b;
 const max = (a : number,b : number) => a >= b ? a : b;
 const clamp = (x : number, _min : number, _max : number) => 
     _min <= _max && !isNaN(x) && !isNaN(_min) && !isNaN(_max) 
-    ? min(max(_min,x), _max) 
+    ? min(max(_min,x), _max)
     : (() => {throw Error(`Invalid args in clamp. Got: ${[x,_min,_max]}`)})();
 
 enum Hand_Rank {
@@ -23,7 +24,7 @@ enum Hand_Rank {
     Straight_Flush
 }
 
-type Hand = [Hand_Rank, Card[]]
+type Hand = {score: Hand_Rank, hand: CardInt[]}
 
 enum Card_Rank {
     Two,
@@ -51,7 +52,7 @@ enum Card_Suit {
 type Card = [Card_Rank, Card_Suit]
 type CardInt = number
 const suit_of = (x : CardInt): Card_Suit => x % 4
-const rank_of = (x : CardInt): Card_Rank => x / 4
+const rank_of = (x : CardInt): Card_Rank => Math.floor(x / 4)
 const card_of = (x : CardInt): Card => [rank_of(x),suit_of(x)]
 
 type Action = ["A_Raise",number] | ["A_Call",[]] | ["A_Fold",[]]
@@ -88,10 +89,11 @@ type Game_State =
     | ["GameOver", Table]
     
 type Message =
-    | ["PlayerGotCards", [number, Card[]]]
-    | ["CommunityCardsAre", Card[]]
+    | ["PlayerGotCards", [number, CardInt[]]]
+    | ["CommunityCardsAre", CardInt[]]
     | ["PlayerAction", [number, Action]]
     | ["Showdown", {winner_id : number; chips_won : number; hands_shown : [Hand, Hand]}]
+    | ["Fold", {winner_id : number; chips_won : number}]
 
 type UI_State = {
     pl_type : Players[];
@@ -119,7 +121,6 @@ class UI extends LitElement {
         });
         this.addEventListener('game', (ev) => {
             ev.stopPropagation();
-            console.log(ev);
             this.socket.emit('update', (ev as CustomEvent<Game_Events>).detail);
         })
     }
@@ -269,8 +270,9 @@ class History extends GameElement {
         this.scrollTo({top: this.scrollHeight});
     }
 
-    print_card = ([rank,suit] : Card) => `${print_rank(rank)}${print_suit(suit)}`
-    print_cards = (x : Card[]) => x.map(this.print_card).join(" ")
+    print_card = (x : CardInt) => `<span style="color: ${color_of_suit(suit_of(x))};">${print_rank(rank_of(x))}${print_suit(suit_of(x))}</span>`
+    print_cards_html = (x : CardInt[]) => html`${unsafeHTML(x.map(this.print_card).join(" "))}`
+    
     print_action = ([tag,arg] : Action) => {
         switch (tag) {
             case 'A_Raise': return `raises ${arg} chips`
@@ -278,31 +280,48 @@ class History extends GameElement {
             case 'A_Fold': return "folds"
         }
     }
-    print_hand_score = (tag : Hand) => {
-
+    print_hand_score = ({score,hand} : Hand) => {
+        switch(score) {
+            case Hand_Rank.High_Card: return "High Card"
+            case Hand_Rank.Pair: return "Pair"
+            case Hand_Rank.Two_Pair: return "Two Pair"
+            case Hand_Rank.Triple: return "Triple"
+            case Hand_Rank.Straight: return "Straight"
+            case Hand_Rank.Flush: return "Flush"
+            case Hand_Rank.Full_House: return "Full House"
+            case Hand_Rank.Quads: return "Quads"
+            case Hand_Rank.Straight_Flush: return "Straight Flush"
+        }
     }
-    print_hand = ([tag,cards] : Hand) => this.print_cards(cards)
+    print_hand = ({hand} : Hand) => this.print_cards_html(hand)
 
-    print_message = (x : Message) : string[] => {
+    print_message = (x : Message) : (TemplateResult | string)[] => {
         const [tag,arg] = x
         switch (tag) {
             case 'PlayerGotCards': {
-                return [`Player ${arg[0]} got ${this.print_cards(arg[1])}`]
+                return [html`Player ${arg[0]} got ${this.print_cards_html(arg[1])}`]
             }
             case 'CommunityCardsAre': {
-                return [`Table: ${this.print_cards(arg)}`]
+                return [html`Table: ${this.print_cards_html(arg)}`]
             }
             case 'PlayerAction': {
-                return [`Player ${arg[0]} ${this.print_action(arg[1])}.`]
+                return [html`Player ${arg[0]} ${this.print_action(arg[1])}.`]
             }
             case 'Showdown': {
                 const {winner_id, chips_won, hands_shown} = arg
                 return [
-                    `Player 0 shows a ${this.print_hand_score(hands_shown[0])} - ${this.print_hand(hands_shown[0])}.`,
-                    `Player 1 shows a ${this.print_hand_score(hands_shown[1])} - ${this.print_hand(hands_shown[1])}'.`,
+                    html`Player 0 shows a ${this.print_hand_score(hands_shown[0])} - ${this.print_hand(hands_shown[0])}.`,
+                    html`Player 1 shows a ${this.print_hand_score(hands_shown[1])} - ${this.print_hand(hands_shown[1])}.`,
                     winner_id === -1
                     ? "The game is a tie."
                     : `Player ${winner_id} wins ${chips_won} chips!`,
+                    "The game is over."
+                ]
+            }
+            case 'Fold': {
+                const {winner_id, chips_won} = arg
+                return [
+                    `Player ${winner_id} wins ${chips_won} chips!`,
                     "The game is over."
                 ]
             }
@@ -347,7 +366,15 @@ const color_of_suit = (tag : Card_Suit) => {
     }
 }
 
-const print_suit = (tag : Card_Suit) => html`<span style="color: ${color_of_suit};">${Card_Suit[tag]}</span>`
+// const print_suit = (tag : Card_Suit) => html`<span style="color: ${color_of_suit};">${Card_Suit[tag]}</span>`
+const print_suit = (tag : Card_Suit) => {
+    switch (tag){
+        case Card_Suit.Clubs: return "c"
+        case Card_Suit.Diamonds: return "d"
+        case Card_Suit.Hearts: return "h"
+        case Card_Suit.Spades: return "s"
+    }
+}
 const print_rank = (tag : Card_Rank) => {
     switch (tag) {
         case Card_Rank.Ace: return "A"
@@ -395,7 +422,7 @@ class Poker_Card extends LitElement {
 
     print_card = (x : CardInt) => {
         const [rank,suit] = card_of(x);
-        html`<span style="color: ${color_of_suit(suit)}">${print_rank(rank)}</span>`
+        return html`<span style="color: ${color_of_suit(suit)}">${print_rank(rank)}</span>`
     }
     render() {
         return html`${this.is_visible ? this.print_card(this.card) : " "}`
@@ -417,9 +444,6 @@ class Poker_Cards extends LitElement {
 `
     @property({type: Array}) cards : CardInt[] = [];
     @property({type: Boolean}) is_visible = true;
-
-    print_card = ([rank,suit] : Card) => `${print_rank(rank)}${print_suit(suit)}`
-    print_cards = (x : Card[]) => x.map(this.print_card).join(" ")
 
     render(){
         return this.cards.map(card => html`<poker-card .card=${card} ?is_visible=${this.is_visible}></poker-card>`)
@@ -499,13 +523,12 @@ class Game extends GameElement {
     render_state(){
         const [tag,arg] = this.state
         const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => {
-            const is_raise_disabled = table.stack.every(x => x === 0)
             const max_raise = table.stack.reduce(min,Infinity)
             const min_raise = table.stack.reduce(min,table.config.min_raise)
             const pot_btn = (raise_amount : number) => {
                 raise_amount = clamp(Math.floor(raise_amount),min_raise,max_raise)
                 return html`
-                    <sl-button size="small" ?disabled=${is_raise_disabled} @click=${this.on_action(["A_Raise",raise_amount])}>
+                    <sl-button size="small" ?disabled=${raise_amount === 0} @click=${this.on_action(["A_Raise",raise_amount])}>
                         Raise ${raise_amount}
                     </sl-button>`
                     }
@@ -527,7 +550,7 @@ class Game extends GameElement {
                                 ${pot_btn(pot)}
                                 ${pot_btn(raise_amount)}
                                 <sl-range 
-                                    ?disabled=${is_raise_disabled} 
+                                    ?disabled=${min_raise === 0 && max_raise === 0} 
                                     .value=${raise_amount} 
                                     .min=${min_raise} .max=${max_raise} .step=${table.config.min_raise}
                                     @sl-input=${(x : any) => { this.raise_amount = x.target.value}}
