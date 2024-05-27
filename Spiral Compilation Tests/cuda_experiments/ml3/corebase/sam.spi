@@ -116,3 +116,8 @@ inl merge forall a b el. (a : sa a el) (b : sa b el) : sa (add a b) el =
 
 open console
 instance printable sa dim el = array_print 100
+
+// inl main() =
+//     inl x : sa 3 i32 = fromList [1;2;3]
+//     update 1 (const 55) x
+//     |> console.write_ln

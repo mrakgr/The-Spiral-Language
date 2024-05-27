@@ -1,46 +1,151 @@
-Error trace on line: 424, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-inl main() =
+Error trace on line: 331, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            large_refs.deck <-# large.deck
+            ^
+Error trace on line: 332, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            large_refs.messages <-# large.messages
+            ^
+Error trace on line: 333, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            play_loop small large_refs start()
+            ^
+Error trace on line: 304, column: 63 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+let play_loop (small : state_small) (large : state_large_ref) node : state_small =
+                                                              ^
+Error trace on line: 305, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    match play_loop_inner large small.pl_type node with
+    ^
+Error trace on line: 305, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    match play_loop_inner large small.pl_type node with
+          ^
+Error trace on line: 230, column: 72 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
+                                                                       ^
+Error trace on line: 231, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl push_message = sa_listm.push (refm.to_local state.messages)
+    ^
+Error trace on line: 232, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl deck = refm.to_local state.deck
+    ^
+Error trace on line: 233, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl pop_deck () = 
+    ^
+Error trace on line: 238, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl done x = false, x
+    ^
+Error trace on line: 239, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl continue x = true, x
+    ^
+Error trace on line: 240, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    let get_community_cards street new_cards = 
+    ^
+Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl go_street (table : table) flop =
+    ^
+Error trace on line: 256, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl body node =
+    ^
+Error trace on line: 302, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    loop.while fst (snd >> body) (continue node) |> snd
+    ^
+Error trace on line: 18, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    inl state = _dup state
+    ^
+Error trace on line: 19, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+    ^
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+                                                                                 ^
+Error trace on line: 19, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+                                      ^
+Error trace on line: 19, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+                                            ^
+Error trace on line: 19, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+                                                        ^
+Error trace on line: 61, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 257, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+        match node with
         ^
-Error trace on line: 425, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-    named_tuple "HU_Holdem_Game" {
-    ^
-Error trace on line: 433, column: 31 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-        event_loop_gpu = fun (msg, game_state : jsonm.json event * jsonm.json state) =>
-                              ^
-Error trace on line: 435, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-            inl seri = {
-            ^
-Error trace on line: 441, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-            console.write_ln "Deserializing the message and game_state from JSON."
-            ^
-Error trace on line: 442, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
-            ^
-Error trace on line: 442, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-            inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
-                ^
-Error trace on line: 443, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-            console.write_ln "Serializing the message and game_state to the GPU."
-            ^
-Error trace on line: 444, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
-            serialize seri.msg msg
-            ^
-Error trace on line: 7, column: 81 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\seriazer_main.spi.
-inl serialize forall el. (offsets, ptr : offsets el * ptr) (v : el) : () = real serialize `el offsets ptr v
-                                                                                ^
-Error trace on line: 71, column: 75 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-inl serialize forall el. (offsets (offsets, _) : offsets el) (ptr : ptr) (v : el) : () = 
-                                                                          ^
-Error trace on line: 72, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-    let rec f ptr offsets : () =
-    ^
-Error trace on line: 99, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-    f ptr offsets v
-    ^
-Error trace on line: 72, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-    let rec f ptr offsets : () =
+Error trace on line: 258, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+        | G_Fold table =>
+          ^
+Error trace on line: 264, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+        | G_Showdown table => 
+          ^
+Error trace on line: 279, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+        | G_Round table =>
+          ^
+Error trace on line: 279, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+        | G_Round table =>
                   ^
-Error trace on line: 73, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-        open struct
+Error trace on line: 280, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            inl player_turn = player_turn table
+            ^
+Error trace on line: 281, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            match index pl_type player_turn with
+            ^
+Error trace on line: 282, column: 15 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            | Human =>
+              ^
+Error trace on line: 284, column: 15 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+            | Computer =>
+              ^
+Error trace on line: 285, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+                inl action = random_action state.rng table
+                ^
+Error trace on line: 285, column: 30 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+                inl action = random_action state.rng table
+                             ^
+Error trace on line: 209, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl player_turn = player_turn table
+    ^
+Error trace on line: 210, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl full_stack = arraym.map2 (+) table.stack table.pot
+    ^
+Error trace on line: 211, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl pot_size_needed_to_call = arraym.reduce max table.pot
+    ^
+Error trace on line: 212, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl pot_after_calling = arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
+    ^
+Error trace on line: 213, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
+    ^
+Error trace on line: 214, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl pot_bet_size = arraym.reduce (+) pot_after_calling
+    ^
+Error trace on line: 215, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl raise x = // Only do the raise if there are enough chips in the stack after calling.
+    ^
+Error trace on line: 218, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl actions : sam.sa 1 (action * f32) = arraym.fromList [
+    ^
+Error trace on line: 218, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main.spi.
+    inl actions : sam.sa 1 (action * f32) = arraym.fromList [
+                                            ^
+Error trace on line: 179, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\arraym.spi.
+    inl out = create (listm.length l)
+    ^
+Error trace on line: 179, column: 15 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\arraym.spi.
+    inl out = create (listm.length l)
+              ^
+Error trace on line: 15, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\sam.spi.
+    assert ((real real_core.type_lit_to_lit `dim) = dim) "The type level dimension has to equal the value passed at runtime into create."
+    ^
+Error trace on line: 125, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 265, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 266, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
         ^
-Cannot convert a function that is not annotated into a type.
+Error trace on line: 266, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The type level dimension has to equal the value passed at runtime into create.

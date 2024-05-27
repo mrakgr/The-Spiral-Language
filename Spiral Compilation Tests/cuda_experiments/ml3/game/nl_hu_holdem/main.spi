@@ -88,7 +88,7 @@ let try_round (table : table) =
     listm.foldBack (fun table next () =>
         if player_can_act table then G_Round table else next()
         ) // Tries out these tables in order, testing whether the player on that turn act, and if so returns the table.
-        [ table; {table with round_turn#=next_turn} ] 
+        [ table; {table with round_turn#=next_turn} ]
         // If all players are all in, goes to the next street.
         (fun () => go_next_street table)
         ()
@@ -101,7 +101,7 @@ inl round (table : table) (action : action) =
         inl full_stack = arraym.map2 (+) table.stack table.pot
         inl pot =
             inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update player_turn (min pot_size_needed_to_call) full_stack
+            arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
         inl stack = arraym.map2 (-) full_stack pot
         if player_turn < 2 then
             try_round {table with 
@@ -110,11 +110,14 @@ inl round (table : table) (action : action) =
                 }
         else go_next_street {table with pot stack}
     | A_Raise raise_amount =>
+        console.write_ln table.pot
+        console.write_ln table.stack
         inl full_stack = arraym.map2 (+) table.stack table.pot
         inl pot = 
             inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update player_turn (min (pot_size_needed_to_call + raise_amount)) full_stack
+            arraym.update' player_turn (min (pot_size_needed_to_call + raise_amount) (index full_stack player_turn)) table.pot
         inl stack = arraym.map2 (-) full_stack pot
+        console.write_ln pot
         try_round {table with 
             pot stack
             round_turn#=next_turn
@@ -206,7 +209,7 @@ inl random_action = fun rng (table : table) =>
     inl player_turn = player_turn table
     inl full_stack = arraym.map2 (+) table.stack table.pot
     inl pot_size_needed_to_call = arraym.reduce max table.pot
-    inl pot_after_calling = arraym.update player_turn (min pot_size_needed_to_call) full_stack
+    inl pot_after_calling = arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
     inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
     inl pot_bet_size = arraym.reduce (+) pot_after_calling
     inl raise x = // Only do the raise if there are enough chips in the stack after calling.

@@ -59,15 +59,20 @@ __device__ unsigned long loop_36(unsigned long v0, curandStatePhilox4_32_10_t & 
 __device__ Tuple12 draw_card_35(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
 __device__ Tuple10 draw_cards_34(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
 __device__ static_array_list<unsigned char,5l,long> get_community_cards_37(US6 v0, static_array<unsigned char,3l> v1);
+__device__ bool player_can_act_39(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5);
+__device__ US5 go_next_street_40(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5);
+__device__ US5 try_round_38(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5);
 struct Tuple13;
-__device__ Tuple13 draw_cards_38(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
+__device__ Tuple13 draw_cards_41(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
 struct Tuple14;
-__device__ Tuple14 draw_cards_39(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
-__device__ static_array_list<unsigned char,5l,long> get_community_cards_40(US6 v0, static_array<unsigned char,1l> v1);
+__device__ Tuple14 draw_cards_42(curandStatePhilox4_32_10_t & v0, unsigned long long v1);
+__device__ static_array_list<unsigned char,5l,long> get_community_cards_43(US6 v0, static_array<unsigned char,1l> v1);
 struct Tuple15;
-__device__ long loop_43(static_array<float,8l> v0, float v1, long v2);
-__device__ long sample_discrete__42(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1);
-__device__ US1 sample_discrete_41(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1);
+__device__ long loop_46(static_array<float,8l> v0, float v1, long v2);
+__device__ long sample_discrete__45(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1);
+__device__ US1 sample_discrete_44(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1);
+__device__ void write_48(long v0);
+__device__ void write_47(static_array<long,2l> v0);
 struct Tuple16;
 struct Tuple17;
 struct US8;
@@ -80,39 +85,39 @@ struct US11;
 struct US12;
 struct US13;
 struct US14;
-__device__ Tuple0 score_44(static_array<unsigned char,7l> v0);
+__device__ Tuple0 score_49(static_array<unsigned char,7l> v0);
 __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3,128l,long> & v1, curandStatePhilox4_32_10_t & v2, static_array<US2,2l> v3, US5 v4);
 __device__ Tuple8 play_loop_32(US4 v0, static_array<US2,2l> v1, US7 v2, unsigned long long & v3, static_array_list<US3,128l,long> & v4, curandStatePhilox4_32_10_t & v5, US5 v6);
-__device__ void f_46(unsigned char * v0, unsigned long long v1);
-__device__ void f_47(unsigned char * v0, long v1);
-__device__ void f_49(unsigned char * v0, long v1);
-__device__ void f_52(unsigned char * v0, unsigned char v1);
-__device__ void f_51(unsigned char * v0, unsigned char v1);
-__device__ void f_50(unsigned char * v0, static_array_list<unsigned char,5l,long> v1);
-__device__ void f_53(unsigned char * v0, long v1, long v2);
-__device__ void f_55(unsigned char * v0, long v1);
-__device__ void f_56(unsigned char * v0);
-__device__ void f_54(unsigned char * v0, long v1, US1 v2);
-__device__ void f_57(unsigned char * v0, long v1, static_array<unsigned char,2l> v2);
-__device__ void f_60(unsigned char * v0, static_array<unsigned char,5l> v1, char v2);
-__device__ void f_59(unsigned char * v0, static_array<unsigned char,5l> v1, char v2);
-__device__ void f_58(unsigned char * v0, long v1, static_array<Tuple0,2l> v2, long v3);
-__device__ void f_48(unsigned char * v0, US3 v1);
-__device__ void f_61(unsigned char * v0, long v1);
-__device__ void f_64(unsigned char * v0, static_array<unsigned char,2l> v1);
-__device__ void f_65(unsigned char * v0, long v1);
-__device__ void f_66(unsigned char * v0, static_array<unsigned char,3l> v1);
-__device__ void f_67(unsigned char * v0, static_array<unsigned char,5l> v1);
-__device__ void f_68(unsigned char * v0, static_array<unsigned char,4l> v1);
-__device__ void f_63(unsigned char * v0, long v1, bool v2, static_array<static_array<unsigned char,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US6 v7);
+__device__ void f_51(unsigned char * v0, unsigned long long v1);
+__device__ void f_52(unsigned char * v0, long v1);
+__device__ void f_54(unsigned char * v0, long v1);
+__device__ void f_57(unsigned char * v0, unsigned char v1);
+__device__ void f_56(unsigned char * v0, unsigned char v1);
+__device__ void f_55(unsigned char * v0, static_array_list<unsigned char,5l,long> v1);
+__device__ void f_58(unsigned char * v0, long v1, long v2);
+__device__ void f_60(unsigned char * v0, long v1);
+__device__ void f_61(unsigned char * v0);
+__device__ void f_59(unsigned char * v0, long v1, US1 v2);
+__device__ void f_62(unsigned char * v0, long v1, static_array<unsigned char,2l> v2);
+__device__ void f_65(unsigned char * v0, static_array<unsigned char,5l> v1, char v2);
+__device__ void f_64(unsigned char * v0, static_array<unsigned char,5l> v1, char v2);
+__device__ void f_63(unsigned char * v0, long v1, static_array<Tuple0,2l> v2, long v3);
+__device__ void f_53(unsigned char * v0, US3 v1);
+__device__ void f_66(unsigned char * v0, long v1);
+__device__ void f_69(unsigned char * v0, static_array<unsigned char,2l> v1);
 __device__ void f_70(unsigned char * v0, long v1);
-__device__ void f_69(unsigned char * v0, long v1, bool v2, static_array<static_array<unsigned char,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US6 v7, US1 v8);
-__device__ void f_62(unsigned char * v0, US5 v1);
-__device__ void f_71(unsigned char * v0, US2 v1);
-__device__ void f_72(unsigned char * v0, long v1);
-__device__ void f_45(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US4 v3, static_array<US2,2l> v4, US7 v5);
-__device__ void f_74(unsigned char * v0, long v1);
-__device__ void f_73(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US7 v3);
+__device__ void f_71(unsigned char * v0, static_array<unsigned char,3l> v1);
+__device__ void f_72(unsigned char * v0, static_array<unsigned char,5l> v1);
+__device__ void f_73(unsigned char * v0, static_array<unsigned char,4l> v1);
+__device__ void f_68(unsigned char * v0, long v1, static_array<static_array<unsigned char,2l>,2l> v2, static_array<long,2l> v3, long v4, static_array<long,2l> v5, US6 v6);
+__device__ void f_75(unsigned char * v0, long v1);
+__device__ void f_74(unsigned char * v0, long v1, static_array<static_array<unsigned char,2l>,2l> v2, static_array<long,2l> v3, long v4, static_array<long,2l> v5, US6 v6, US1 v7);
+__device__ void f_67(unsigned char * v0, US5 v1);
+__device__ void f_76(unsigned char * v0, US2 v1);
+__device__ void f_77(unsigned char * v0, long v1);
+__device__ void f_50(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US4 v3, static_array<US2,2l> v4, US7 v5);
+__device__ void f_79(unsigned char * v0, long v1);
+__device__ void f_78(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US7 v3);
 struct US1 {
     union {
         struct {
@@ -185,68 +190,61 @@ struct US6 {
 struct US5 {
     union {
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case0; // G_Flop
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case1; // G_Fold
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case3; // G_River
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case4; // G_Round
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
-            US1 v7;
+            US6 v5;
+            US1 v6;
             long v0;
             long v3;
-            bool v1;
         } case5; // G_Round'
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case6; // G_Showdown
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case7; // G_Turn
     } v;
     unsigned long tag : 4;
@@ -262,22 +260,20 @@ struct US4 {
 struct US7 {
     union {
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case1; // GameOver
         struct {
-            static_array<static_array<unsigned char,2l>,2l> v2;
+            static_array<static_array<unsigned char,2l>,2l> v1;
+            static_array<long,2l> v2;
             static_array<long,2l> v4;
-            static_array<long,2l> v5;
-            US6 v6;
+            US6 v5;
             long v0;
             long v3;
-            bool v1;
         } case2; // WaitingForActionFromPlayerId
     } v;
     unsigned long tag : 2;
@@ -317,26 +313,24 @@ struct Tuple5 {
     __device__ Tuple5() = default;
 };
 struct Tuple6 {
-    static_array<static_array<unsigned char,2l>,2l> v2;
+    static_array<static_array<unsigned char,2l>,2l> v1;
+    static_array<long,2l> v2;
     static_array<long,2l> v4;
-    static_array<long,2l> v5;
-    US6 v6;
+    US6 v5;
     long v0;
     long v3;
-    bool v1;
-    __device__ Tuple6(long t0, bool t1, static_array<static_array<unsigned char,2l>,2l> t2, long t3, static_array<long,2l> t4, static_array<long,2l> t5, US6 t6) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4), v5(t5), v6(t6) {}
+    __device__ Tuple6(long t0, static_array<static_array<unsigned char,2l>,2l> t1, static_array<long,2l> t2, long t3, static_array<long,2l> t4, US6 t5) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4), v5(t5) {}
     __device__ Tuple6() = default;
 };
 struct Tuple7 {
-    static_array<static_array<unsigned char,2l>,2l> v2;
+    static_array<static_array<unsigned char,2l>,2l> v1;
+    static_array<long,2l> v2;
     static_array<long,2l> v4;
-    static_array<long,2l> v5;
-    US6 v6;
-    US1 v7;
+    US6 v5;
+    US1 v6;
     long v0;
     long v3;
-    bool v1;
-    __device__ Tuple7(long t0, bool t1, static_array<static_array<unsigned char,2l>,2l> t2, long t3, static_array<long,2l> t4, static_array<long,2l> t5, US6 t6, US1 t7) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4), v5(t5), v6(t6), v7(t7) {}
+    __device__ Tuple7(long t0, static_array<static_array<unsigned char,2l>,2l> t1, static_array<long,2l> t2, long t3, static_array<long,2l> t4, US6 t5, US1 t6) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4), v5(t5), v6(t6) {}
     __device__ Tuple7() = default;
 };
 struct Tuple8 {
@@ -710,16 +704,16 @@ __device__ US6 US6_3(static_array<unsigned char,4l> v0) { // Turn
     x.v.case3.v0 = v0;
     return x;
 }
-__device__ US5 US5_0(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // G_Flop
+__device__ US5 US5_0(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // G_Flop
     US5 x;
     x.tag = 0;
-    x.v.case0.v0 = v0; x.v.case0.v1 = v1; x.v.case0.v2 = v2; x.v.case0.v3 = v3; x.v.case0.v4 = v4; x.v.case0.v5 = v5; x.v.case0.v6 = v6;
+    x.v.case0.v0 = v0; x.v.case0.v1 = v1; x.v.case0.v2 = v2; x.v.case0.v3 = v3; x.v.case0.v4 = v4; x.v.case0.v5 = v5;
     return x;
 }
-__device__ US5 US5_1(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // G_Fold
+__device__ US5 US5_1(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // G_Fold
     US5 x;
     x.tag = 1;
-    x.v.case1.v0 = v0; x.v.case1.v1 = v1; x.v.case1.v2 = v2; x.v.case1.v3 = v3; x.v.case1.v4 = v4; x.v.case1.v5 = v5; x.v.case1.v6 = v6;
+    x.v.case1.v0 = v0; x.v.case1.v1 = v1; x.v.case1.v2 = v2; x.v.case1.v3 = v3; x.v.case1.v4 = v4; x.v.case1.v5 = v5;
     return x;
 }
 __device__ US5 US5_2() { // G_Preflop
@@ -727,34 +721,34 @@ __device__ US5 US5_2() { // G_Preflop
     x.tag = 2;
     return x;
 }
-__device__ US5 US5_3(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // G_River
+__device__ US5 US5_3(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // G_River
     US5 x;
     x.tag = 3;
-    x.v.case3.v0 = v0; x.v.case3.v1 = v1; x.v.case3.v2 = v2; x.v.case3.v3 = v3; x.v.case3.v4 = v4; x.v.case3.v5 = v5; x.v.case3.v6 = v6;
+    x.v.case3.v0 = v0; x.v.case3.v1 = v1; x.v.case3.v2 = v2; x.v.case3.v3 = v3; x.v.case3.v4 = v4; x.v.case3.v5 = v5;
     return x;
 }
-__device__ US5 US5_4(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // G_Round
+__device__ US5 US5_4(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // G_Round
     US5 x;
     x.tag = 4;
-    x.v.case4.v0 = v0; x.v.case4.v1 = v1; x.v.case4.v2 = v2; x.v.case4.v3 = v3; x.v.case4.v4 = v4; x.v.case4.v5 = v5; x.v.case4.v6 = v6;
+    x.v.case4.v0 = v0; x.v.case4.v1 = v1; x.v.case4.v2 = v2; x.v.case4.v3 = v3; x.v.case4.v4 = v4; x.v.case4.v5 = v5;
     return x;
 }
-__device__ US5 US5_5(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6, US1 v7) { // G_Round'
+__device__ US5 US5_5(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5, US1 v6) { // G_Round'
     US5 x;
     x.tag = 5;
-    x.v.case5.v0 = v0; x.v.case5.v1 = v1; x.v.case5.v2 = v2; x.v.case5.v3 = v3; x.v.case5.v4 = v4; x.v.case5.v5 = v5; x.v.case5.v6 = v6; x.v.case5.v7 = v7;
+    x.v.case5.v0 = v0; x.v.case5.v1 = v1; x.v.case5.v2 = v2; x.v.case5.v3 = v3; x.v.case5.v4 = v4; x.v.case5.v5 = v5; x.v.case5.v6 = v6;
     return x;
 }
-__device__ US5 US5_6(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // G_Showdown
+__device__ US5 US5_6(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // G_Showdown
     US5 x;
     x.tag = 6;
-    x.v.case6.v0 = v0; x.v.case6.v1 = v1; x.v.case6.v2 = v2; x.v.case6.v3 = v3; x.v.case6.v4 = v4; x.v.case6.v5 = v5; x.v.case6.v6 = v6;
+    x.v.case6.v0 = v0; x.v.case6.v1 = v1; x.v.case6.v2 = v2; x.v.case6.v3 = v3; x.v.case6.v4 = v4; x.v.case6.v5 = v5;
     return x;
 }
-__device__ US5 US5_7(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // G_Turn
+__device__ US5 US5_7(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // G_Turn
     US5 x;
     x.tag = 7;
-    x.v.case7.v0 = v0; x.v.case7.v1 = v1; x.v.case7.v2 = v2; x.v.case7.v3 = v3; x.v.case7.v4 = v4; x.v.case7.v5 = v5; x.v.case7.v6 = v6;
+    x.v.case7.v0 = v0; x.v.case7.v1 = v1; x.v.case7.v2 = v2; x.v.case7.v3 = v3; x.v.case7.v4 = v4; x.v.case7.v5 = v5;
     return x;
 }
 __device__ US4 US4_0() { // None
@@ -773,16 +767,16 @@ __device__ US7 US7_0() { // GameNotStarted
     x.tag = 0;
     return x;
 }
-__device__ US7 US7_1(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // GameOver
+__device__ US7 US7_1(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // GameOver
     US7 x;
     x.tag = 1;
-    x.v.case1.v0 = v0; x.v.case1.v1 = v1; x.v.case1.v2 = v2; x.v.case1.v3 = v3; x.v.case1.v4 = v4; x.v.case1.v5 = v5; x.v.case1.v6 = v6;
+    x.v.case1.v0 = v0; x.v.case1.v1 = v1; x.v.case1.v2 = v2; x.v.case1.v3 = v3; x.v.case1.v4 = v4; x.v.case1.v5 = v5;
     return x;
 }
-__device__ US7 US7_2(long v0, bool v1, static_array<static_array<unsigned char,2l>,2l> v2, long v3, static_array<long,2l> v4, static_array<long,2l> v5, US6 v6) { // WaitingForActionFromPlayerId
+__device__ US7 US7_2(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5) { // WaitingForActionFromPlayerId
     US7 x;
     x.tag = 2;
-    x.v.case2.v0 = v0; x.v.case2.v1 = v1; x.v.case2.v2 = v2; x.v.case2.v3 = v3; x.v.case2.v4 = v4; x.v.case2.v5 = v5; x.v.case2.v6 = v6;
+    x.v.case2.v0 = v0; x.v.case2.v1 = v1; x.v.case2.v2 = v2; x.v.case2.v3 = v3; x.v.case2.v4 = v4; x.v.case2.v5 = v5;
     return x;
 }
 __device__ unsigned long long f_8(unsigned char * v0){
@@ -1127,7 +1121,7 @@ __device__ static_array<unsigned char,2l> f_24(unsigned char * v0){
 }
 __device__ long f_25(unsigned char * v0){
     long * v1;
-    v1 = (long *)(v0+32ull);
+    v1 = (long *)(v0+28ull);
     long v2;
     v2 = v1[0l];
     return v2;
@@ -1243,140 +1237,136 @@ __device__ Tuple6 f_23(unsigned char * v0){
     v1 = (long *)(v0+0ull);
     long v2;
     v2 = v1[0l];
-    bool * v3;
-    v3 = (bool *)(v0+4ull);
-    bool v4;
-    v4 = v3[0l];
-    static_array<static_array<unsigned char,2l>,2l> v5;
-    long v6;
-    v6 = 0l;
-    while (while_method_0(v6)){
+    static_array<static_array<unsigned char,2l>,2l> v3;
+    long v4;
+    v4 = 0l;
+    while (while_method_0(v4)){
+        unsigned long long v6;
+        v6 = (unsigned long long)v4;
+        unsigned long long v7;
+        v7 = v6 * 2ull;
         unsigned long long v8;
-        v8 = (unsigned long long)v6;
-        unsigned long long v9;
-        v9 = v8 * 2ull;
-        unsigned long long v10;
-        v10 = 6ull + v9;
-        unsigned char * v11;
-        v11 = (unsigned char *)(v0+v10);
-        static_array<unsigned char,2l> v12;
-        v12 = f_24(v11);
+        v8 = 4ull + v7;
+        unsigned char * v9;
+        v9 = (unsigned char *)(v0+v8);
+        static_array<unsigned char,2l> v10;
+        v10 = f_24(v9);
+        bool v11;
+        v11 = 0l <= v4;
         bool v13;
-        v13 = 0l <= v6;
-        bool v15;
-        if (v13){
-            bool v14;
-            v14 = v6 < 2l;
-            v15 = v14;
+        if (v11){
+            bool v12;
+            v12 = v4 < 2l;
+            v13 = v12;
         } else {
-            v15 = false;
+            v13 = false;
         }
-        bool v16;
-        v16 = v15 == false;
-        if (v16){
-            assert("The read index needs to be in range for the static array." && v15);
+        bool v14;
+        v14 = v13 == false;
+        if (v14){
+            assert("The read index needs to be in range for the static array." && v13);
         } else {
         }
-        v5.v[v6] = v12;
-        v6 += 1l ;
+        v3.v[v4] = v10;
+        v4 += 1l ;
     }
-    long * v17;
-    v17 = (long *)(v0+12ull);
-    long v18;
-    v18 = v17[0l];
-    static_array<long,2l> v19;
-    long v20;
-    v20 = 0l;
-    while (while_method_0(v20)){
-        unsigned long long v22;
-        v22 = (unsigned long long)v20;
-        unsigned long long v23;
-        v23 = v22 * 4ull;
-        unsigned long long v24;
-        v24 = 16ull + v23;
-        unsigned char * v25;
-        v25 = (unsigned char *)(v0+v24);
-        long v26;
-        v26 = f_2(v25);
-        bool v27;
-        v27 = 0l <= v20;
-        bool v29;
-        if (v27){
-            bool v28;
-            v28 = v20 < 2l;
-            v29 = v28;
+    static_array<long,2l> v15;
+    long v16;
+    v16 = 0l;
+    while (while_method_0(v16)){
+        unsigned long long v18;
+        v18 = (unsigned long long)v16;
+        unsigned long long v19;
+        v19 = v18 * 4ull;
+        unsigned long long v20;
+        v20 = 8ull + v19;
+        unsigned char * v21;
+        v21 = (unsigned char *)(v0+v20);
+        long v22;
+        v22 = f_2(v21);
+        bool v23;
+        v23 = 0l <= v16;
+        bool v25;
+        if (v23){
+            bool v24;
+            v24 = v16 < 2l;
+            v25 = v24;
         } else {
-            v29 = false;
+            v25 = false;
         }
-        bool v30;
-        v30 = v29 == false;
-        if (v30){
-            assert("The read index needs to be in range for the static array." && v29);
+        bool v26;
+        v26 = v25 == false;
+        if (v26){
+            assert("The read index needs to be in range for the static array." && v25);
         } else {
         }
-        v19.v[v20] = v26;
-        v20 += 1l ;
+        v15.v[v16] = v22;
+        v16 += 1l ;
     }
-    static_array<long,2l> v31;
-    long v32;
-    v32 = 0l;
-    while (while_method_0(v32)){
+    long * v27;
+    v27 = (long *)(v0+16ull);
+    long v28;
+    v28 = v27[0l];
+    static_array<long,2l> v29;
+    long v30;
+    v30 = 0l;
+    while (while_method_0(v30)){
+        unsigned long long v32;
+        v32 = (unsigned long long)v30;
+        unsigned long long v33;
+        v33 = v32 * 4ull;
         unsigned long long v34;
-        v34 = (unsigned long long)v32;
-        unsigned long long v35;
-        v35 = v34 * 4ull;
-        unsigned long long v36;
-        v36 = 24ull + v35;
-        unsigned char * v37;
-        v37 = (unsigned char *)(v0+v36);
-        long v38;
-        v38 = f_2(v37);
+        v34 = 20ull + v33;
+        unsigned char * v35;
+        v35 = (unsigned char *)(v0+v34);
+        long v36;
+        v36 = f_2(v35);
+        bool v37;
+        v37 = 0l <= v30;
         bool v39;
-        v39 = 0l <= v32;
-        bool v41;
-        if (v39){
-            bool v40;
-            v40 = v32 < 2l;
-            v41 = v40;
+        if (v37){
+            bool v38;
+            v38 = v30 < 2l;
+            v39 = v38;
         } else {
-            v41 = false;
+            v39 = false;
         }
-        bool v42;
-        v42 = v41 == false;
-        if (v42){
-            assert("The read index needs to be in range for the static array." && v41);
+        bool v40;
+        v40 = v39 == false;
+        if (v40){
+            assert("The read index needs to be in range for the static array." && v39);
         } else {
         }
-        v31.v[v32] = v38;
-        v32 += 1l ;
+        v29.v[v30] = v36;
+        v30 += 1l ;
     }
-    long v43;
-    v43 = f_25(v0);
-    unsigned char * v44;
-    v44 = (unsigned char *)(v0+40ull);
-    US6 v53;
-    switch (v43) {
+    long v41;
+    v41 = f_25(v0);
+    unsigned char * v42;
+    v42 = (unsigned char *)(v0+32ull);
+    US6 v51;
+    switch (v41) {
         case 0: {
-            static_array<unsigned char,3l> v46;
-            v46 = f_26(v44);
-            v53 = US6_0(v46);
+            static_array<unsigned char,3l> v44;
+            v44 = f_26(v42);
+            v51 = US6_0(v44);
             break;
         }
         case 1: {
-            f_4(v44);
-            v53 = US6_1();
+            f_4(v42);
+            v51 = US6_1();
             break;
         }
         case 2: {
-            static_array<unsigned char,5l> v49;
-            v49 = f_27(v44);
-            v53 = US6_2(v49);
+            static_array<unsigned char,5l> v47;
+            v47 = f_27(v42);
+            v51 = US6_2(v47);
             break;
         }
         case 3: {
-            static_array<unsigned char,4l> v51;
-            v51 = f_28(v44);
-            v53 = US6_3(v51);
+            static_array<unsigned char,4l> v49;
+            v49 = f_28(v42);
+            v51 = US6_3(v49);
             break;
         }
         default: {
@@ -1384,11 +1374,11 @@ __device__ Tuple6 f_23(unsigned char * v0){
             asm("exit;");
         }
     }
-    return Tuple6(v2, v4, v5, v18, v19, v31, v53);
+    return Tuple6(v2, v3, v15, v28, v29, v51);
 }
 __device__ long f_30(unsigned char * v0){
     long * v1;
-    v1 = (long *)(v0+48ull);
+    v1 = (long *)(v0+40ull);
     long v2;
     v2 = v1[0l];
     return v2;
@@ -1398,140 +1388,136 @@ __device__ Tuple7 f_29(unsigned char * v0){
     v1 = (long *)(v0+0ull);
     long v2;
     v2 = v1[0l];
-    bool * v3;
-    v3 = (bool *)(v0+4ull);
-    bool v4;
-    v4 = v3[0l];
-    static_array<static_array<unsigned char,2l>,2l> v5;
-    long v6;
-    v6 = 0l;
-    while (while_method_0(v6)){
+    static_array<static_array<unsigned char,2l>,2l> v3;
+    long v4;
+    v4 = 0l;
+    while (while_method_0(v4)){
+        unsigned long long v6;
+        v6 = (unsigned long long)v4;
+        unsigned long long v7;
+        v7 = v6 * 2ull;
         unsigned long long v8;
-        v8 = (unsigned long long)v6;
-        unsigned long long v9;
-        v9 = v8 * 2ull;
-        unsigned long long v10;
-        v10 = 6ull + v9;
-        unsigned char * v11;
-        v11 = (unsigned char *)(v0+v10);
-        static_array<unsigned char,2l> v12;
-        v12 = f_24(v11);
+        v8 = 4ull + v7;
+        unsigned char * v9;
+        v9 = (unsigned char *)(v0+v8);
+        static_array<unsigned char,2l> v10;
+        v10 = f_24(v9);
+        bool v11;
+        v11 = 0l <= v4;
         bool v13;
-        v13 = 0l <= v6;
-        bool v15;
-        if (v13){
-            bool v14;
-            v14 = v6 < 2l;
-            v15 = v14;
+        if (v11){
+            bool v12;
+            v12 = v4 < 2l;
+            v13 = v12;
         } else {
-            v15 = false;
+            v13 = false;
         }
-        bool v16;
-        v16 = v15 == false;
-        if (v16){
-            assert("The read index needs to be in range for the static array." && v15);
+        bool v14;
+        v14 = v13 == false;
+        if (v14){
+            assert("The read index needs to be in range for the static array." && v13);
         } else {
         }
-        v5.v[v6] = v12;
-        v6 += 1l ;
+        v3.v[v4] = v10;
+        v4 += 1l ;
     }
-    long * v17;
-    v17 = (long *)(v0+12ull);
-    long v18;
-    v18 = v17[0l];
-    static_array<long,2l> v19;
-    long v20;
-    v20 = 0l;
-    while (while_method_0(v20)){
-        unsigned long long v22;
-        v22 = (unsigned long long)v20;
-        unsigned long long v23;
-        v23 = v22 * 4ull;
-        unsigned long long v24;
-        v24 = 16ull + v23;
-        unsigned char * v25;
-        v25 = (unsigned char *)(v0+v24);
-        long v26;
-        v26 = f_2(v25);
-        bool v27;
-        v27 = 0l <= v20;
-        bool v29;
-        if (v27){
-            bool v28;
-            v28 = v20 < 2l;
-            v29 = v28;
+    static_array<long,2l> v15;
+    long v16;
+    v16 = 0l;
+    while (while_method_0(v16)){
+        unsigned long long v18;
+        v18 = (unsigned long long)v16;
+        unsigned long long v19;
+        v19 = v18 * 4ull;
+        unsigned long long v20;
+        v20 = 8ull + v19;
+        unsigned char * v21;
+        v21 = (unsigned char *)(v0+v20);
+        long v22;
+        v22 = f_2(v21);
+        bool v23;
+        v23 = 0l <= v16;
+        bool v25;
+        if (v23){
+            bool v24;
+            v24 = v16 < 2l;
+            v25 = v24;
         } else {
-            v29 = false;
+            v25 = false;
         }
-        bool v30;
-        v30 = v29 == false;
-        if (v30){
-            assert("The read index needs to be in range for the static array." && v29);
+        bool v26;
+        v26 = v25 == false;
+        if (v26){
+            assert("The read index needs to be in range for the static array." && v25);
         } else {
         }
-        v19.v[v20] = v26;
-        v20 += 1l ;
+        v15.v[v16] = v22;
+        v16 += 1l ;
     }
-    static_array<long,2l> v31;
-    long v32;
-    v32 = 0l;
-    while (while_method_0(v32)){
+    long * v27;
+    v27 = (long *)(v0+16ull);
+    long v28;
+    v28 = v27[0l];
+    static_array<long,2l> v29;
+    long v30;
+    v30 = 0l;
+    while (while_method_0(v30)){
+        unsigned long long v32;
+        v32 = (unsigned long long)v30;
+        unsigned long long v33;
+        v33 = v32 * 4ull;
         unsigned long long v34;
-        v34 = (unsigned long long)v32;
-        unsigned long long v35;
-        v35 = v34 * 4ull;
-        unsigned long long v36;
-        v36 = 24ull + v35;
-        unsigned char * v37;
-        v37 = (unsigned char *)(v0+v36);
-        long v38;
-        v38 = f_2(v37);
+        v34 = 20ull + v33;
+        unsigned char * v35;
+        v35 = (unsigned char *)(v0+v34);
+        long v36;
+        v36 = f_2(v35);
+        bool v37;
+        v37 = 0l <= v30;
         bool v39;
-        v39 = 0l <= v32;
-        bool v41;
-        if (v39){
-            bool v40;
-            v40 = v32 < 2l;
-            v41 = v40;
+        if (v37){
+            bool v38;
+            v38 = v30 < 2l;
+            v39 = v38;
         } else {
-            v41 = false;
+            v39 = false;
         }
-        bool v42;
-        v42 = v41 == false;
-        if (v42){
-            assert("The read index needs to be in range for the static array." && v41);
+        bool v40;
+        v40 = v39 == false;
+        if (v40){
+            assert("The read index needs to be in range for the static array." && v39);
         } else {
         }
-        v31.v[v32] = v38;
-        v32 += 1l ;
+        v29.v[v30] = v36;
+        v30 += 1l ;
     }
-    long v43;
-    v43 = f_25(v0);
-    unsigned char * v44;
-    v44 = (unsigned char *)(v0+40ull);
-    US6 v53;
-    switch (v43) {
+    long v41;
+    v41 = f_25(v0);
+    unsigned char * v42;
+    v42 = (unsigned char *)(v0+32ull);
+    US6 v51;
+    switch (v41) {
         case 0: {
-            static_array<unsigned char,3l> v46;
-            v46 = f_26(v44);
-            v53 = US6_0(v46);
+            static_array<unsigned char,3l> v44;
+            v44 = f_26(v42);
+            v51 = US6_0(v44);
             break;
         }
         case 1: {
-            f_4(v44);
-            v53 = US6_1();
+            f_4(v42);
+            v51 = US6_1();
             break;
         }
         case 2: {
-            static_array<unsigned char,5l> v49;
-            v49 = f_27(v44);
-            v53 = US6_2(v49);
+            static_array<unsigned char,5l> v47;
+            v47 = f_27(v42);
+            v51 = US6_2(v47);
             break;
         }
         case 3: {
-            static_array<unsigned char,4l> v51;
-            v51 = f_28(v44);
-            v53 = US6_3(v51);
+            static_array<unsigned char,4l> v49;
+            v49 = f_28(v42);
+            v51 = US6_3(v49);
             break;
         }
         default: {
@@ -1539,26 +1525,26 @@ __device__ Tuple7 f_29(unsigned char * v0){
             asm("exit;");
         }
     }
-    long v54;
-    v54 = f_30(v0);
-    unsigned char * v55;
-    v55 = (unsigned char *)(v0+52ull);
-    US1 v61;
-    switch (v54) {
+    long v52;
+    v52 = f_30(v0);
+    unsigned char * v53;
+    v53 = (unsigned char *)(v0+44ull);
+    US1 v59;
+    switch (v52) {
         case 0: {
-            f_4(v55);
-            v61 = US1_0();
+            f_4(v53);
+            v59 = US1_0();
             break;
         }
         case 1: {
-            f_4(v55);
-            v61 = US1_1();
+            f_4(v53);
+            v59 = US1_1();
             break;
         }
         case 2: {
-            long v59;
-            v59 = f_2(v55);
-            v61 = US1_2(v59);
+            long v57;
+            v57 = f_2(v53);
+            v59 = US1_2(v57);
             break;
         }
         default: {
@@ -1566,7 +1552,7 @@ __device__ Tuple7 f_29(unsigned char * v0){
             asm("exit;");
         }
     }
-    return Tuple7(v2, v4, v5, v18, v19, v31, v53, v61);
+    return Tuple7(v2, v3, v15, v28, v29, v51, v59);
 }
 __device__ US5 f_22(unsigned char * v0){
     long v1;
@@ -1575,17 +1561,17 @@ __device__ US5 f_22(unsigned char * v0){
     v2 = (unsigned char *)(v0+16ull);
     switch (v1) {
         case 0: {
-            long v4; bool v5; static_array<static_array<unsigned char,2l>,2l> v6; long v7; static_array<long,2l> v8; static_array<long,2l> v9; US6 v10;
+            long v4; static_array<static_array<unsigned char,2l>,2l> v5; static_array<long,2l> v6; long v7; static_array<long,2l> v8; US6 v9;
             Tuple6 tmp6 = f_23(v2);
-            v4 = tmp6.v0; v5 = tmp6.v1; v6 = tmp6.v2; v7 = tmp6.v3; v8 = tmp6.v4; v9 = tmp6.v5; v10 = tmp6.v6;
-            return US5_0(v4, v5, v6, v7, v8, v9, v10);
+            v4 = tmp6.v0; v5 = tmp6.v1; v6 = tmp6.v2; v7 = tmp6.v3; v8 = tmp6.v4; v9 = tmp6.v5;
+            return US5_0(v4, v5, v6, v7, v8, v9);
             break;
         }
         case 1: {
-            long v12; bool v13; static_array<static_array<unsigned char,2l>,2l> v14; long v15; static_array<long,2l> v16; static_array<long,2l> v17; US6 v18;
+            long v11; static_array<static_array<unsigned char,2l>,2l> v12; static_array<long,2l> v13; long v14; static_array<long,2l> v15; US6 v16;
             Tuple6 tmp7 = f_23(v2);
-            v12 = tmp7.v0; v13 = tmp7.v1; v14 = tmp7.v2; v15 = tmp7.v3; v16 = tmp7.v4; v17 = tmp7.v5; v18 = tmp7.v6;
-            return US5_1(v12, v13, v14, v15, v16, v17, v18);
+            v11 = tmp7.v0; v12 = tmp7.v1; v13 = tmp7.v2; v14 = tmp7.v3; v15 = tmp7.v4; v16 = tmp7.v5;
+            return US5_1(v11, v12, v13, v14, v15, v16);
             break;
         }
         case 2: {
@@ -1594,38 +1580,38 @@ __device__ US5 f_22(unsigned char * v0){
             break;
         }
         case 3: {
-            long v21; bool v22; static_array<static_array<unsigned char,2l>,2l> v23; long v24; static_array<long,2l> v25; static_array<long,2l> v26; US6 v27;
+            long v19; static_array<static_array<unsigned char,2l>,2l> v20; static_array<long,2l> v21; long v22; static_array<long,2l> v23; US6 v24;
             Tuple6 tmp8 = f_23(v2);
-            v21 = tmp8.v0; v22 = tmp8.v1; v23 = tmp8.v2; v24 = tmp8.v3; v25 = tmp8.v4; v26 = tmp8.v5; v27 = tmp8.v6;
-            return US5_3(v21, v22, v23, v24, v25, v26, v27);
+            v19 = tmp8.v0; v20 = tmp8.v1; v21 = tmp8.v2; v22 = tmp8.v3; v23 = tmp8.v4; v24 = tmp8.v5;
+            return US5_3(v19, v20, v21, v22, v23, v24);
             break;
         }
         case 4: {
-            long v29; bool v30; static_array<static_array<unsigned char,2l>,2l> v31; long v32; static_array<long,2l> v33; static_array<long,2l> v34; US6 v35;
+            long v26; static_array<static_array<unsigned char,2l>,2l> v27; static_array<long,2l> v28; long v29; static_array<long,2l> v30; US6 v31;
             Tuple6 tmp9 = f_23(v2);
-            v29 = tmp9.v0; v30 = tmp9.v1; v31 = tmp9.v2; v32 = tmp9.v3; v33 = tmp9.v4; v34 = tmp9.v5; v35 = tmp9.v6;
-            return US5_4(v29, v30, v31, v32, v33, v34, v35);
+            v26 = tmp9.v0; v27 = tmp9.v1; v28 = tmp9.v2; v29 = tmp9.v3; v30 = tmp9.v4; v31 = tmp9.v5;
+            return US5_4(v26, v27, v28, v29, v30, v31);
             break;
         }
         case 5: {
-            long v37; bool v38; static_array<static_array<unsigned char,2l>,2l> v39; long v40; static_array<long,2l> v41; static_array<long,2l> v42; US6 v43; US1 v44;
+            long v33; static_array<static_array<unsigned char,2l>,2l> v34; static_array<long,2l> v35; long v36; static_array<long,2l> v37; US6 v38; US1 v39;
             Tuple7 tmp10 = f_29(v2);
-            v37 = tmp10.v0; v38 = tmp10.v1; v39 = tmp10.v2; v40 = tmp10.v3; v41 = tmp10.v4; v42 = tmp10.v5; v43 = tmp10.v6; v44 = tmp10.v7;
-            return US5_5(v37, v38, v39, v40, v41, v42, v43, v44);
+            v33 = tmp10.v0; v34 = tmp10.v1; v35 = tmp10.v2; v36 = tmp10.v3; v37 = tmp10.v4; v38 = tmp10.v5; v39 = tmp10.v6;
+            return US5_5(v33, v34, v35, v36, v37, v38, v39);
             break;
         }
         case 6: {
-            long v46; bool v47; static_array<static_array<unsigned char,2l>,2l> v48; long v49; static_array<long,2l> v50; static_array<long,2l> v51; US6 v52;
+            long v41; static_array<static_array<unsigned char,2l>,2l> v42; static_array<long,2l> v43; long v44; static_array<long,2l> v45; US6 v46;
             Tuple6 tmp11 = f_23(v2);
-            v46 = tmp11.v0; v47 = tmp11.v1; v48 = tmp11.v2; v49 = tmp11.v3; v50 = tmp11.v4; v51 = tmp11.v5; v52 = tmp11.v6;
-            return US5_6(v46, v47, v48, v49, v50, v51, v52);
+            v41 = tmp11.v0; v42 = tmp11.v1; v43 = tmp11.v2; v44 = tmp11.v3; v45 = tmp11.v4; v46 = tmp11.v5;
+            return US5_6(v41, v42, v43, v44, v45, v46);
             break;
         }
         case 7: {
-            long v54; bool v55; static_array<static_array<unsigned char,2l>,2l> v56; long v57; static_array<long,2l> v58; static_array<long,2l> v59; US6 v60;
+            long v48; static_array<static_array<unsigned char,2l>,2l> v49; static_array<long,2l> v50; long v51; static_array<long,2l> v52; US6 v53;
             Tuple6 tmp12 = f_23(v2);
-            v54 = tmp12.v0; v55 = tmp12.v1; v56 = tmp12.v2; v57 = tmp12.v3; v58 = tmp12.v4; v59 = tmp12.v5; v60 = tmp12.v6;
-            return US5_7(v54, v55, v56, v57, v58, v59, v60);
+            v48 = tmp12.v0; v49 = tmp12.v1; v50 = tmp12.v2; v51 = tmp12.v3; v52 = tmp12.v4; v53 = tmp12.v5;
+            return US5_7(v48, v49, v50, v51, v52, v53);
             break;
         }
         default: {
@@ -1636,7 +1622,7 @@ __device__ US5 f_22(unsigned char * v0){
 }
 __device__ long f_31(unsigned char * v0){
     long * v1;
-    v1 = (long *)(v0+6264ull);
+    v1 = (long *)(v0+6248ull);
     long v2;
     v2 = v1[0l];
     return v2;
@@ -1716,7 +1702,7 @@ __device__ Tuple1 f_7(unsigned char * v0){
         unsigned long long v28;
         v28 = v27 * 4ull;
         unsigned long long v29;
-        v29 = 6256ull + v28;
+        v29 = 6240ull + v28;
         unsigned char * v30;
         v30 = (unsigned char *)(v0+v29);
         US2 v31;
@@ -1743,26 +1729,26 @@ __device__ Tuple1 f_7(unsigned char * v0){
     long v36;
     v36 = f_31(v0);
     unsigned char * v37;
-    v37 = (unsigned char *)(v0+6272ull);
-    US7 v56;
+    v37 = (unsigned char *)(v0+6256ull);
+    US7 v54;
     switch (v36) {
         case 0: {
             f_4(v37);
-            v56 = US7_0();
+            v54 = US7_0();
             break;
         }
         case 1: {
-            long v40; bool v41; static_array<static_array<unsigned char,2l>,2l> v42; long v43; static_array<long,2l> v44; static_array<long,2l> v45; US6 v46;
+            long v40; static_array<static_array<unsigned char,2l>,2l> v41; static_array<long,2l> v42; long v43; static_array<long,2l> v44; US6 v45;
             Tuple6 tmp13 = f_23(v37);
-            v40 = tmp13.v0; v41 = tmp13.v1; v42 = tmp13.v2; v43 = tmp13.v3; v44 = tmp13.v4; v45 = tmp13.v5; v46 = tmp13.v6;
-            v56 = US7_1(v40, v41, v42, v43, v44, v45, v46);
+            v40 = tmp13.v0; v41 = tmp13.v1; v42 = tmp13.v2; v43 = tmp13.v3; v44 = tmp13.v4; v45 = tmp13.v5;
+            v54 = US7_1(v40, v41, v42, v43, v44, v45);
             break;
         }
         case 2: {
-            long v48; bool v49; static_array<static_array<unsigned char,2l>,2l> v50; long v51; static_array<long,2l> v52; static_array<long,2l> v53; US6 v54;
+            long v47; static_array<static_array<unsigned char,2l>,2l> v48; static_array<long,2l> v49; long v50; static_array<long,2l> v51; US6 v52;
             Tuple6 tmp14 = f_23(v37);
-            v48 = tmp14.v0; v49 = tmp14.v1; v50 = tmp14.v2; v51 = tmp14.v3; v52 = tmp14.v4; v53 = tmp14.v5; v54 = tmp14.v6;
-            v56 = US7_2(v48, v49, v50, v51, v52, v53, v54);
+            v47 = tmp14.v0; v48 = tmp14.v1; v49 = tmp14.v2; v50 = tmp14.v3; v51 = tmp14.v4; v52 = tmp14.v5;
+            v54 = US7_2(v47, v48, v49, v50, v51, v52);
             break;
         }
         default: {
@@ -1770,7 +1756,7 @@ __device__ Tuple1 f_7(unsigned char * v0){
             asm("exit;");
         }
     }
-    return Tuple1(v1, v2, v23, v24, v56);
+    return Tuple1(v1, v2, v23, v24, v54);
 }
 __device__ inline bool while_method_5(bool v0, US5 v1){
     return v0;
@@ -2123,15 +2109,146 @@ __device__ static_array_list<unsigned char,5l,long> get_community_cards_37(US6 v
     }
     return v2;
 }
-__device__ Tuple13 draw_cards_38(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
+__device__ bool player_can_act_39(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5){
+    long v6;
+    v6 = v3 % 2l;
+    bool v7;
+    v7 = 0l <= v6;
+    bool v9;
+    if (v7){
+        bool v8;
+        v8 = v6 < 2l;
+        v9 = v8;
+    } else {
+        v9 = false;
+    }
+    bool v10;
+    v10 = v9 == false;
+    if (v10){
+        assert("The read index needs to be in range for the static array." && v9);
+    } else {
+    }
+    long v11;
+    v11 = v4.v[v6];
+    bool v12;
+    v12 = v11 > 0l;
+    bool v14;
+    if (v7){
+        bool v13;
+        v13 = v6 < 2l;
+        v14 = v13;
+    } else {
+        v14 = false;
+    }
+    bool v15;
+    v15 = v14 == false;
+    if (v15){
+        assert("The read index needs to be in range for the static array." && v14);
+    } else {
+    }
+    long v16;
+    v16 = v2.v[v6];
+    long v17;
+    v17 = v2.v[0l];
+    long v18; long v19;
+    Tuple2 tmp20 = Tuple2(1l, v17);
+    v18 = tmp20.v0; v19 = tmp20.v1;
+    while (while_method_0(v18)){
+        bool v21;
+        v21 = 0l <= v18;
+        bool v23;
+        if (v21){
+            bool v22;
+            v22 = v18 < 2l;
+            v23 = v22;
+        } else {
+            v23 = false;
+        }
+        bool v24;
+        v24 = v23 == false;
+        if (v24){
+            assert("The read index needs to be in range for the static array." && v23);
+        } else {
+        }
+        long v25;
+        v25 = v2.v[v18];
+        bool v26;
+        v26 = v19 >= v25;
+        long v27;
+        if (v26){
+            v27 = v19;
+        } else {
+            v27 = v25;
+        }
+        v19 = v27;
+        v18 += 1l ;
+    }
+    bool v28;
+    v28 = v16 < v19;
+    if (v12){
+        if (v28){
+            return true;
+        } else {
+            bool v29;
+            v29 = v6 < 2l;
+            return v29;
+        }
+    } else {
+        return false;
+    }
+}
+__device__ US5 go_next_street_40(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5){
+    switch (v5.tag) {
+        case 0: { // Flop
+            static_array<unsigned char,3l> v7 = v5.v.case0.v0;
+            return US5_7(v0, v1, v2, v3, v4, v5);
+            break;
+        }
+        case 1: { // Preflop
+            return US5_0(v0, v1, v2, v3, v4, v5);
+            break;
+        }
+        case 2: { // River
+            static_array<unsigned char,5l> v11 = v5.v.case2.v0;
+            return US5_6(v0, v1, v2, v3, v4, v5);
+            break;
+        }
+        case 3: { // Turn
+            static_array<unsigned char,4l> v9 = v5.v.case3.v0;
+            return US5_3(v0, v1, v2, v3, v4, v5);
+            break;
+        }
+        default: {
+            assert("Invalid tag." && false);
+        }
+    }
+}
+__device__ US5 try_round_38(long v0, static_array<static_array<unsigned char,2l>,2l> v1, static_array<long,2l> v2, long v3, static_array<long,2l> v4, US6 v5){
+    long v6;
+    v6 = v3 + 1l;
+    bool v7;
+    v7 = player_can_act_39(v0, v1, v2, v3, v4, v5);
+    if (v7){
+        return US5_4(v0, v1, v2, v3, v4, v5);
+    } else {
+        bool v9;
+        v9 = player_can_act_39(v0, v1, v2, v6, v4, v5);
+        if (v9){
+            return US5_4(v0, v1, v2, v6, v4, v5);
+        } else {
+            return go_next_street_40(v0, v1, v2, v3, v4, v5);
+        }
+    }
+}
+__device__ Tuple13 draw_cards_41(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
     static_array<unsigned char,2l> v2;
     long v3; unsigned long long v4;
-    Tuple11 tmp20 = Tuple11(0l, v1);
-    v3 = tmp20.v0; v4 = tmp20.v1;
+    Tuple11 tmp21 = Tuple11(0l, v1);
+    v3 = tmp21.v0; v4 = tmp21.v1;
     while (while_method_0(v3)){
         unsigned char v6; unsigned long long v7;
-        Tuple12 tmp21 = draw_card_35(v0, v4);
-        v6 = tmp21.v0; v7 = tmp21.v1;
+        Tuple12 tmp22 = draw_card_35(v0, v4);
+        v6 = tmp22.v0; v7 = tmp22.v1;
         bool v8;
         v8 = 0l <= v3;
         bool v10;
@@ -2159,15 +2276,15 @@ __device__ inline bool while_method_6(long v0){
     v1 = v0 < 1l;
     return v1;
 }
-__device__ Tuple14 draw_cards_39(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
+__device__ Tuple14 draw_cards_42(curandStatePhilox4_32_10_t & v0, unsigned long long v1){
     static_array<unsigned char,1l> v2;
     long v3; unsigned long long v4;
-    Tuple11 tmp24 = Tuple11(0l, v1);
-    v3 = tmp24.v0; v4 = tmp24.v1;
+    Tuple11 tmp25 = Tuple11(0l, v1);
+    v3 = tmp25.v0; v4 = tmp25.v1;
     while (while_method_6(v3)){
         unsigned char v6; unsigned long long v7;
-        Tuple12 tmp25 = draw_card_35(v0, v4);
-        v6 = tmp25.v0; v7 = tmp25.v1;
+        Tuple12 tmp26 = draw_card_35(v0, v4);
+        v6 = tmp26.v0; v7 = tmp26.v1;
         bool v8;
         v8 = 0l <= v3;
         bool v10;
@@ -2190,7 +2307,7 @@ __device__ Tuple14 draw_cards_39(curandStatePhilox4_32_10_t & v0, unsigned long 
     }
     return Tuple14(v2, v4);
 }
-__device__ static_array_list<unsigned char,5l,long> get_community_cards_40(US6 v0, static_array<unsigned char,1l> v1){
+__device__ static_array_list<unsigned char,5l,long> get_community_cards_43(US6 v0, static_array<unsigned char,1l> v1){
     static_array_list<unsigned char,5l,long> v2;
     v2.length = 0;
     switch (v0.tag) {
@@ -2450,7 +2567,7 @@ __device__ inline bool while_method_9(long v0, long v1){
     v2 = v1 > v0;
     return v2;
 }
-__device__ long loop_43(static_array<float,8l> v0, float v1, long v2){
+__device__ long loop_46(static_array<float,8l> v0, float v1, long v2){
     bool v3;
     v3 = v2 < 8l;
     if (v3){
@@ -2473,13 +2590,13 @@ __device__ long loop_43(static_array<float,8l> v0, float v1, long v2){
         } else {
             long v9;
             v9 = v2 + 1l;
-            return loop_43(v0, v1, v9);
+            return loop_46(v0, v1, v9);
         }
     } else {
         return 7l;
     }
 }
-__device__ long sample_discrete__42(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1){
+__device__ long sample_discrete__45(static_array<float,8l> v0, curandStatePhilox4_32_10_t & v1){
     static_array<float,8l> v2;
     long v3;
     v3 = 0l;
@@ -2594,9 +2711,9 @@ __device__ long sample_discrete__42(static_array<float,8l> v0, curandStatePhilox
     v35 = v34 * v33;
     long v36;
     v36 = 0l;
-    return loop_43(v2, v35, v36);
+    return loop_46(v2, v35, v36);
 }
-__device__ US1 sample_discrete_41(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1){
+__device__ US1 sample_discrete_44(static_array<Tuple15,8l> v0, curandStatePhilox4_32_10_t & v1){
     static_array<float,8l> v2;
     long v3;
     v3 = 0l;
@@ -2618,8 +2735,8 @@ __device__ US1 sample_discrete_41(static_array<Tuple15,8l> v0, curandStatePhilox
         } else {
         }
         US1 v9; float v10;
-        Tuple15 tmp29 = v0.v[v3];
-        v9 = tmp29.v0; v10 = tmp29.v1;
+        Tuple15 tmp30 = v0.v[v3];
+        v9 = tmp30.v0; v10 = tmp30.v1;
         bool v12;
         if (v5){
             bool v11;
@@ -2638,7 +2755,7 @@ __device__ US1 sample_discrete_41(static_array<Tuple15,8l> v0, curandStatePhilox
         v3 += 1l ;
     }
     long v14;
-    v14 = sample_discrete__42(v2, v1);
+    v14 = sample_discrete__45(v2, v1);
     bool v15;
     v15 = 0l <= v14;
     bool v17;
@@ -2656,9 +2773,57 @@ __device__ US1 sample_discrete_41(static_array<Tuple15,8l> v0, curandStatePhilox
     } else {
     }
     US1 v19; float v20;
-    Tuple15 tmp30 = v0.v[v14];
-    v19 = tmp30.v0; v20 = tmp30.v1;
+    Tuple15 tmp31 = v0.v[v14];
+    v19 = tmp31.v0; v20 = tmp31.v1;
     return v19;
+}
+__device__ void write_48(long v0){
+    const char * v1;
+    v1 = "%d";
+    printf(v1,v0);
+    return ;
+}
+__device__ void write_47(static_array<long,2l> v0){
+    const char * v1;
+    v1 = "[";
+    write_0(v1);
+    long v2;
+    v2 = 0l;
+    while (while_method_0(v2)){
+        bool v4;
+        v4 = 0l <= v2;
+        bool v6;
+        if (v4){
+            bool v5;
+            v5 = v2 < 2l;
+            v6 = v5;
+        } else {
+            v6 = false;
+        }
+        bool v7;
+        v7 = v6 == false;
+        if (v7){
+            assert("The read index needs to be in range for the static array." && v6);
+        } else {
+        }
+        long v8;
+        v8 = v0.v[v2];
+        write_48(v8);
+        long v9;
+        v9 = v2 + 1l;
+        bool v10;
+        v10 = v9 < 2l;
+        if (v10){
+            const char * v11;
+            v11 = "; ";
+            write_0(v11);
+        } else {
+        }
+        v2 += 1l ;
+    }
+    const char * v12;
+    v12 = "]";
+    return write_0(v12);
 }
 __device__ inline bool while_method_10(long v0){
     bool v1;
@@ -2761,7 +2926,7 @@ __device__ US14 US14_1(static_array<unsigned char,2l> v0, static_array<unsigned 
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
     return x;
 }
-__device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
+__device__ Tuple0 score_49(static_array<unsigned char,7l> v0){
     static_array<unsigned char,7l> v1;
     long v2;
     v2 = 0l;
@@ -2803,8 +2968,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
     }
     static_array<unsigned char,7l> v12;
     bool v13; long v14;
-    Tuple16 tmp35 = Tuple16(true, 1l);
-    v13 = tmp35.v0; v14 = tmp35.v1;
+    Tuple16 tmp36 = Tuple16(true, 1l);
+    v13 = tmp36.v0; v14 = tmp36.v1;
     while (while_method_11(v1, v13, v14)){
         long v16;
         v16 = 0l;
@@ -2832,8 +2997,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                 v24 = 7l;
             }
             long v25; long v26; long v27;
-            Tuple17 tmp36 = Tuple17(v16, v20, v16);
-            v25 = tmp36.v0; v26 = tmp36.v1; v27 = tmp36.v2;
+            Tuple17 tmp37 = Tuple17(v16, v20, v16);
+            v25 = tmp37.v0; v26 = tmp37.v1; v27 = tmp37.v2;
             while (while_method_13(v24, v25, v26, v27)){
                 bool v29;
                 v29 = v25 < v20;
@@ -3157,8 +3322,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
     }
     static_array<unsigned char,5l> v127;
     long v128; long v129; unsigned char v130;
-    Tuple18 tmp37 = Tuple18(0l, 0l, 12u);
-    v128 = tmp37.v0; v129 = tmp37.v1; v130 = tmp37.v2;
+    Tuple18 tmp38 = Tuple18(0l, 0l, 12u);
+    v128 = tmp38.v0; v129 = tmp38.v1; v130 = tmp38.v2;
     while (while_method_10(v128)){
         bool v132;
         v132 = 0l <= v128;
@@ -3383,8 +3548,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
     }
     static_array<unsigned char,5l> v212;
     long v213; long v214; unsigned char v215;
-    Tuple18 tmp38 = Tuple18(0l, 0l, 12u);
-    v213 = tmp38.v0; v214 = tmp38.v1; v215 = tmp38.v2;
+    Tuple18 tmp39 = Tuple18(0l, 0l, 12u);
+    v213 = tmp39.v0; v214 = tmp39.v1; v215 = tmp39.v2;
     while (while_method_10(v213)){
         bool v217;
         v217 = 0l <= v213;
@@ -3625,8 +3790,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                     US8 v299;
                     v299 = US8_0();
                     long v300; US8 v301;
-                    Tuple19 tmp39 = Tuple19(0l, v299);
-                    v300 = tmp39.v0; v301 = tmp39.v1;
+                    Tuple19 tmp40 = Tuple19(0l, v299);
+                    v300 = tmp40.v0; v301 = tmp40.v1;
                     while (while_method_2(v300)){
                         bool v303;
                         v303 = 0l <= v300;
@@ -3726,8 +3891,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
     }
     static_array<unsigned char,5l> v332;
     long v333; long v334; unsigned char v335;
-    Tuple18 tmp40 = Tuple18(0l, 0l, 12u);
-    v333 = tmp40.v0; v334 = tmp40.v1; v335 = tmp40.v2;
+    Tuple18 tmp41 = Tuple18(0l, 0l, 12u);
+    v333 = tmp41.v0; v334 = tmp41.v1; v335 = tmp41.v2;
     while (while_method_10(v333)){
         bool v337;
         v337 = 0l <= v333;
@@ -3968,8 +4133,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                     US8 v419;
                     v419 = US8_0();
                     long v420; US8 v421;
-                    Tuple19 tmp41 = Tuple19(0l, v419);
-                    v420 = tmp41.v0; v421 = tmp41.v1;
+                    Tuple19 tmp42 = Tuple19(0l, v419);
+                    v420 = tmp42.v0; v421 = tmp42.v1;
                     while (while_method_2(v420)){
                         bool v423;
                         v423 = 0l <= v420;
@@ -4069,8 +4234,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
     }
     static_array<unsigned char,5l> v452;
     long v453; long v454; unsigned char v455;
-    Tuple18 tmp42 = Tuple18(0l, 0l, 12u);
-    v453 = tmp42.v0; v454 = tmp42.v1; v455 = tmp42.v2;
+    Tuple18 tmp43 = Tuple18(0l, 0l, 12u);
+    v453 = tmp43.v0; v454 = tmp43.v1; v455 = tmp43.v2;
     while (while_method_10(v453)){
         bool v457;
         v457 = 0l <= v453;
@@ -4311,8 +4476,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                     US8 v539;
                     v539 = US8_0();
                     long v540; US8 v541;
-                    Tuple19 tmp43 = Tuple19(0l, v539);
-                    v540 = tmp43.v0; v541 = tmp43.v1;
+                    Tuple19 tmp44 = Tuple19(0l, v539);
+                    v540 = tmp44.v0; v541 = tmp44.v1;
                     while (while_method_2(v540)){
                         bool v543;
                         v543 = 0l <= v540;
@@ -4416,8 +4581,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
             static_array<unsigned char,4l> v573;
             static_array<unsigned char,3l> v574;
             long v575; long v576; long v577; unsigned char v578;
-            Tuple20 tmp44 = Tuple20(0l, 0l, 0l, 12u);
-            v575 = tmp44.v0; v576 = tmp44.v1; v577 = tmp44.v2; v578 = tmp44.v3;
+            Tuple20 tmp45 = Tuple20(0l, 0l, 0l, 12u);
+            v575 = tmp45.v0; v576 = tmp45.v1; v577 = tmp45.v2; v578 = tmp45.v3;
             while (while_method_10(v575)){
                 bool v580;
                 v580 = 0l <= v575;
@@ -4681,8 +4846,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                     static_array<unsigned char,3l> v661;
                     static_array<unsigned char,4l> v662;
                     long v663; long v664; long v665; unsigned char v666;
-                    Tuple20 tmp45 = Tuple20(0l, 0l, 0l, 12u);
-                    v663 = tmp45.v0; v664 = tmp45.v1; v665 = tmp45.v2; v666 = tmp45.v3;
+                    Tuple20 tmp46 = Tuple20(0l, 0l, 0l, 12u);
+                    v663 = tmp46.v0; v664 = tmp46.v1; v665 = tmp46.v2; v666 = tmp46.v3;
                     while (while_method_10(v663)){
                         bool v668;
                         v668 = 0l <= v663;
@@ -4817,8 +4982,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                             static_array<unsigned char,2l> v710;
                             static_array<unsigned char,2l> v711;
                             long v712; long v713; long v714; unsigned char v715;
-                            Tuple20 tmp46 = Tuple20(0l, 0l, 0l, 12u);
-                            v712 = tmp46.v0; v713 = tmp46.v1; v714 = tmp46.v2; v715 = tmp46.v3;
+                            Tuple20 tmp47 = Tuple20(0l, 0l, 0l, 12u);
+                            v712 = tmp47.v0; v713 = tmp47.v1; v714 = tmp47.v2; v715 = tmp47.v3;
                             while (while_method_4(v712)){
                                 bool v717;
                                 v717 = 0l <= v712;
@@ -5047,8 +5212,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                         case 0: { // None
                             static_array<unsigned char,5l> v790;
                             long v791; long v792;
-                            Tuple2 tmp47 = Tuple2(0l, 0l);
-                            v791 = tmp47.v0; v792 = tmp47.v1;
+                            Tuple2 tmp48 = Tuple2(0l, 0l);
+                            v791 = tmp48.v0; v792 = tmp48.v1;
                             while (while_method_10(v791)){
                                 bool v794;
                                 v794 = 0l <= v791;
@@ -5122,8 +5287,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                             }
                             static_array<unsigned char,5l> v815;
                             long v816; long v817;
-                            Tuple2 tmp48 = Tuple2(0l, 0l);
-                            v816 = tmp48.v0; v817 = tmp48.v1;
+                            Tuple2 tmp49 = Tuple2(0l, 0l);
+                            v816 = tmp49.v0; v817 = tmp49.v1;
                             while (while_method_10(v816)){
                                 bool v819;
                                 v819 = 0l <= v816;
@@ -5213,8 +5378,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                             US8 v842;
                                             v842 = US8_0();
                                             long v843; US8 v844;
-                                            Tuple19 tmp49 = Tuple19(0l, v842);
-                                            v843 = tmp49.v0; v844 = tmp49.v1;
+                                            Tuple19 tmp50 = Tuple19(0l, v842);
+                                            v843 = tmp50.v0; v844 = tmp50.v1;
                                             while (while_method_2(v843)){
                                                 bool v846;
                                                 v846 = 0l <= v843;
@@ -5314,8 +5479,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                             }
                             static_array<unsigned char,5l> v875;
                             long v876; long v877;
-                            Tuple2 tmp50 = Tuple2(0l, 0l);
-                            v876 = tmp50.v0; v877 = tmp50.v1;
+                            Tuple2 tmp51 = Tuple2(0l, 0l);
+                            v876 = tmp51.v0; v877 = tmp51.v1;
                             while (while_method_10(v876)){
                                 bool v879;
                                 v879 = 0l <= v876;
@@ -5405,8 +5570,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                             US8 v902;
                                             v902 = US8_0();
                                             long v903; US8 v904;
-                                            Tuple19 tmp51 = Tuple19(0l, v902);
-                                            v903 = tmp51.v0; v904 = tmp51.v1;
+                                            Tuple19 tmp52 = Tuple19(0l, v902);
+                                            v903 = tmp52.v0; v904 = tmp52.v1;
                                             while (while_method_2(v903)){
                                                 bool v906;
                                                 v906 = 0l <= v903;
@@ -5506,8 +5671,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                             }
                             static_array<unsigned char,5l> v935;
                             long v936; long v937;
-                            Tuple2 tmp52 = Tuple2(0l, 0l);
-                            v936 = tmp52.v0; v937 = tmp52.v1;
+                            Tuple2 tmp53 = Tuple2(0l, 0l);
+                            v936 = tmp53.v0; v937 = tmp53.v1;
                             while (while_method_10(v936)){
                                 bool v939;
                                 v939 = 0l <= v936;
@@ -5597,8 +5762,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                             US8 v962;
                                             v962 = US8_0();
                                             long v963; US8 v964;
-                                            Tuple19 tmp53 = Tuple19(0l, v962);
-                                            v963 = tmp53.v0; v964 = tmp53.v1;
+                                            Tuple19 tmp54 = Tuple19(0l, v962);
+                                            v963 = tmp54.v0; v964 = tmp54.v1;
                                             while (while_method_2(v963)){
                                                 bool v966;
                                                 v966 = 0l <= v963;
@@ -5700,8 +5865,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                 case 0: { // None
                                     static_array<unsigned char,5l> v996;
                                     long v997; long v998; unsigned char v999;
-                                    Tuple18 tmp54 = Tuple18(0l, 0l, 12u);
-                                    v997 = tmp54.v0; v998 = tmp54.v1; v999 = tmp54.v2;
+                                    Tuple18 tmp55 = Tuple18(0l, 0l, 12u);
+                                    v997 = tmp55.v0; v998 = tmp55.v1; v999 = tmp55.v2;
                                     while (while_method_10(v997)){
                                         bool v1001;
                                         v1001 = 0l <= v997;
@@ -5820,8 +5985,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                             static_array<unsigned char,3l> v1042;
                                             static_array<unsigned char,4l> v1043;
                                             long v1044; long v1045; long v1046; unsigned char v1047;
-                                            Tuple20 tmp55 = Tuple20(0l, 0l, 0l, 12u);
-                                            v1044 = tmp55.v0; v1045 = tmp55.v1; v1046 = tmp55.v2; v1047 = tmp55.v3;
+                                            Tuple20 tmp56 = Tuple20(0l, 0l, 0l, 12u);
+                                            v1044 = tmp56.v0; v1045 = tmp56.v1; v1046 = tmp56.v2; v1047 = tmp56.v3;
                                             while (while_method_10(v1044)){
                                                 bool v1049;
                                                 v1049 = 0l <= v1044;
@@ -6085,8 +6250,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                                     static_array<unsigned char,2l> v1130;
                                                     static_array<unsigned char,5l> v1131;
                                                     long v1132; long v1133; long v1134; unsigned char v1135;
-                                                    Tuple20 tmp56 = Tuple20(0l, 0l, 0l, 12u);
-                                                    v1132 = tmp56.v0; v1133 = tmp56.v1; v1134 = tmp56.v2; v1135 = tmp56.v3;
+                                                    Tuple20 tmp57 = Tuple20(0l, 0l, 0l, 12u);
+                                                    v1132 = tmp57.v0; v1133 = tmp57.v1; v1134 = tmp57.v2; v1135 = tmp57.v3;
                                                     while (while_method_10(v1132)){
                                                         bool v1137;
                                                         v1137 = 0l <= v1132;
@@ -6221,8 +6386,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                                             static_array<unsigned char,2l> v1179;
                                                             static_array<unsigned char,3l> v1180;
                                                             long v1181; long v1182; long v1183; unsigned char v1184;
-                                                            Tuple20 tmp57 = Tuple20(0l, 0l, 0l, 12u);
-                                                            v1181 = tmp57.v0; v1182 = tmp57.v1; v1183 = tmp57.v2; v1184 = tmp57.v3;
+                                                            Tuple20 tmp58 = Tuple20(0l, 0l, 0l, 12u);
+                                                            v1181 = tmp58.v0; v1182 = tmp58.v1; v1183 = tmp58.v2; v1184 = tmp58.v3;
                                                             while (while_method_2(v1181)){
                                                                 bool v1186;
                                                                 v1186 = 0l <= v1181;
@@ -6533,8 +6698,8 @@ __device__ Tuple0 score_44(static_array<unsigned char,7l> v0){
                                                             static_array<unsigned char,2l> v1282;
                                                             static_array<unsigned char,5l> v1283;
                                                             long v1284; long v1285; long v1286; unsigned char v1287;
-                                                            Tuple20 tmp58 = Tuple20(0l, 0l, 0l, 12u);
-                                                            v1284 = tmp58.v0; v1285 = tmp58.v1; v1286 = tmp58.v2; v1287 = tmp58.v3;
+                                                            Tuple20 tmp59 = Tuple20(0l, 0l, 0l, 12u);
+                                                            v1284 = tmp59.v0; v1285 = tmp59.v1; v1286 = tmp59.v2; v1287 = tmp59.v3;
                                                             while (while_method_10(v1284)){
                                                                 bool v1289;
                                                                 v1289 = 0l <= v1284;
@@ -6932,54 +7097,54 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
     Tuple9 tmp16 = Tuple9(true, v4);
     v7 = tmp16.v0; v8 = tmp16.v1;
     while (while_method_5(v7, v8)){
-        bool v806; US5 v807;
+        bool v775; US5 v776;
         switch (v8.tag) {
             case 0: { // G_Flop
-                long v632 = v8.v.case0.v0; bool v633 = v8.v.case0.v1; static_array<static_array<unsigned char,2l>,2l> v634 = v8.v.case0.v2; long v635 = v8.v.case0.v3; static_array<long,2l> v636 = v8.v.case0.v4; static_array<long,2l> v637 = v8.v.case0.v5; US6 v638 = v8.v.case0.v6;
-                static_array<unsigned char,3l> v639; unsigned long long v640;
+                long v599 = v8.v.case0.v0; static_array<static_array<unsigned char,2l>,2l> v600 = v8.v.case0.v1; static_array<long,2l> v601 = v8.v.case0.v2; long v602 = v8.v.case0.v3; static_array<long,2l> v603 = v8.v.case0.v4; US6 v604 = v8.v.case0.v5;
+                static_array<unsigned char,3l> v605; unsigned long long v606;
                 Tuple10 tmp19 = draw_cards_34(v2, v6);
-                v639 = tmp19.v0; v640 = tmp19.v1;
-                v0 = v640;
-                static_array_list<unsigned char,5l,long> v641;
-                v641 = get_community_cards_37(v638, v639);
-                long v642;
-                v642 = v5.length;
-                bool v643;
-                v643 = v642 < 128l;
-                bool v644;
-                v644 = v643 == false;
-                if (v644){
-                    assert("The length has to be less than the maximum length of the array." && v643);
+                v605 = tmp19.v0; v606 = tmp19.v1;
+                v0 = v606;
+                static_array_list<unsigned char,5l,long> v607;
+                v607 = get_community_cards_37(v604, v605);
+                long v608;
+                v608 = v5.length;
+                bool v609;
+                v609 = v608 < 128l;
+                bool v610;
+                v610 = v609 == false;
+                if (v610){
+                    assert("The length has to be less than the maximum length of the array." && v609);
                 } else {
                 }
-                long v645;
-                v645 = v642 + 1l;
-                v5.length = v645;
-                bool v646;
-                v646 = 0l <= v642;
-                bool v649;
-                if (v646){
-                    long v647;
-                    v647 = v5.length;
-                    bool v648;
-                    v648 = v642 < v647;
-                    v649 = v648;
+                long v611;
+                v611 = v608 + 1l;
+                v5.length = v611;
+                bool v612;
+                v612 = 0l <= v608;
+                bool v615;
+                if (v612){
+                    long v613;
+                    v613 = v5.length;
+                    bool v614;
+                    v614 = v608 < v613;
+                    v615 = v614;
                 } else {
-                    v649 = false;
+                    v615 = false;
                 }
-                bool v650;
-                v650 = v649 == false;
-                if (v650){
-                    assert("The set index needs to be in range for the static array list." && v649);
+                bool v616;
+                v616 = v615 == false;
+                if (v616){
+                    assert("The set index needs to be in range for the static array list." && v615);
                 } else {
                 }
-                US3 v651;
-                v651 = US3_0(v641);
-                v5.v[v642] = v651;
-                US6 v654;
-                switch (v638.tag) {
+                US3 v617;
+                v617 = US3_0(v607);
+                v5.v[v608] = v617;
+                US6 v620;
+                switch (v604.tag) {
                     case 1: { // Preflop
-                        v654 = US6_0(v639);
+                        v620 = US6_0(v605);
                         break;
                     }
                     default: {
@@ -6987,19 +7152,23 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                US5 v655;
-                v655 = US5_4(v632, true, v634, 0l, v636, v637, v654);
-                v806 = true; v807 = v655;
+                long v621;
+                v621 = 0l;
+                US5 v622;
+                v622 = try_round_38(v599, v600, v601, v621, v603, v620);
+                v775 = true; v776 = v622;
                 break;
             }
             case 1: { // G_Fold
-                long v10 = v8.v.case1.v0; bool v11 = v8.v.case1.v1; static_array<static_array<unsigned char,2l>,2l> v12 = v8.v.case1.v2; long v13 = v8.v.case1.v3; static_array<long,2l> v14 = v8.v.case1.v4; static_array<long,2l> v15 = v8.v.case1.v5; US6 v16 = v8.v.case1.v6;
+                long v10 = v8.v.case1.v0; static_array<static_array<unsigned char,2l>,2l> v11 = v8.v.case1.v1; static_array<long,2l> v12 = v8.v.case1.v2; long v13 = v8.v.case1.v3; static_array<long,2l> v14 = v8.v.case1.v4; US6 v15 = v8.v.case1.v5;
+                long v16;
+                v16 = v13 % 2l;
                 bool v17;
-                v17 = 0l <= v13;
+                v17 = 0l <= v16;
                 bool v19;
                 if (v17){
                     bool v18;
-                    v18 = v13 < 2l;
+                    v18 = v16 < 2l;
                     v19 = v18;
                 } else {
                     v19 = false;
@@ -7011,9 +7180,9 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 } else {
                 }
                 long v21;
-                v21 = v14.v[v13];
+                v21 = v12.v[v16];
                 long v22;
-                v22 = v13 ^ 1l;
+                v22 = v13 + 1l;
                 long v23;
                 v23 = v5.length;
                 bool v24;
@@ -7048,268 +7217,272 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 US3 v32;
                 v32 = US3_1(v21, v22);
                 v5.v[v23] = v32;
-                v806 = false; v807 = v8;
+                v775 = false; v776 = v8;
                 break;
             }
             case 2: { // G_Preflop
-                static_array<unsigned char,2l> v752; unsigned long long v753;
-                Tuple13 tmp22 = draw_cards_38(v2, v6);
-                v752 = tmp22.v0; v753 = tmp22.v1;
-                v0 = v753;
-                static_array<unsigned char,2l> v754; unsigned long long v755;
-                Tuple13 tmp23 = draw_cards_38(v2, v6);
-                v754 = tmp23.v0; v755 = tmp23.v1;
-                v0 = v755;
-                long v756;
-                v756 = v5.length;
-                bool v757;
-                v757 = v756 < 128l;
-                bool v758;
-                v758 = v757 == false;
-                if (v758){
-                    assert("The length has to be less than the maximum length of the array." && v757);
+                static_array<unsigned char,2l> v719; unsigned long long v720;
+                Tuple13 tmp23 = draw_cards_41(v2, v6);
+                v719 = tmp23.v0; v720 = tmp23.v1;
+                v0 = v720;
+                static_array<unsigned char,2l> v721; unsigned long long v722;
+                Tuple13 tmp24 = draw_cards_41(v2, v6);
+                v721 = tmp24.v0; v722 = tmp24.v1;
+                v0 = v722;
+                long v723;
+                v723 = v5.length;
+                bool v724;
+                v724 = v723 < 128l;
+                bool v725;
+                v725 = v724 == false;
+                if (v725){
+                    assert("The length has to be less than the maximum length of the array." && v724);
                 } else {
                 }
-                long v759;
-                v759 = v756 + 1l;
-                v5.length = v759;
-                bool v760;
-                v760 = 0l <= v756;
-                bool v763;
-                if (v760){
-                    long v761;
-                    v761 = v5.length;
-                    bool v762;
-                    v762 = v756 < v761;
-                    v763 = v762;
+                long v726;
+                v726 = v723 + 1l;
+                v5.length = v726;
+                bool v727;
+                v727 = 0l <= v723;
+                bool v730;
+                if (v727){
+                    long v728;
+                    v728 = v5.length;
+                    bool v729;
+                    v729 = v723 < v728;
+                    v730 = v729;
                 } else {
-                    v763 = false;
+                    v730 = false;
                 }
-                bool v764;
-                v764 = v763 == false;
-                if (v764){
-                    assert("The set index needs to be in range for the static array list." && v763);
-                } else {
-                }
-                US3 v765;
-                v765 = US3_3(0l, v752);
-                v5.v[v756] = v765;
-                long v766;
-                v766 = v5.length;
-                bool v767;
-                v767 = v766 < 128l;
-                bool v768;
-                v768 = v767 == false;
-                if (v768){
-                    assert("The length has to be less than the maximum length of the array." && v767);
+                bool v731;
+                v731 = v730 == false;
+                if (v731){
+                    assert("The set index needs to be in range for the static array list." && v730);
                 } else {
                 }
-                long v769;
-                v769 = v766 + 1l;
-                v5.length = v769;
-                bool v770;
-                v770 = 0l <= v766;
-                bool v773;
-                if (v770){
-                    long v771;
-                    v771 = v5.length;
-                    bool v772;
-                    v772 = v766 < v771;
-                    v773 = v772;
-                } else {
-                    v773 = false;
-                }
-                bool v774;
-                v774 = v773 == false;
-                if (v774){
-                    assert("The set index needs to be in range for the static array list." && v773);
+                US3 v732;
+                v732 = US3_3(0l, v719);
+                v5.v[v723] = v732;
+                long v733;
+                v733 = v5.length;
+                bool v734;
+                v734 = v733 < 128l;
+                bool v735;
+                v735 = v734 == false;
+                if (v735){
+                    assert("The length has to be less than the maximum length of the array." && v734);
                 } else {
                 }
-                US3 v775;
-                v775 = US3_3(1l, v754);
-                v5.v[v766] = v775;
-                static_array<static_array<unsigned char,2l>,2l> v776;
-                v776.v[0l] = v752;
-                v776.v[1l] = v754;
-                static_array<long,2l> v777;
-                v777.v[0l] = 2l;
-                v777.v[1l] = 1l;
-                static_array<long,2l> v778;
-                long v779;
-                v779 = 0l;
-                while (while_method_0(v779)){
-                    bool v781;
-                    v781 = 0l <= v779;
-                    bool v783;
-                    if (v781){
-                        bool v782;
-                        v782 = v779 < 2l;
-                        v783 = v782;
+                long v736;
+                v736 = v733 + 1l;
+                v5.length = v736;
+                bool v737;
+                v737 = 0l <= v733;
+                bool v740;
+                if (v737){
+                    long v738;
+                    v738 = v5.length;
+                    bool v739;
+                    v739 = v733 < v738;
+                    v740 = v739;
+                } else {
+                    v740 = false;
+                }
+                bool v741;
+                v741 = v740 == false;
+                if (v741){
+                    assert("The set index needs to be in range for the static array list." && v740);
+                } else {
+                }
+                US3 v742;
+                v742 = US3_3(1l, v721);
+                v5.v[v733] = v742;
+                static_array<static_array<unsigned char,2l>,2l> v743;
+                v743.v[0l] = v719;
+                v743.v[1l] = v721;
+                static_array<long,2l> v744;
+                v744.v[0l] = 2l;
+                v744.v[1l] = 1l;
+                static_array<long,2l> v745;
+                long v746;
+                v746 = 0l;
+                while (while_method_0(v746)){
+                    bool v748;
+                    v748 = 0l <= v746;
+                    bool v750;
+                    if (v748){
+                        bool v749;
+                        v749 = v746 < 2l;
+                        v750 = v749;
                     } else {
-                        v783 = false;
+                        v750 = false;
                     }
-                    bool v784;
-                    v784 = v783 == false;
-                    if (v784){
-                        assert("The read index needs to be in range for the static array." && v783);
-                    } else {
-                    }
-                    long v785;
-                    v785 = v777.v[v779];
-                    long v786;
-                    v786 = 100l - v785;
-                    bool v788;
-                    if (v781){
-                        bool v787;
-                        v787 = v779 < 2l;
-                        v788 = v787;
-                    } else {
-                        v788 = false;
-                    }
-                    bool v789;
-                    v789 = v788 == false;
-                    if (v789){
-                        assert("The read index needs to be in range for the static array." && v788);
+                    bool v751;
+                    v751 = v750 == false;
+                    if (v751){
+                        assert("The read index needs to be in range for the static array." && v750);
                     } else {
                     }
-                    v778.v[v779] = v786;
-                    v779 += 1l ;
+                    long v752;
+                    v752 = v744.v[v746];
+                    long v753;
+                    v753 = 100l - v752;
+                    bool v755;
+                    if (v748){
+                        bool v754;
+                        v754 = v746 < 2l;
+                        v755 = v754;
+                    } else {
+                        v755 = false;
+                    }
+                    bool v756;
+                    v756 = v755 == false;
+                    if (v756){
+                        assert("The read index needs to be in range for the static array." && v755);
+                    } else {
+                    }
+                    v745.v[v746] = v753;
+                    v746 += 1l ;
                 }
-                US6 v790;
-                v790 = US6_1();
-                US5 v791;
-                v791 = US5_4(2l, true, v776, 0l, v777, v778, v790);
-                v806 = true; v807 = v791;
+                long v757;
+                v757 = 2l;
+                long v758;
+                v758 = 0l;
+                US6 v759;
+                v759 = US6_1();
+                US5 v760;
+                v760 = try_round_38(v757, v743, v744, v758, v745, v759);
+                v775 = true; v776 = v760;
                 break;
             }
             case 3: { // G_River
-                long v704 = v8.v.case3.v0; bool v705 = v8.v.case3.v1; static_array<static_array<unsigned char,2l>,2l> v706 = v8.v.case3.v2; long v707 = v8.v.case3.v3; static_array<long,2l> v708 = v8.v.case3.v4; static_array<long,2l> v709 = v8.v.case3.v5; US6 v710 = v8.v.case3.v6;
-                static_array<unsigned char,1l> v711; unsigned long long v712;
-                Tuple14 tmp26 = draw_cards_39(v2, v6);
-                v711 = tmp26.v0; v712 = tmp26.v1;
-                v0 = v712;
-                static_array_list<unsigned char,5l,long> v713;
-                v713 = get_community_cards_40(v710, v711);
-                long v714;
-                v714 = v5.length;
-                bool v715;
-                v715 = v714 < 128l;
-                bool v716;
-                v716 = v715 == false;
-                if (v716){
-                    assert("The length has to be less than the maximum length of the array." && v715);
+                long v671 = v8.v.case3.v0; static_array<static_array<unsigned char,2l>,2l> v672 = v8.v.case3.v1; static_array<long,2l> v673 = v8.v.case3.v2; long v674 = v8.v.case3.v3; static_array<long,2l> v675 = v8.v.case3.v4; US6 v676 = v8.v.case3.v5;
+                static_array<unsigned char,1l> v677; unsigned long long v678;
+                Tuple14 tmp27 = draw_cards_42(v2, v6);
+                v677 = tmp27.v0; v678 = tmp27.v1;
+                v0 = v678;
+                static_array_list<unsigned char,5l,long> v679;
+                v679 = get_community_cards_43(v676, v677);
+                long v680;
+                v680 = v5.length;
+                bool v681;
+                v681 = v680 < 128l;
+                bool v682;
+                v682 = v681 == false;
+                if (v682){
+                    assert("The length has to be less than the maximum length of the array." && v681);
                 } else {
                 }
-                long v717;
-                v717 = v714 + 1l;
-                v5.length = v717;
-                bool v718;
-                v718 = 0l <= v714;
-                bool v721;
-                if (v718){
-                    long v719;
-                    v719 = v5.length;
-                    bool v720;
-                    v720 = v714 < v719;
-                    v721 = v720;
+                long v683;
+                v683 = v680 + 1l;
+                v5.length = v683;
+                bool v684;
+                v684 = 0l <= v680;
+                bool v687;
+                if (v684){
+                    long v685;
+                    v685 = v5.length;
+                    bool v686;
+                    v686 = v680 < v685;
+                    v687 = v686;
                 } else {
-                    v721 = false;
+                    v687 = false;
                 }
-                bool v722;
-                v722 = v721 == false;
-                if (v722){
-                    assert("The set index needs to be in range for the static array list." && v721);
+                bool v688;
+                v688 = v687 == false;
+                if (v688){
+                    assert("The set index needs to be in range for the static array list." && v687);
                 } else {
                 }
-                US3 v723;
-                v723 = US3_0(v713);
-                v5.v[v714] = v723;
-                US6 v750;
-                switch (v710.tag) {
+                US3 v689;
+                v689 = US3_0(v679);
+                v5.v[v680] = v689;
+                US6 v716;
+                switch (v676.tag) {
                     case 3: { // Turn
-                        static_array<unsigned char,4l> v724 = v710.v.case3.v0;
-                        static_array<unsigned char,5l> v725;
-                        long v726;
-                        v726 = 0l;
-                        while (while_method_4(v726)){
-                            bool v728;
-                            v728 = 0l <= v726;
-                            bool v730;
-                            if (v728){
-                                bool v729;
-                                v729 = v726 < 4l;
-                                v730 = v729;
+                        static_array<unsigned char,4l> v690 = v676.v.case3.v0;
+                        static_array<unsigned char,5l> v691;
+                        long v692;
+                        v692 = 0l;
+                        while (while_method_4(v692)){
+                            bool v694;
+                            v694 = 0l <= v692;
+                            bool v696;
+                            if (v694){
+                                bool v695;
+                                v695 = v692 < 4l;
+                                v696 = v695;
                             } else {
-                                v730 = false;
+                                v696 = false;
                             }
-                            bool v731;
-                            v731 = v730 == false;
-                            if (v731){
-                                assert("The read index needs to be in range for the static array." && v730);
-                            } else {
-                            }
-                            unsigned char v732;
-                            v732 = v724.v[v726];
-                            bool v734;
-                            if (v728){
-                                bool v733;
-                                v733 = v726 < 5l;
-                                v734 = v733;
-                            } else {
-                                v734 = false;
-                            }
-                            bool v735;
-                            v735 = v734 == false;
-                            if (v735){
-                                assert("The read index needs to be in range for the static array." && v734);
+                            bool v697;
+                            v697 = v696 == false;
+                            if (v697){
+                                assert("The read index needs to be in range for the static array." && v696);
                             } else {
                             }
-                            v725.v[v726] = v732;
-                            v726 += 1l ;
+                            unsigned char v698;
+                            v698 = v690.v[v692];
+                            bool v700;
+                            if (v694){
+                                bool v699;
+                                v699 = v692 < 5l;
+                                v700 = v699;
+                            } else {
+                                v700 = false;
+                            }
+                            bool v701;
+                            v701 = v700 == false;
+                            if (v701){
+                                assert("The read index needs to be in range for the static array." && v700);
+                            } else {
+                            }
+                            v691.v[v692] = v698;
+                            v692 += 1l ;
                         }
-                        long v736;
-                        v736 = 0l;
-                        while (while_method_6(v736)){
-                            bool v738;
-                            v738 = 0l <= v736;
-                            bool v740;
-                            if (v738){
-                                bool v739;
-                                v739 = v736 < 1l;
-                                v740 = v739;
+                        long v702;
+                        v702 = 0l;
+                        while (while_method_6(v702)){
+                            bool v704;
+                            v704 = 0l <= v702;
+                            bool v706;
+                            if (v704){
+                                bool v705;
+                                v705 = v702 < 1l;
+                                v706 = v705;
                             } else {
-                                v740 = false;
+                                v706 = false;
                             }
-                            bool v741;
-                            v741 = v740 == false;
-                            if (v741){
-                                assert("The read index needs to be in range for the static array." && v740);
-                            } else {
-                            }
-                            unsigned char v742;
-                            v742 = v711.v[v736];
-                            long v743;
-                            v743 = 4l + v736;
-                            bool v744;
-                            v744 = 0l <= v743;
-                            bool v746;
-                            if (v744){
-                                bool v745;
-                                v745 = v743 < 5l;
-                                v746 = v745;
-                            } else {
-                                v746 = false;
-                            }
-                            bool v747;
-                            v747 = v746 == false;
-                            if (v747){
-                                assert("The read index needs to be in range for the static array." && v746);
+                            bool v707;
+                            v707 = v706 == false;
+                            if (v707){
+                                assert("The read index needs to be in range for the static array." && v706);
                             } else {
                             }
-                            v725.v[v743] = v742;
-                            v736 += 1l ;
+                            unsigned char v708;
+                            v708 = v677.v[v702];
+                            long v709;
+                            v709 = 4l + v702;
+                            bool v710;
+                            v710 = 0l <= v709;
+                            bool v712;
+                            if (v710){
+                                bool v711;
+                                v711 = v709 < 5l;
+                                v712 = v711;
+                            } else {
+                                v712 = false;
+                            }
+                            bool v713;
+                            v713 = v712 == false;
+                            if (v713){
+                                assert("The read index needs to be in range for the static array." && v712);
+                            } else {
+                            }
+                            v691.v[v709] = v708;
+                            v702 += 1l ;
                         }
-                        v750 = US6_2(v725);
+                        v716 = US6_2(v691);
                         break;
                     }
                     default: {
@@ -7317,19 +7490,23 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                US5 v751;
-                v751 = US5_4(v704, true, v706, 0l, v708, v709, v750);
-                v806 = true; v807 = v751;
+                long v717;
+                v717 = 0l;
+                US5 v718;
+                v718 = try_round_38(v671, v672, v673, v717, v675, v716);
+                v775 = true; v776 = v718;
                 break;
             }
             case 4: { // G_Round
-                long v146 = v8.v.case4.v0; bool v147 = v8.v.case4.v1; static_array<static_array<unsigned char,2l>,2l> v148 = v8.v.case4.v2; long v149 = v8.v.case4.v3; static_array<long,2l> v150 = v8.v.case4.v4; static_array<long,2l> v151 = v8.v.case4.v5; US6 v152 = v8.v.case4.v6;
+                long v146 = v8.v.case4.v0; static_array<static_array<unsigned char,2l>,2l> v147 = v8.v.case4.v1; static_array<long,2l> v148 = v8.v.case4.v2; long v149 = v8.v.case4.v3; static_array<long,2l> v150 = v8.v.case4.v4; US6 v151 = v8.v.case4.v5;
+                long v152;
+                v152 = v149 % 2l;
                 bool v153;
-                v153 = 0l <= v149;
+                v153 = 0l <= v152;
                 bool v155;
                 if (v153){
                     bool v154;
-                    v154 = v149 < 2l;
+                    v154 = v152 < 2l;
                     v155 = v154;
                 } else {
                     v155 = false;
@@ -7341,7 +7518,7 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 } else {
                 }
                 US2 v157;
-                v157 = v3.v[v149];
+                v157 = v3.v[v152];
                 switch (v157.tag) {
                     case 0: { // Computer
                         static_array<long,2l> v158;
@@ -7365,7 +7542,7 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v165;
-                            v165 = v151.v[v159];
+                            v165 = v150.v[v159];
                             bool v167;
                             if (v161){
                                 bool v166;
@@ -7381,7 +7558,7 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v169;
-                            v169 = v150.v[v159];
+                            v169 = v148.v[v159];
                             long v170;
                             v170 = v165 + v169;
                             bool v172;
@@ -7402,10 +7579,10 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             v159 += 1l ;
                         }
                         long v174;
-                        v174 = v150.v[0l];
+                        v174 = v148.v[0l];
                         long v175; long v176;
-                        Tuple2 tmp27 = Tuple2(1l, v174);
-                        v175 = tmp27.v0; v176 = tmp27.v1;
+                        Tuple2 tmp28 = Tuple2(1l, v174);
+                        v175 = tmp28.v0; v176 = tmp28.v1;
                         while (while_method_0(v175)){
                             bool v178;
                             v178 = 0l <= v175;
@@ -7424,7 +7601,7 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v182;
-                            v182 = v150.v[v175];
+                            v182 = v148.v[v175];
                             bool v183;
                             v183 = v176 >= v182;
                             long v184;
@@ -7436,85 +7613,87 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             v176 = v184;
                             v175 += 1l ;
                         }
-                        static_array<long,2l> v185;
-                        long v186;
-                        v186 = 0l;
-                        while (while_method_0(v186)){
-                            bool v188;
-                            v188 = 0l <= v186;
-                            bool v190;
-                            if (v188){
-                                bool v189;
-                                v189 = v186 < 2l;
-                                v190 = v189;
-                            } else {
-                                v190 = false;
-                            }
-                            bool v191;
-                            v191 = v190 == false;
-                            if (v191){
-                                assert("The read index needs to be in range for the static array." && v190);
-                            } else {
-                            }
-                            long v192;
-                            v192 = v158.v[v186];
-                            bool v193;
-                            v193 = v149 == v186;
-                            long v196;
-                            if (v193){
-                                bool v194;
-                                v194 = v176 < v192;
-                                if (v194){
-                                    v196 = v176;
-                                } else {
-                                    v196 = v192;
-                                }
-                            } else {
-                                v196 = v192;
-                            }
-                            bool v198;
-                            if (v188){
-                                bool v197;
-                                v197 = v186 < 2l;
-                                v198 = v197;
-                            } else {
-                                v198 = false;
-                            }
-                            bool v199;
-                            v199 = v198 == false;
-                            if (v199){
-                                assert("The read index needs to be in range for the static array." && v198);
-                            } else {
-                            }
-                            v185.v[v186] = v196;
-                            v186 += 1l ;
+                        bool v186;
+                        if (v153){
+                            bool v185;
+                            v185 = v152 < 2l;
+                            v186 = v185;
+                        } else {
+                            v186 = false;
                         }
-                        static_array<long,2l> v200;
-                        long v201;
-                        v201 = 0l;
-                        while (while_method_0(v201)){
+                        bool v187;
+                        v187 = v186 == false;
+                        if (v187){
+                            assert("The read index needs to be in range for the static array." && v186);
+                        } else {
+                        }
+                        long v188;
+                        v188 = v158.v[v152];
+                        bool v189;
+                        v189 = v176 < v188;
+                        long v190;
+                        if (v189){
+                            v190 = v176;
+                        } else {
+                            v190 = v188;
+                        }
+                        static_array<long,2l> v191;
+                        long v192;
+                        v192 = 0l;
+                        while (while_method_0(v192)){
+                            bool v194;
+                            v194 = 0l <= v192;
+                            bool v196;
+                            if (v194){
+                                bool v195;
+                                v195 = v192 < 2l;
+                                v196 = v195;
+                            } else {
+                                v196 = false;
+                            }
+                            bool v197;
+                            v197 = v196 == false;
+                            if (v197){
+                                assert("The read index needs to be in range for the static array." && v196);
+                            } else {
+                            }
+                            long v198;
+                            v198 = v148.v[v192];
+                            bool v199;
+                            v199 = v152 == v192;
+                            long v200;
+                            if (v199){
+                                v200 = v190;
+                            } else {
+                                v200 = v198;
+                            }
+                            bool v202;
+                            if (v194){
+                                bool v201;
+                                v201 = v192 < 2l;
+                                v202 = v201;
+                            } else {
+                                v202 = false;
+                            }
                             bool v203;
-                            v203 = 0l <= v201;
-                            bool v205;
+                            v203 = v202 == false;
                             if (v203){
-                                bool v204;
-                                v204 = v201 < 2l;
-                                v205 = v204;
-                            } else {
-                                v205 = false;
-                            }
-                            bool v206;
-                            v206 = v205 == false;
-                            if (v206){
-                                assert("The read index needs to be in range for the static array." && v205);
+                                assert("The read index needs to be in range for the static array." && v202);
                             } else {
                             }
-                            long v207;
-                            v207 = v158.v[v201];
+                            v191.v[v192] = v200;
+                            v192 += 1l ;
+                        }
+                        static_array<long,2l> v204;
+                        long v205;
+                        v205 = 0l;
+                        while (while_method_0(v205)){
+                            bool v207;
+                            v207 = 0l <= v205;
                             bool v209;
-                            if (v203){
+                            if (v207){
                                 bool v208;
-                                v208 = v201 < 2l;
+                                v208 = v205 < 2l;
                                 v209 = v208;
                             } else {
                                 v209 = false;
@@ -7526,830 +7705,808 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v211;
-                            v211 = v185.v[v201];
-                            long v212;
-                            v212 = v207 - v211;
+                            v211 = v158.v[v205];
+                            bool v213;
+                            if (v207){
+                                bool v212;
+                                v212 = v205 < 2l;
+                                v213 = v212;
+                            } else {
+                                v213 = false;
+                            }
                             bool v214;
-                            if (v203){
-                                bool v213;
-                                v213 = v201 < 2l;
-                                v214 = v213;
-                            } else {
-                                v214 = false;
-                            }
-                            bool v215;
-                            v215 = v214 == false;
-                            if (v215){
-                                assert("The read index needs to be in range for the static array." && v214);
+                            v214 = v213 == false;
+                            if (v214){
+                                assert("The read index needs to be in range for the static array." && v213);
                             } else {
                             }
-                            v200.v[v201] = v212;
-                            v201 += 1l ;
+                            long v215;
+                            v215 = v191.v[v205];
+                            long v216;
+                            v216 = v211 - v215;
+                            bool v218;
+                            if (v207){
+                                bool v217;
+                                v217 = v205 < 2l;
+                                v218 = v217;
+                            } else {
+                                v218 = false;
+                            }
+                            bool v219;
+                            v219 = v218 == false;
+                            if (v219){
+                                assert("The read index needs to be in range for the static array." && v218);
+                            } else {
+                            }
+                            v204.v[v205] = v216;
+                            v205 += 1l ;
                         }
-                        long v216;
-                        v216 = v185.v[0l];
-                        long v217; long v218;
-                        Tuple2 tmp28 = Tuple2(1l, v216);
-                        v217 = tmp28.v0; v218 = tmp28.v1;
-                        while (while_method_0(v217)){
-                            bool v220;
-                            v220 = 0l <= v217;
-                            bool v222;
-                            if (v220){
-                                bool v221;
-                                v221 = v217 < 2l;
-                                v222 = v221;
-                            } else {
-                                v222 = false;
-                            }
-                            bool v223;
-                            v223 = v222 == false;
-                            if (v223){
-                                assert("The read index needs to be in range for the static array." && v222);
-                            } else {
-                            }
-                            long v224;
-                            v224 = v185.v[v217];
-                            long v225;
-                            v225 = v218 + v224;
-                            v218 = v225;
-                            v217 += 1l ;
-                        }
-                        bool v227;
-                        if (v153){
+                        long v220;
+                        v220 = v191.v[0l];
+                        long v221; long v222;
+                        Tuple2 tmp29 = Tuple2(1l, v220);
+                        v221 = tmp29.v0; v222 = tmp29.v1;
+                        while (while_method_0(v221)){
+                            bool v224;
+                            v224 = 0l <= v221;
                             bool v226;
-                            v226 = v149 < 2l;
-                            v227 = v226;
-                        } else {
-                            v227 = false;
+                            if (v224){
+                                bool v225;
+                                v225 = v221 < 2l;
+                                v226 = v225;
+                            } else {
+                                v226 = false;
+                            }
+                            bool v227;
+                            v227 = v226 == false;
+                            if (v227){
+                                assert("The read index needs to be in range for the static array." && v226);
+                            } else {
+                            }
+                            long v228;
+                            v228 = v191.v[v221];
+                            long v229;
+                            v229 = v222 + v228;
+                            v222 = v229;
+                            v221 += 1l ;
                         }
-                        bool v228;
-                        v228 = v227 == false;
-                        if (v228){
-                            assert("The read index needs to be in range for the static array." && v227);
-                        } else {
-                        }
-                        long v229;
-                        v229 = v150.v[v149];
-                        long v230;
-                        v230 = v149 ^ 1l;
                         bool v231;
-                        v231 = 0l <= v230;
-                        bool v233;
-                        if (v231){
-                            bool v232;
-                            v232 = v230 < 2l;
-                            v233 = v232;
+                        if (v153){
+                            bool v230;
+                            v230 = v152 < 2l;
+                            v231 = v230;
                         } else {
-                            v233 = false;
+                            v231 = false;
                         }
+                        bool v232;
+                        v232 = v231 == false;
+                        if (v232){
+                            assert("The read index needs to be in range for the static array." && v231);
+                        } else {
+                        }
+                        long v233;
+                        v233 = v148.v[v152];
                         bool v234;
-                        v234 = v233 == false;
+                        v234 = v233 < v176;
+                        float v235;
                         if (v234){
-                            assert("The read index needs to be in range for the static array." && v233);
+                            v235 = 1.0f;
                         } else {
+                            v235 = 0.0f;
                         }
-                        long v235;
-                        v235 = v150.v[v230];
-                        bool v236;
-                        v236 = v229 < v235;
-                        float v237;
-                        if (v236){
-                            v237 = 1.0f;
-                        } else {
-                            v237 = 0.0f;
-                        }
-                        long v238;
-                        v238 = v218 / 4l;
-                        bool v240;
+                        long v236;
+                        v236 = v222 / 4l;
+                        bool v238;
                         if (v153){
-                            bool v239;
-                            v239 = v149 < 2l;
-                            v240 = v239;
+                            bool v237;
+                            v237 = v152 < 2l;
+                            v238 = v237;
                         } else {
-                            v240 = false;
+                            v238 = false;
                         }
+                        bool v239;
+                        v239 = v238 == false;
+                        if (v239){
+                            assert("The read index needs to be in range for the static array." && v238);
+                        } else {
+                        }
+                        long v240;
+                        v240 = v204.v[v152];
                         bool v241;
-                        v241 = v240 == false;
+                        v241 = v236 <= v240;
+                        float v242;
                         if (v241){
-                            assert("The read index needs to be in range for the static array." && v240);
+                            v242 = 1.0f;
                         } else {
+                            v242 = 0.0f;
                         }
-                        long v242;
-                        v242 = v200.v[v149];
-                        bool v243;
-                        v243 = v238 <= v242;
-                        float v244;
-                        if (v243){
-                            v244 = 1.0f;
-                        } else {
-                            v244 = 0.0f;
-                        }
-                        long v245;
-                        v245 = v218 / 3l;
-                        bool v247;
+                        long v243;
+                        v243 = v222 / 3l;
+                        bool v245;
                         if (v153){
-                            bool v246;
-                            v246 = v149 < 2l;
-                            v247 = v246;
+                            bool v244;
+                            v244 = v152 < 2l;
+                            v245 = v244;
                         } else {
-                            v247 = false;
+                            v245 = false;
                         }
+                        bool v246;
+                        v246 = v245 == false;
+                        if (v246){
+                            assert("The read index needs to be in range for the static array." && v245);
+                        } else {
+                        }
+                        long v247;
+                        v247 = v204.v[v152];
                         bool v248;
-                        v248 = v247 == false;
+                        v248 = v243 <= v247;
+                        float v249;
                         if (v248){
-                            assert("The read index needs to be in range for the static array." && v247);
+                            v249 = 1.0f;
                         } else {
+                            v249 = 0.0f;
                         }
-                        long v249;
-                        v249 = v200.v[v149];
-                        bool v250;
-                        v250 = v245 <= v249;
-                        float v251;
-                        if (v250){
-                            v251 = 1.0f;
-                        } else {
-                            v251 = 0.0f;
-                        }
-                        long v252;
-                        v252 = v218 / 2l;
-                        bool v254;
+                        long v250;
+                        v250 = v222 / 2l;
+                        bool v252;
                         if (v153){
-                            bool v253;
-                            v253 = v149 < 2l;
-                            v254 = v253;
+                            bool v251;
+                            v251 = v152 < 2l;
+                            v252 = v251;
                         } else {
-                            v254 = false;
+                            v252 = false;
                         }
+                        bool v253;
+                        v253 = v252 == false;
+                        if (v253){
+                            assert("The read index needs to be in range for the static array." && v252);
+                        } else {
+                        }
+                        long v254;
+                        v254 = v204.v[v152];
                         bool v255;
-                        v255 = v254 == false;
+                        v255 = v250 <= v254;
+                        float v256;
                         if (v255){
-                            assert("The read index needs to be in range for the static array." && v254);
+                            v256 = 1.0f;
                         } else {
+                            v256 = 0.0f;
                         }
-                        long v256;
-                        v256 = v200.v[v149];
-                        bool v257;
-                        v257 = v252 <= v256;
-                        float v258;
-                        if (v257){
-                            v258 = 1.0f;
-                        } else {
-                            v258 = 0.0f;
-                        }
-                        bool v260;
+                        bool v258;
                         if (v153){
-                            bool v259;
-                            v259 = v149 < 2l;
-                            v260 = v259;
+                            bool v257;
+                            v257 = v152 < 2l;
+                            v258 = v257;
                         } else {
-                            v260 = false;
+                            v258 = false;
                         }
+                        bool v259;
+                        v259 = v258 == false;
+                        if (v259){
+                            assert("The read index needs to be in range for the static array." && v258);
+                        } else {
+                        }
+                        long v260;
+                        v260 = v204.v[v152];
                         bool v261;
-                        v261 = v260 == false;
+                        v261 = v222 <= v260;
+                        float v262;
                         if (v261){
-                            assert("The read index needs to be in range for the static array." && v260);
+                            v262 = 1.0f;
                         } else {
+                            v262 = 0.0f;
                         }
-                        long v262;
-                        v262 = v200.v[v149];
-                        bool v263;
-                        v263 = v218 <= v262;
-                        float v264;
-                        if (v263){
-                            v264 = 1.0f;
-                        } else {
-                            v264 = 0.0f;
-                        }
-                        long v265;
-                        v265 = v218 * 3l;
-                        long v266;
-                        v266 = v265 / 2l;
-                        bool v268;
+                        long v263;
+                        v263 = v222 * 3l;
+                        long v264;
+                        v264 = v263 / 2l;
+                        bool v266;
                         if (v153){
-                            bool v267;
-                            v267 = v149 < 2l;
-                            v268 = v267;
+                            bool v265;
+                            v265 = v152 < 2l;
+                            v266 = v265;
                         } else {
-                            v268 = false;
+                            v266 = false;
                         }
+                        bool v267;
+                        v267 = v266 == false;
+                        if (v267){
+                            assert("The read index needs to be in range for the static array." && v266);
+                        } else {
+                        }
+                        long v268;
+                        v268 = v204.v[v152];
                         bool v269;
-                        v269 = v268 == false;
+                        v269 = v264 <= v268;
+                        float v270;
                         if (v269){
-                            assert("The read index needs to be in range for the static array." && v268);
+                            v270 = 1.0f;
                         } else {
+                            v270 = 0.0f;
                         }
-                        long v270;
-                        v270 = v200.v[v149];
-                        bool v271;
-                        v271 = v266 <= v270;
-                        float v272;
-                        if (v271){
-                            v272 = 1.0f;
-                        } else {
-                            v272 = 0.0f;
-                        }
-                        bool v274;
+                        bool v272;
                         if (v153){
-                            bool v273;
-                            v273 = v149 < 2l;
-                            v274 = v273;
+                            bool v271;
+                            v271 = v152 < 2l;
+                            v272 = v271;
                         } else {
-                            v274 = false;
+                            v272 = false;
                         }
-                        bool v275;
-                        v275 = v274 == false;
-                        if (v275){
-                            assert("The read index needs to be in range for the static array." && v274);
+                        bool v273;
+                        v273 = v272 == false;
+                        if (v273){
+                            assert("The read index needs to be in range for the static array." && v272);
                         } else {
                         }
-                        long v276;
-                        v276 = v200.v[v149];
-                        bool v278;
+                        long v274;
+                        v274 = v204.v[v152];
+                        bool v276;
                         if (v153){
-                            bool v277;
-                            v277 = v149 < 2l;
-                            v278 = v277;
+                            bool v275;
+                            v275 = v152 < 2l;
+                            v276 = v275;
                         } else {
-                            v278 = false;
+                            v276 = false;
                         }
+                        bool v277;
+                        v277 = v276 == false;
+                        if (v277){
+                            assert("The read index needs to be in range for the static array." && v276);
+                        } else {
+                        }
+                        long v278;
+                        v278 = v204.v[v152];
                         bool v279;
-                        v279 = v278 == false;
+                        v279 = v274 <= v278;
+                        float v280;
                         if (v279){
-                            assert("The read index needs to be in range for the static array." && v278);
+                            v280 = 1.0f;
                         } else {
+                            v280 = 0.0f;
                         }
-                        long v280;
-                        v280 = v200.v[v149];
-                        bool v281;
-                        v281 = v276 <= v280;
-                        float v282;
-                        if (v281){
-                            v282 = 1.0f;
-                        } else {
-                            v282 = 0.0f;
-                        }
-                        static_array<Tuple15,8l> v283;
+                        static_array<Tuple15,8l> v281;
+                        US1 v282;
+                        v282 = US1_1();
+                        v281.v[0l] = Tuple15(v282, v235);
+                        US1 v283;
+                        v283 = US1_0();
+                        v281.v[1l] = Tuple15(v283, 2.0f);
                         US1 v284;
-                        v284 = US1_1();
-                        v283.v[0l] = Tuple15(v284, v237);
+                        v284 = US1_2(v236);
+                        v281.v[2l] = Tuple15(v284, v242);
                         US1 v285;
-                        v285 = US1_0();
-                        v283.v[1l] = Tuple15(v285, 2.0f);
+                        v285 = US1_2(v243);
+                        v281.v[3l] = Tuple15(v285, v249);
                         US1 v286;
-                        v286 = US1_2(v238);
-                        v283.v[2l] = Tuple15(v286, v244);
+                        v286 = US1_2(v250);
+                        v281.v[4l] = Tuple15(v286, v256);
                         US1 v287;
-                        v287 = US1_2(v245);
-                        v283.v[3l] = Tuple15(v287, v251);
+                        v287 = US1_2(v222);
+                        v281.v[5l] = Tuple15(v287, v262);
                         US1 v288;
-                        v288 = US1_2(v252);
-                        v283.v[4l] = Tuple15(v288, v258);
+                        v288 = US1_2(v264);
+                        v281.v[6l] = Tuple15(v288, v270);
                         US1 v289;
-                        v289 = US1_2(v218);
-                        v283.v[5l] = Tuple15(v289, v264);
+                        v289 = US1_2(v274);
+                        v281.v[7l] = Tuple15(v289, v280);
                         US1 v290;
-                        v290 = US1_2(v266);
-                        v283.v[6l] = Tuple15(v290, v272);
-                        US1 v291;
-                        v291 = US1_2(v276);
-                        v283.v[7l] = Tuple15(v291, v282);
-                        US1 v292;
-                        v292 = sample_discrete_41(v283, v2);
-                        long v293;
-                        v293 = v5.length;
-                        bool v294;
-                        v294 = v293 < 128l;
+                        v290 = sample_discrete_44(v281, v2);
+                        long v291;
+                        v291 = v5.length;
+                        bool v292;
+                        v292 = v291 < 128l;
+                        bool v293;
+                        v293 = v292 == false;
+                        if (v293){
+                            assert("The length has to be less than the maximum length of the array." && v292);
+                        } else {
+                        }
+                        long v294;
+                        v294 = v291 + 1l;
+                        v5.length = v294;
                         bool v295;
-                        v295 = v294 == false;
+                        v295 = 0l <= v291;
+                        bool v298;
                         if (v295){
-                            assert("The length has to be less than the maximum length of the array." && v294);
+                            long v296;
+                            v296 = v5.length;
+                            bool v297;
+                            v297 = v291 < v296;
+                            v298 = v297;
+                        } else {
+                            v298 = false;
+                        }
+                        bool v299;
+                        v299 = v298 == false;
+                        if (v299){
+                            assert("The set index needs to be in range for the static array list." && v298);
                         } else {
                         }
-                        long v296;
-                        v296 = v293 + 1l;
-                        v5.length = v296;
-                        bool v297;
-                        v297 = 0l <= v293;
-                        bool v300;
-                        if (v297){
-                            long v298;
-                            v298 = v5.length;
-                            bool v299;
-                            v299 = v293 < v298;
-                            v300 = v299;
-                        } else {
-                            v300 = false;
-                        }
-                        bool v301;
-                        v301 = v300 == false;
-                        if (v301){
-                            assert("The set index needs to be in range for the static array list." && v300);
-                        } else {
-                        }
-                        US3 v302;
-                        v302 = US3_2(v149, v292);
-                        v5.v[v293] = v302;
-                        US5 v454;
-                        switch (v292.tag) {
+                        US3 v300;
+                        v300 = US3_2(v152, v290);
+                        v5.v[v291] = v300;
+                        US5 v437;
+                        switch (v290.tag) {
                             case 0: { // A_Call
-                                static_array<long,2l> v304;
-                                long v305;
-                                v305 = 0l;
-                                while (while_method_0(v305)){
+                                static_array<long,2l> v302;
+                                long v303;
+                                v303 = 0l;
+                                while (while_method_0(v303)){
+                                    bool v305;
+                                    v305 = 0l <= v303;
                                     bool v307;
-                                    v307 = 0l <= v305;
-                                    bool v309;
-                                    if (v307){
-                                        bool v308;
-                                        v308 = v305 < 2l;
-                                        v309 = v308;
+                                    if (v305){
+                                        bool v306;
+                                        v306 = v303 < 2l;
+                                        v307 = v306;
                                     } else {
-                                        v309 = false;
+                                        v307 = false;
                                     }
-                                    bool v310;
-                                    v310 = v309 == false;
-                                    if (v310){
-                                        assert("The read index needs to be in range for the static array." && v309);
+                                    bool v308;
+                                    v308 = v307 == false;
+                                    if (v308){
+                                        assert("The read index needs to be in range for the static array." && v307);
                                     } else {
                                     }
-                                    long v311;
-                                    v311 = v151.v[v305];
-                                    bool v313;
-                                    if (v307){
-                                        bool v312;
-                                        v312 = v305 < 2l;
-                                        v313 = v312;
+                                    long v309;
+                                    v309 = v150.v[v303];
+                                    bool v311;
+                                    if (v305){
+                                        bool v310;
+                                        v310 = v303 < 2l;
+                                        v311 = v310;
                                     } else {
-                                        v313 = false;
+                                        v311 = false;
                                     }
-                                    bool v314;
-                                    v314 = v313 == false;
-                                    if (v314){
-                                        assert("The read index needs to be in range for the static array." && v313);
-                                    } else {
-                                    }
-                                    long v315;
-                                    v315 = v150.v[v305];
-                                    long v316;
-                                    v316 = v311 + v315;
-                                    bool v318;
-                                    if (v307){
-                                        bool v317;
-                                        v317 = v305 < 2l;
-                                        v318 = v317;
-                                    } else {
-                                        v318 = false;
-                                    }
-                                    bool v319;
-                                    v319 = v318 == false;
-                                    if (v319){
-                                        assert("The read index needs to be in range for the static array." && v318);
+                                    bool v312;
+                                    v312 = v311 == false;
+                                    if (v312){
+                                        assert("The read index needs to be in range for the static array." && v311);
                                     } else {
                                     }
-                                    v304.v[v305] = v316;
-                                    v305 += 1l ;
+                                    long v313;
+                                    v313 = v148.v[v303];
+                                    long v314;
+                                    v314 = v309 + v313;
+                                    bool v316;
+                                    if (v305){
+                                        bool v315;
+                                        v315 = v303 < 2l;
+                                        v316 = v315;
+                                    } else {
+                                        v316 = false;
+                                    }
+                                    bool v317;
+                                    v317 = v316 == false;
+                                    if (v317){
+                                        assert("The read index needs to be in range for the static array." && v316);
+                                    } else {
+                                    }
+                                    v302.v[v303] = v314;
+                                    v303 += 1l ;
                                 }
-                                long v320;
-                                v320 = v150.v[0l];
-                                long v321; long v322;
-                                Tuple2 tmp31 = Tuple2(1l, v320);
-                                v321 = tmp31.v0; v322 = tmp31.v1;
-                                while (while_method_0(v321)){
+                                long v318;
+                                v318 = v148.v[0l];
+                                long v319; long v320;
+                                Tuple2 tmp32 = Tuple2(1l, v318);
+                                v319 = tmp32.v0; v320 = tmp32.v1;
+                                while (while_method_0(v319)){
+                                    bool v322;
+                                    v322 = 0l <= v319;
                                     bool v324;
-                                    v324 = 0l <= v321;
-                                    bool v326;
-                                    if (v324){
-                                        bool v325;
-                                        v325 = v321 < 2l;
-                                        v326 = v325;
+                                    if (v322){
+                                        bool v323;
+                                        v323 = v319 < 2l;
+                                        v324 = v323;
                                     } else {
-                                        v326 = false;
+                                        v324 = false;
                                     }
+                                    bool v325;
+                                    v325 = v324 == false;
+                                    if (v325){
+                                        assert("The read index needs to be in range for the static array." && v324);
+                                    } else {
+                                    }
+                                    long v326;
+                                    v326 = v148.v[v319];
                                     bool v327;
-                                    v327 = v326 == false;
-                                    if (v327){
-                                        assert("The read index needs to be in range for the static array." && v326);
-                                    } else {
-                                    }
+                                    v327 = v320 >= v326;
                                     long v328;
-                                    v328 = v150.v[v321];
+                                    if (v327){
+                                        v328 = v320;
+                                    } else {
+                                        v328 = v326;
+                                    }
+                                    v320 = v328;
+                                    v319 += 1l ;
+                                }
+                                bool v330;
+                                if (v153){
                                     bool v329;
-                                    v329 = v322 >= v328;
-                                    long v330;
-                                    if (v329){
-                                        v330 = v322;
-                                    } else {
-                                        v330 = v328;
-                                    }
-                                    v322 = v330;
-                                    v321 += 1l ;
-                                }
-                                static_array<long,2l> v331;
-                                long v332;
-                                v332 = 0l;
-                                while (while_method_0(v332)){
-                                    bool v334;
-                                    v334 = 0l <= v332;
-                                    bool v336;
-                                    if (v334){
-                                        bool v335;
-                                        v335 = v332 < 2l;
-                                        v336 = v335;
-                                    } else {
-                                        v336 = false;
-                                    }
-                                    bool v337;
-                                    v337 = v336 == false;
-                                    if (v337){
-                                        assert("The read index needs to be in range for the static array." && v336);
-                                    } else {
-                                    }
-                                    long v338;
-                                    v338 = v304.v[v332];
-                                    bool v339;
-                                    v339 = v149 == v332;
-                                    long v342;
-                                    if (v339){
-                                        bool v340;
-                                        v340 = v322 < v338;
-                                        if (v340){
-                                            v342 = v322;
-                                        } else {
-                                            v342 = v338;
-                                        }
-                                    } else {
-                                        v342 = v338;
-                                    }
-                                    bool v344;
-                                    if (v334){
-                                        bool v343;
-                                        v343 = v332 < 2l;
-                                        v344 = v343;
-                                    } else {
-                                        v344 = false;
-                                    }
-                                    bool v345;
-                                    v345 = v344 == false;
-                                    if (v345){
-                                        assert("The read index needs to be in range for the static array." && v344);
-                                    } else {
-                                    }
-                                    v331.v[v332] = v342;
-                                    v332 += 1l ;
-                                }
-                                static_array<long,2l> v346;
-                                long v347;
-                                v347 = 0l;
-                                while (while_method_0(v347)){
-                                    bool v349;
-                                    v349 = 0l <= v347;
-                                    bool v351;
-                                    if (v349){
-                                        bool v350;
-                                        v350 = v347 < 2l;
-                                        v351 = v350;
-                                    } else {
-                                        v351 = false;
-                                    }
-                                    bool v352;
-                                    v352 = v351 == false;
-                                    if (v352){
-                                        assert("The read index needs to be in range for the static array." && v351);
-                                    } else {
-                                    }
-                                    long v353;
-                                    v353 = v304.v[v347];
-                                    bool v355;
-                                    if (v349){
-                                        bool v354;
-                                        v354 = v347 < 2l;
-                                        v355 = v354;
-                                    } else {
-                                        v355 = false;
-                                    }
-                                    bool v356;
-                                    v356 = v355 == false;
-                                    if (v356){
-                                        assert("The read index needs to be in range for the static array." && v355);
-                                    } else {
-                                    }
-                                    long v357;
-                                    v357 = v331.v[v347];
-                                    long v358;
-                                    v358 = v353 - v357;
-                                    bool v360;
-                                    if (v349){
-                                        bool v359;
-                                        v359 = v347 < 2l;
-                                        v360 = v359;
-                                    } else {
-                                        v360 = false;
-                                    }
-                                    bool v361;
-                                    v361 = v360 == false;
-                                    if (v361){
-                                        assert("The read index needs to be in range for the static array." && v360);
-                                    } else {
-                                    }
-                                    v346.v[v347] = v358;
-                                    v347 += 1l ;
-                                }
-                                if (v147){
-                                    v454 = US5_4(v146, false, v148, v230, v331, v346, v152);
+                                    v329 = v152 < 2l;
+                                    v330 = v329;
                                 } else {
-                                    switch (v152.tag) {
-                                        case 0: { // Flop
-                                            static_array<unsigned char,3l> v364 = v152.v.case0.v0;
-                                            v454 = US5_7(v146, v147, v148, v149, v331, v346, v152);
-                                            break;
-                                        }
-                                        case 1: { // Preflop
-                                            v454 = US5_0(v146, v147, v148, v149, v331, v346, v152);
-                                            break;
-                                        }
-                                        case 2: { // River
-                                            static_array<unsigned char,5l> v368 = v152.v.case2.v0;
-                                            v454 = US5_6(v146, v147, v148, v149, v331, v346, v152);
-                                            break;
-                                        }
-                                        case 3: { // Turn
-                                            static_array<unsigned char,4l> v366 = v152.v.case3.v0;
-                                            v454 = US5_3(v146, v147, v148, v149, v331, v346, v152);
-                                            break;
-                                        }
-                                        default: {
-                                            assert("Invalid tag." && false);
-                                        }
+                                    v330 = false;
+                                }
+                                bool v331;
+                                v331 = v330 == false;
+                                if (v331){
+                                    assert("The read index needs to be in range for the static array." && v330);
+                                } else {
+                                }
+                                long v332;
+                                v332 = v302.v[v152];
+                                bool v333;
+                                v333 = v320 < v332;
+                                long v334;
+                                if (v333){
+                                    v334 = v320;
+                                } else {
+                                    v334 = v332;
+                                }
+                                static_array<long,2l> v335;
+                                long v336;
+                                v336 = 0l;
+                                while (while_method_0(v336)){
+                                    bool v338;
+                                    v338 = 0l <= v336;
+                                    bool v340;
+                                    if (v338){
+                                        bool v339;
+                                        v339 = v336 < 2l;
+                                        v340 = v339;
+                                    } else {
+                                        v340 = false;
                                     }
+                                    bool v341;
+                                    v341 = v340 == false;
+                                    if (v341){
+                                        assert("The read index needs to be in range for the static array." && v340);
+                                    } else {
+                                    }
+                                    long v342;
+                                    v342 = v148.v[v336];
+                                    bool v343;
+                                    v343 = v152 == v336;
+                                    long v344;
+                                    if (v343){
+                                        v344 = v334;
+                                    } else {
+                                        v344 = v342;
+                                    }
+                                    bool v346;
+                                    if (v338){
+                                        bool v345;
+                                        v345 = v336 < 2l;
+                                        v346 = v345;
+                                    } else {
+                                        v346 = false;
+                                    }
+                                    bool v347;
+                                    v347 = v346 == false;
+                                    if (v347){
+                                        assert("The read index needs to be in range for the static array." && v346);
+                                    } else {
+                                    }
+                                    v335.v[v336] = v344;
+                                    v336 += 1l ;
+                                }
+                                static_array<long,2l> v348;
+                                long v349;
+                                v349 = 0l;
+                                while (while_method_0(v349)){
+                                    bool v351;
+                                    v351 = 0l <= v349;
+                                    bool v353;
+                                    if (v351){
+                                        bool v352;
+                                        v352 = v349 < 2l;
+                                        v353 = v352;
+                                    } else {
+                                        v353 = false;
+                                    }
+                                    bool v354;
+                                    v354 = v353 == false;
+                                    if (v354){
+                                        assert("The read index needs to be in range for the static array." && v353);
+                                    } else {
+                                    }
+                                    long v355;
+                                    v355 = v302.v[v349];
+                                    bool v357;
+                                    if (v351){
+                                        bool v356;
+                                        v356 = v349 < 2l;
+                                        v357 = v356;
+                                    } else {
+                                        v357 = false;
+                                    }
+                                    bool v358;
+                                    v358 = v357 == false;
+                                    if (v358){
+                                        assert("The read index needs to be in range for the static array." && v357);
+                                    } else {
+                                    }
+                                    long v359;
+                                    v359 = v335.v[v349];
+                                    long v360;
+                                    v360 = v355 - v359;
+                                    bool v362;
+                                    if (v351){
+                                        bool v361;
+                                        v361 = v349 < 2l;
+                                        v362 = v361;
+                                    } else {
+                                        v362 = false;
+                                    }
+                                    bool v363;
+                                    v363 = v362 == false;
+                                    if (v363){
+                                        assert("The read index needs to be in range for the static array." && v362);
+                                    } else {
+                                    }
+                                    v348.v[v349] = v360;
+                                    v349 += 1l ;
+                                }
+                                bool v364;
+                                v364 = v152 < 2l;
+                                if (v364){
+                                    long v365;
+                                    v365 = v149 + 1l;
+                                    v437 = try_round_38(v146, v147, v335, v365, v348, v151);
+                                } else {
+                                    v437 = go_next_street_40(v146, v147, v335, v149, v348, v151);
                                 }
                                 break;
                             }
                             case 1: { // A_Fold
-                                v454 = US5_1(v146, v147, v148, v149, v150, v151, v152);
+                                v437 = US5_1(v146, v147, v148, v149, v150, v151);
                                 break;
                             }
                             case 2: { // A_Raise
-                                long v375 = v292.v.case2.v0;
-                                static_array<long,2l> v376;
-                                long v377;
-                                v377 = 0l;
-                                while (while_method_0(v377)){
+                                long v369 = v290.v.case2.v0;
+                                write_47(v148);
+                                printf("\n");
+                                write_47(v150);
+                                printf("\n");
+                                static_array<long,2l> v370;
+                                long v371;
+                                v371 = 0l;
+                                while (while_method_0(v371)){
+                                    bool v373;
+                                    v373 = 0l <= v371;
+                                    bool v375;
+                                    if (v373){
+                                        bool v374;
+                                        v374 = v371 < 2l;
+                                        v375 = v374;
+                                    } else {
+                                        v375 = false;
+                                    }
+                                    bool v376;
+                                    v376 = v375 == false;
+                                    if (v376){
+                                        assert("The read index needs to be in range for the static array." && v375);
+                                    } else {
+                                    }
+                                    long v377;
+                                    v377 = v150.v[v371];
                                     bool v379;
-                                    v379 = 0l <= v377;
-                                    bool v381;
-                                    if (v379){
-                                        bool v380;
-                                        v380 = v377 < 2l;
-                                        v381 = v380;
+                                    if (v373){
+                                        bool v378;
+                                        v378 = v371 < 2l;
+                                        v379 = v378;
                                     } else {
-                                        v381 = false;
+                                        v379 = false;
                                     }
-                                    bool v382;
-                                    v382 = v381 == false;
-                                    if (v382){
-                                        assert("The read index needs to be in range for the static array." && v381);
+                                    bool v380;
+                                    v380 = v379 == false;
+                                    if (v380){
+                                        assert("The read index needs to be in range for the static array." && v379);
                                     } else {
                                     }
-                                    long v383;
-                                    v383 = v151.v[v377];
+                                    long v381;
+                                    v381 = v148.v[v371];
+                                    long v382;
+                                    v382 = v377 + v381;
+                                    bool v384;
+                                    if (v373){
+                                        bool v383;
+                                        v383 = v371 < 2l;
+                                        v384 = v383;
+                                    } else {
+                                        v384 = false;
+                                    }
                                     bool v385;
-                                    if (v379){
-                                        bool v384;
-                                        v384 = v377 < 2l;
-                                        v385 = v384;
-                                    } else {
-                                        v385 = false;
-                                    }
-                                    bool v386;
-                                    v386 = v385 == false;
-                                    if (v386){
-                                        assert("The read index needs to be in range for the static array." && v385);
+                                    v385 = v384 == false;
+                                    if (v385){
+                                        assert("The read index needs to be in range for the static array." && v384);
                                     } else {
                                     }
-                                    long v387;
-                                    v387 = v150.v[v377];
-                                    long v388;
-                                    v388 = v383 + v387;
+                                    v370.v[v371] = v382;
+                                    v371 += 1l ;
+                                }
+                                long v386;
+                                v386 = v148.v[0l];
+                                long v387; long v388;
+                                Tuple2 tmp33 = Tuple2(1l, v386);
+                                v387 = tmp33.v0; v388 = tmp33.v1;
+                                while (while_method_0(v387)){
                                     bool v390;
-                                    if (v379){
-                                        bool v389;
-                                        v389 = v377 < 2l;
-                                        v390 = v389;
+                                    v390 = 0l <= v387;
+                                    bool v392;
+                                    if (v390){
+                                        bool v391;
+                                        v391 = v387 < 2l;
+                                        v392 = v391;
                                     } else {
-                                        v390 = false;
+                                        v392 = false;
                                     }
-                                    bool v391;
-                                    v391 = v390 == false;
-                                    if (v391){
-                                        assert("The read index needs to be in range for the static array." && v390);
+                                    bool v393;
+                                    v393 = v392 == false;
+                                    if (v393){
+                                        assert("The read index needs to be in range for the static array." && v392);
                                     } else {
                                     }
-                                    v376.v[v377] = v388;
-                                    v377 += 1l ;
+                                    long v394;
+                                    v394 = v148.v[v387];
+                                    bool v395;
+                                    v395 = v388 >= v394;
+                                    long v396;
+                                    if (v395){
+                                        v396 = v388;
+                                    } else {
+                                        v396 = v394;
+                                    }
+                                    v388 = v396;
+                                    v387 += 1l ;
                                 }
-                                long v392;
-                                v392 = v150.v[0l];
-                                long v393; long v394;
-                                Tuple2 tmp32 = Tuple2(1l, v392);
-                                v393 = tmp32.v0; v394 = tmp32.v1;
-                                while (while_method_0(v393)){
-                                    bool v396;
-                                    v396 = 0l <= v393;
+                                long v397;
+                                v397 = v388 + v369;
+                                bool v399;
+                                if (v153){
                                     bool v398;
-                                    if (v396){
-                                        bool v397;
-                                        v397 = v393 < 2l;
-                                        v398 = v397;
-                                    } else {
-                                        v398 = false;
-                                    }
-                                    bool v399;
-                                    v399 = v398 == false;
-                                    if (v399){
-                                        assert("The read index needs to be in range for the static array." && v398);
-                                    } else {
-                                    }
-                                    long v400;
-                                    v400 = v150.v[v393];
-                                    bool v401;
-                                    v401 = v394 >= v400;
-                                    long v402;
-                                    if (v401){
-                                        v402 = v394;
-                                    } else {
-                                        v402 = v400;
-                                    }
-                                    v394 = v402;
-                                    v393 += 1l ;
+                                    v398 = v152 < 2l;
+                                    v399 = v398;
+                                } else {
+                                    v399 = false;
                                 }
-                                static_array<long,2l> v403;
-                                long v404;
-                                v404 = 0l;
-                                while (while_method_0(v404)){
-                                    bool v406;
-                                    v406 = 0l <= v404;
-                                    bool v408;
-                                    if (v406){
-                                        bool v407;
-                                        v407 = v404 < 2l;
-                                        v408 = v407;
-                                    } else {
-                                        v408 = false;
-                                    }
+                                bool v400;
+                                v400 = v399 == false;
+                                if (v400){
+                                    assert("The read index needs to be in range for the static array." && v399);
+                                } else {
+                                }
+                                long v401;
+                                v401 = v370.v[v152];
+                                bool v402;
+                                v402 = v397 < v401;
+                                long v403;
+                                if (v402){
+                                    v403 = v397;
+                                } else {
+                                    v403 = v401;
+                                }
+                                static_array<long,2l> v404;
+                                long v405;
+                                v405 = 0l;
+                                while (while_method_0(v405)){
+                                    bool v407;
+                                    v407 = 0l <= v405;
                                     bool v409;
-                                    v409 = v408 == false;
-                                    if (v409){
-                                        assert("The read index needs to be in range for the static array." && v408);
+                                    if (v407){
+                                        bool v408;
+                                        v408 = v405 < 2l;
+                                        v409 = v408;
+                                    } else {
+                                        v409 = false;
+                                    }
+                                    bool v410;
+                                    v410 = v409 == false;
+                                    if (v410){
+                                        assert("The read index needs to be in range for the static array." && v409);
                                     } else {
                                     }
-                                    long v410;
-                                    v410 = v376.v[v404];
-                                    bool v411;
-                                    v411 = v149 == v404;
-                                    long v414;
-                                    if (v411){
-                                        bool v412;
-                                        v412 = v394 < v410;
-                                        if (v412){
-                                            v414 = v394;
-                                        } else {
-                                            v414 = v410;
-                                        }
+                                    long v411;
+                                    v411 = v148.v[v405];
+                                    bool v412;
+                                    v412 = v152 == v405;
+                                    long v413;
+                                    if (v412){
+                                        v413 = v403;
                                     } else {
-                                        v414 = v410;
+                                        v413 = v411;
+                                    }
+                                    bool v415;
+                                    if (v407){
+                                        bool v414;
+                                        v414 = v405 < 2l;
+                                        v415 = v414;
+                                    } else {
+                                        v415 = false;
                                     }
                                     bool v416;
-                                    if (v406){
-                                        bool v415;
-                                        v415 = v404 < 2l;
-                                        v416 = v415;
-                                    } else {
-                                        v416 = false;
-                                    }
-                                    bool v417;
-                                    v417 = v416 == false;
-                                    if (v417){
-                                        assert("The read index needs to be in range for the static array." && v416);
+                                    v416 = v415 == false;
+                                    if (v416){
+                                        assert("The read index needs to be in range for the static array." && v415);
                                     } else {
                                     }
-                                    v403.v[v404] = v414;
-                                    v404 += 1l ;
+                                    v404.v[v405] = v413;
+                                    v405 += 1l ;
                                 }
-                                static_array<long,2l> v418;
-                                long v419;
-                                v419 = 0l;
-                                while (while_method_0(v419)){
-                                    bool v421;
-                                    v421 = 0l <= v419;
+                                static_array<long,2l> v417;
+                                long v418;
+                                v418 = 0l;
+                                while (while_method_0(v418)){
+                                    bool v420;
+                                    v420 = 0l <= v418;
+                                    bool v422;
+                                    if (v420){
+                                        bool v421;
+                                        v421 = v418 < 2l;
+                                        v422 = v421;
+                                    } else {
+                                        v422 = false;
+                                    }
                                     bool v423;
-                                    if (v421){
-                                        bool v422;
-                                        v422 = v419 < 2l;
-                                        v423 = v422;
-                                    } else {
-                                        v423 = false;
-                                    }
-                                    bool v424;
-                                    v424 = v423 == false;
-                                    if (v424){
-                                        assert("The read index needs to be in range for the static array." && v423);
+                                    v423 = v422 == false;
+                                    if (v423){
+                                        assert("The read index needs to be in range for the static array." && v422);
                                     } else {
                                     }
-                                    long v425;
-                                    v425 = v376.v[v419];
+                                    long v424;
+                                    v424 = v370.v[v418];
+                                    bool v426;
+                                    if (v420){
+                                        bool v425;
+                                        v425 = v418 < 2l;
+                                        v426 = v425;
+                                    } else {
+                                        v426 = false;
+                                    }
                                     bool v427;
-                                    if (v421){
-                                        bool v426;
-                                        v426 = v419 < 2l;
-                                        v427 = v426;
-                                    } else {
-                                        v427 = false;
-                                    }
-                                    bool v428;
-                                    v428 = v427 == false;
-                                    if (v428){
-                                        assert("The read index needs to be in range for the static array." && v427);
+                                    v427 = v426 == false;
+                                    if (v427){
+                                        assert("The read index needs to be in range for the static array." && v426);
                                     } else {
                                     }
+                                    long v428;
+                                    v428 = v404.v[v418];
                                     long v429;
-                                    v429 = v403.v[v419];
-                                    long v430;
-                                    v430 = v425 - v429;
+                                    v429 = v424 - v428;
+                                    bool v431;
+                                    if (v420){
+                                        bool v430;
+                                        v430 = v418 < 2l;
+                                        v431 = v430;
+                                    } else {
+                                        v431 = false;
+                                    }
                                     bool v432;
-                                    if (v421){
-                                        bool v431;
-                                        v431 = v419 < 2l;
-                                        v432 = v431;
-                                    } else {
-                                        v432 = false;
-                                    }
-                                    bool v433;
-                                    v433 = v432 == false;
-                                    if (v433){
-                                        assert("The read index needs to be in range for the static array." && v432);
+                                    v432 = v431 == false;
+                                    if (v432){
+                                        assert("The read index needs to be in range for the static array." && v431);
                                     } else {
                                     }
-                                    v418.v[v419] = v430;
-                                    v419 += 1l ;
+                                    v417.v[v418] = v429;
+                                    v418 += 1l ;
                                 }
-                                bool v435;
-                                if (v231){
-                                    bool v434;
-                                    v434 = v230 < 2l;
-                                    v435 = v434;
-                                } else {
-                                    v435 = false;
-                                }
-                                bool v436;
-                                v436 = v435 == false;
-                                if (v436){
-                                    assert("The read index needs to be in range for the static array." && v435);
-                                } else {
-                                }
-                                long v437;
-                                v437 = v418.v[v230];
-                                bool v438;
-                                v438 = v437 > 0l;
-                                if (v438){
-                                    v454 = US5_4(v146, false, v148, v230, v403, v418, v152);
-                                } else {
-                                    switch (v152.tag) {
-                                        case 0: { // Flop
-                                            static_array<unsigned char,3l> v441 = v152.v.case0.v0;
-                                            v454 = US5_7(v146, v147, v148, v149, v403, v418, v152);
-                                            break;
-                                        }
-                                        case 1: { // Preflop
-                                            v454 = US5_0(v146, v147, v148, v149, v403, v418, v152);
-                                            break;
-                                        }
-                                        case 2: { // River
-                                            static_array<unsigned char,5l> v445 = v152.v.case2.v0;
-                                            v454 = US5_6(v146, v147, v148, v149, v403, v418, v152);
-                                            break;
-                                        }
-                                        case 3: { // Turn
-                                            static_array<unsigned char,4l> v443 = v152.v.case3.v0;
-                                            v454 = US5_3(v146, v147, v148, v149, v403, v418, v152);
-                                            break;
-                                        }
-                                        default: {
-                                            assert("Invalid tag." && false);
-                                        }
-                                    }
-                                }
+                                write_47(v404);
+                                printf("\n");
+                                long v433;
+                                v433 = v149 + 1l;
+                                v437 = try_round_38(v146, v147, v404, v433, v417, v151);
                                 break;
                             }
                             default: {
                                 assert("Invalid tag." && false);
                             }
                         }
-                        v806 = true; v807 = v454;
+                        v775 = true; v776 = v437;
                         break;
                     }
                     case 1: { // Human
-                        v806 = false; v807 = v8;
+                        v775 = false; v776 = v8;
                         break;
                     }
                     default: {
@@ -8359,54 +8516,115 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 break;
             }
             case 5: { // G_Round'
-                long v459 = v8.v.case5.v0; bool v460 = v8.v.case5.v1; static_array<static_array<unsigned char,2l>,2l> v461 = v8.v.case5.v2; long v462 = v8.v.case5.v3; static_array<long,2l> v463 = v8.v.case5.v4; static_array<long,2l> v464 = v8.v.case5.v5; US6 v465 = v8.v.case5.v6; US1 v466 = v8.v.case5.v7;
-                long v467;
-                v467 = v5.length;
-                bool v468;
-                v468 = v467 < 128l;
-                bool v469;
-                v469 = v468 == false;
-                if (v469){
-                    assert("The length has to be less than the maximum length of the array." && v468);
+                long v442 = v8.v.case5.v0; static_array<static_array<unsigned char,2l>,2l> v443 = v8.v.case5.v1; static_array<long,2l> v444 = v8.v.case5.v2; long v445 = v8.v.case5.v3; static_array<long,2l> v446 = v8.v.case5.v4; US6 v447 = v8.v.case5.v5; US1 v448 = v8.v.case5.v6;
+                long v449;
+                v449 = v445 % 2l;
+                long v450;
+                v450 = v5.length;
+                bool v451;
+                v451 = v450 < 128l;
+                bool v452;
+                v452 = v451 == false;
+                if (v452){
+                    assert("The length has to be less than the maximum length of the array." && v451);
                 } else {
                 }
-                long v470;
-                v470 = v467 + 1l;
-                v5.length = v470;
-                bool v471;
-                v471 = 0l <= v467;
-                bool v474;
-                if (v471){
-                    long v472;
-                    v472 = v5.length;
-                    bool v473;
-                    v473 = v467 < v472;
-                    v474 = v473;
+                long v453;
+                v453 = v450 + 1l;
+                v5.length = v453;
+                bool v454;
+                v454 = 0l <= v450;
+                bool v457;
+                if (v454){
+                    long v455;
+                    v455 = v5.length;
+                    bool v456;
+                    v456 = v450 < v455;
+                    v457 = v456;
                 } else {
-                    v474 = false;
+                    v457 = false;
                 }
-                bool v475;
-                v475 = v474 == false;
-                if (v475){
-                    assert("The set index needs to be in range for the static array list." && v474);
+                bool v458;
+                v458 = v457 == false;
+                if (v458){
+                    assert("The set index needs to be in range for the static array list." && v457);
                 } else {
                 }
-                US3 v476;
-                v476 = US3_2(v462, v466);
-                v5.v[v467] = v476;
-                US5 v631;
-                switch (v466.tag) {
+                US3 v459;
+                v459 = US3_2(v449, v448);
+                v5.v[v450] = v459;
+                US5 v598;
+                switch (v448.tag) {
                     case 0: { // A_Call
-                        static_array<long,2l> v478;
-                        long v479;
-                        v479 = 0l;
-                        while (while_method_0(v479)){
+                        static_array<long,2l> v461;
+                        long v462;
+                        v462 = 0l;
+                        while (while_method_0(v462)){
+                            bool v464;
+                            v464 = 0l <= v462;
+                            bool v466;
+                            if (v464){
+                                bool v465;
+                                v465 = v462 < 2l;
+                                v466 = v465;
+                            } else {
+                                v466 = false;
+                            }
+                            bool v467;
+                            v467 = v466 == false;
+                            if (v467){
+                                assert("The read index needs to be in range for the static array." && v466);
+                            } else {
+                            }
+                            long v468;
+                            v468 = v446.v[v462];
+                            bool v470;
+                            if (v464){
+                                bool v469;
+                                v469 = v462 < 2l;
+                                v470 = v469;
+                            } else {
+                                v470 = false;
+                            }
+                            bool v471;
+                            v471 = v470 == false;
+                            if (v471){
+                                assert("The read index needs to be in range for the static array." && v470);
+                            } else {
+                            }
+                            long v472;
+                            v472 = v444.v[v462];
+                            long v473;
+                            v473 = v468 + v472;
+                            bool v475;
+                            if (v464){
+                                bool v474;
+                                v474 = v462 < 2l;
+                                v475 = v474;
+                            } else {
+                                v475 = false;
+                            }
+                            bool v476;
+                            v476 = v475 == false;
+                            if (v476){
+                                assert("The read index needs to be in range for the static array." && v475);
+                            } else {
+                            }
+                            v461.v[v462] = v473;
+                            v462 += 1l ;
+                        }
+                        long v477;
+                        v477 = v444.v[0l];
+                        long v478; long v479;
+                        Tuple2 tmp34 = Tuple2(1l, v477);
+                        v478 = tmp34.v0; v479 = tmp34.v1;
+                        while (while_method_0(v478)){
                             bool v481;
-                            v481 = 0l <= v479;
+                            v481 = 0l <= v478;
                             bool v483;
                             if (v481){
                                 bool v482;
-                                v482 = v479 < 2l;
+                                v482 = v478 < 2l;
                                 v483 = v482;
                             } else {
                                 v483 = false;
@@ -8418,54 +8636,54 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v485;
-                            v485 = v464.v[v479];
-                            bool v487;
-                            if (v481){
-                                bool v486;
-                                v486 = v479 < 2l;
-                                v487 = v486;
+                            v485 = v444.v[v478];
+                            bool v486;
+                            v486 = v479 >= v485;
+                            long v487;
+                            if (v486){
+                                v487 = v479;
                             } else {
-                                v487 = false;
+                                v487 = v485;
                             }
-                            bool v488;
-                            v488 = v487 == false;
-                            if (v488){
-                                assert("The read index needs to be in range for the static array." && v487);
-                            } else {
-                            }
-                            long v489;
-                            v489 = v463.v[v479];
-                            long v490;
-                            v490 = v485 + v489;
-                            bool v492;
-                            if (v481){
-                                bool v491;
-                                v491 = v479 < 2l;
-                                v492 = v491;
-                            } else {
-                                v492 = false;
-                            }
-                            bool v493;
-                            v493 = v492 == false;
-                            if (v493){
-                                assert("The read index needs to be in range for the static array." && v492);
-                            } else {
-                            }
-                            v478.v[v479] = v490;
-                            v479 += 1l ;
+                            v479 = v487;
+                            v478 += 1l ;
                         }
+                        bool v488;
+                        v488 = 0l <= v449;
+                        bool v490;
+                        if (v488){
+                            bool v489;
+                            v489 = v449 < 2l;
+                            v490 = v489;
+                        } else {
+                            v490 = false;
+                        }
+                        bool v491;
+                        v491 = v490 == false;
+                        if (v491){
+                            assert("The read index needs to be in range for the static array." && v490);
+                        } else {
+                        }
+                        long v492;
+                        v492 = v461.v[v449];
+                        bool v493;
+                        v493 = v479 < v492;
                         long v494;
-                        v494 = v463.v[0l];
-                        long v495; long v496;
-                        Tuple2 tmp33 = Tuple2(1l, v494);
-                        v495 = tmp33.v0; v496 = tmp33.v1;
-                        while (while_method_0(v495)){
+                        if (v493){
+                            v494 = v479;
+                        } else {
+                            v494 = v492;
+                        }
+                        static_array<long,2l> v495;
+                        long v496;
+                        v496 = 0l;
+                        while (while_method_0(v496)){
                             bool v498;
-                            v498 = 0l <= v495;
+                            v498 = 0l <= v496;
                             bool v500;
                             if (v498){
                                 bool v499;
-                                v499 = v495 < 2l;
+                                v499 = v496 < 2l;
                                 v500 = v499;
                             } else {
                                 v500 = false;
@@ -8477,257 +8695,276 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v502;
-                            v502 = v463.v[v495];
+                            v502 = v444.v[v496];
                             bool v503;
-                            v503 = v496 >= v502;
+                            v503 = v449 == v496;
                             long v504;
                             if (v503){
-                                v504 = v496;
+                                v504 = v494;
                             } else {
                                 v504 = v502;
                             }
-                            v496 = v504;
-                            v495 += 1l ;
+                            bool v506;
+                            if (v498){
+                                bool v505;
+                                v505 = v496 < 2l;
+                                v506 = v505;
+                            } else {
+                                v506 = false;
+                            }
+                            bool v507;
+                            v507 = v506 == false;
+                            if (v507){
+                                assert("The read index needs to be in range for the static array." && v506);
+                            } else {
+                            }
+                            v495.v[v496] = v504;
+                            v496 += 1l ;
                         }
-                        static_array<long,2l> v505;
-                        long v506;
-                        v506 = 0l;
-                        while (while_method_0(v506)){
-                            bool v508;
-                            v508 = 0l <= v506;
-                            bool v510;
-                            if (v508){
-                                bool v509;
-                                v509 = v506 < 2l;
-                                v510 = v509;
-                            } else {
-                                v510 = false;
-                            }
+                        static_array<long,2l> v508;
+                        long v509;
+                        v509 = 0l;
+                        while (while_method_0(v509)){
                             bool v511;
-                            v511 = v510 == false;
+                            v511 = 0l <= v509;
+                            bool v513;
                             if (v511){
-                                assert("The read index needs to be in range for the static array." && v510);
+                                bool v512;
+                                v512 = v509 < 2l;
+                                v513 = v512;
+                            } else {
+                                v513 = false;
+                            }
+                            bool v514;
+                            v514 = v513 == false;
+                            if (v514){
+                                assert("The read index needs to be in range for the static array." && v513);
                             } else {
                             }
-                            long v512;
-                            v512 = v478.v[v506];
-                            bool v513;
-                            v513 = v462 == v506;
-                            long v516;
-                            if (v513){
-                                bool v514;
-                                v514 = v496 < v512;
-                                if (v514){
-                                    v516 = v496;
-                                } else {
-                                    v516 = v512;
-                                }
+                            long v515;
+                            v515 = v461.v[v509];
+                            bool v517;
+                            if (v511){
+                                bool v516;
+                                v516 = v509 < 2l;
+                                v517 = v516;
                             } else {
-                                v516 = v512;
+                                v517 = false;
                             }
                             bool v518;
-                            if (v508){
-                                bool v517;
-                                v517 = v506 < 2l;
-                                v518 = v517;
-                            } else {
-                                v518 = false;
-                            }
-                            bool v519;
-                            v519 = v518 == false;
-                            if (v519){
-                                assert("The read index needs to be in range for the static array." && v518);
+                            v518 = v517 == false;
+                            if (v518){
+                                assert("The read index needs to be in range for the static array." && v517);
                             } else {
                             }
-                            v505.v[v506] = v516;
-                            v506 += 1l ;
-                        }
-                        static_array<long,2l> v520;
-                        long v521;
-                        v521 = 0l;
-                        while (while_method_0(v521)){
+                            long v519;
+                            v519 = v495.v[v509];
+                            long v520;
+                            v520 = v515 - v519;
+                            bool v522;
+                            if (v511){
+                                bool v521;
+                                v521 = v509 < 2l;
+                                v522 = v521;
+                            } else {
+                                v522 = false;
+                            }
                             bool v523;
-                            v523 = 0l <= v521;
-                            bool v525;
+                            v523 = v522 == false;
                             if (v523){
-                                bool v524;
-                                v524 = v521 < 2l;
-                                v525 = v524;
-                            } else {
-                                v525 = false;
-                            }
-                            bool v526;
-                            v526 = v525 == false;
-                            if (v526){
-                                assert("The read index needs to be in range for the static array." && v525);
+                                assert("The read index needs to be in range for the static array." && v522);
                             } else {
                             }
-                            long v527;
-                            v527 = v478.v[v521];
-                            bool v529;
-                            if (v523){
-                                bool v528;
-                                v528 = v521 < 2l;
-                                v529 = v528;
-                            } else {
-                                v529 = false;
-                            }
-                            bool v530;
-                            v530 = v529 == false;
-                            if (v530){
-                                assert("The read index needs to be in range for the static array." && v529);
-                            } else {
-                            }
-                            long v531;
-                            v531 = v505.v[v521];
-                            long v532;
-                            v532 = v527 - v531;
-                            bool v534;
-                            if (v523){
-                                bool v533;
-                                v533 = v521 < 2l;
-                                v534 = v533;
-                            } else {
-                                v534 = false;
-                            }
-                            bool v535;
-                            v535 = v534 == false;
-                            if (v535){
-                                assert("The read index needs to be in range for the static array." && v534);
-                            } else {
-                            }
-                            v520.v[v521] = v532;
-                            v521 += 1l ;
+                            v508.v[v509] = v520;
+                            v509 += 1l ;
                         }
-                        if (v460){
-                            long v536;
-                            v536 = v462 ^ 1l;
-                            v631 = US5_4(v459, false, v461, v536, v505, v520, v465);
+                        bool v524;
+                        v524 = v449 < 2l;
+                        if (v524){
+                            long v525;
+                            v525 = v445 + 1l;
+                            v598 = try_round_38(v442, v443, v495, v525, v508, v447);
                         } else {
-                            switch (v465.tag) {
-                                case 0: { // Flop
-                                    static_array<unsigned char,3l> v539 = v465.v.case0.v0;
-                                    v631 = US5_7(v459, v460, v461, v462, v505, v520, v465);
-                                    break;
-                                }
-                                case 1: { // Preflop
-                                    v631 = US5_0(v459, v460, v461, v462, v505, v520, v465);
-                                    break;
-                                }
-                                case 2: { // River
-                                    static_array<unsigned char,5l> v543 = v465.v.case2.v0;
-                                    v631 = US5_6(v459, v460, v461, v462, v505, v520, v465);
-                                    break;
-                                }
-                                case 3: { // Turn
-                                    static_array<unsigned char,4l> v541 = v465.v.case3.v0;
-                                    v631 = US5_3(v459, v460, v461, v462, v505, v520, v465);
-                                    break;
-                                }
-                                default: {
-                                    assert("Invalid tag." && false);
-                                }
-                            }
+                            v598 = go_next_street_40(v442, v443, v495, v445, v508, v447);
                         }
                         break;
                     }
                     case 1: { // A_Fold
-                        v631 = US5_1(v459, v460, v461, v462, v463, v464, v465);
+                        v598 = US5_1(v442, v443, v444, v445, v446, v447);
                         break;
                     }
                     case 2: { // A_Raise
-                        long v550 = v466.v.case2.v0;
-                        static_array<long,2l> v551;
-                        long v552;
-                        v552 = 0l;
-                        while (while_method_0(v552)){
-                            bool v554;
-                            v554 = 0l <= v552;
-                            bool v556;
-                            if (v554){
-                                bool v555;
-                                v555 = v552 < 2l;
-                                v556 = v555;
+                        long v529 = v448.v.case2.v0;
+                        write_47(v444);
+                        printf("\n");
+                        write_47(v446);
+                        printf("\n");
+                        static_array<long,2l> v530;
+                        long v531;
+                        v531 = 0l;
+                        while (while_method_0(v531)){
+                            bool v533;
+                            v533 = 0l <= v531;
+                            bool v535;
+                            if (v533){
+                                bool v534;
+                                v534 = v531 < 2l;
+                                v535 = v534;
                             } else {
-                                v556 = false;
+                                v535 = false;
                             }
-                            bool v557;
-                            v557 = v556 == false;
-                            if (v557){
-                                assert("The read index needs to be in range for the static array." && v556);
-                            } else {
-                            }
-                            long v558;
-                            v558 = v464.v[v552];
-                            bool v560;
-                            if (v554){
-                                bool v559;
-                                v559 = v552 < 2l;
-                                v560 = v559;
-                            } else {
-                                v560 = false;
-                            }
-                            bool v561;
-                            v561 = v560 == false;
-                            if (v561){
-                                assert("The read index needs to be in range for the static array." && v560);
+                            bool v536;
+                            v536 = v535 == false;
+                            if (v536){
+                                assert("The read index needs to be in range for the static array." && v535);
                             } else {
                             }
-                            long v562;
-                            v562 = v463.v[v552];
-                            long v563;
-                            v563 = v558 + v562;
-                            bool v565;
-                            if (v554){
-                                bool v564;
-                                v564 = v552 < 2l;
-                                v565 = v564;
+                            long v537;
+                            v537 = v446.v[v531];
+                            bool v539;
+                            if (v533){
+                                bool v538;
+                                v538 = v531 < 2l;
+                                v539 = v538;
                             } else {
-                                v565 = false;
+                                v539 = false;
                             }
-                            bool v566;
-                            v566 = v565 == false;
-                            if (v566){
-                                assert("The read index needs to be in range for the static array." && v565);
+                            bool v540;
+                            v540 = v539 == false;
+                            if (v540){
+                                assert("The read index needs to be in range for the static array." && v539);
                             } else {
                             }
-                            v551.v[v552] = v563;
-                            v552 += 1l ;
+                            long v541;
+                            v541 = v444.v[v531];
+                            long v542;
+                            v542 = v537 + v541;
+                            bool v544;
+                            if (v533){
+                                bool v543;
+                                v543 = v531 < 2l;
+                                v544 = v543;
+                            } else {
+                                v544 = false;
+                            }
+                            bool v545;
+                            v545 = v544 == false;
+                            if (v545){
+                                assert("The read index needs to be in range for the static array." && v544);
+                            } else {
+                            }
+                            v530.v[v531] = v542;
+                            v531 += 1l ;
                         }
-                        long v567;
-                        v567 = v463.v[0l];
-                        long v568; long v569;
-                        Tuple2 tmp34 = Tuple2(1l, v567);
-                        v568 = tmp34.v0; v569 = tmp34.v1;
-                        while (while_method_0(v568)){
+                        long v546;
+                        v546 = v444.v[0l];
+                        long v547; long v548;
+                        Tuple2 tmp35 = Tuple2(1l, v546);
+                        v547 = tmp35.v0; v548 = tmp35.v1;
+                        while (while_method_0(v547)){
+                            bool v550;
+                            v550 = 0l <= v547;
+                            bool v552;
+                            if (v550){
+                                bool v551;
+                                v551 = v547 < 2l;
+                                v552 = v551;
+                            } else {
+                                v552 = false;
+                            }
+                            bool v553;
+                            v553 = v552 == false;
+                            if (v553){
+                                assert("The read index needs to be in range for the static array." && v552);
+                            } else {
+                            }
+                            long v554;
+                            v554 = v444.v[v547];
+                            bool v555;
+                            v555 = v548 >= v554;
+                            long v556;
+                            if (v555){
+                                v556 = v548;
+                            } else {
+                                v556 = v554;
+                            }
+                            v548 = v556;
+                            v547 += 1l ;
+                        }
+                        long v557;
+                        v557 = v548 + v529;
+                        bool v558;
+                        v558 = 0l <= v449;
+                        bool v560;
+                        if (v558){
+                            bool v559;
+                            v559 = v449 < 2l;
+                            v560 = v559;
+                        } else {
+                            v560 = false;
+                        }
+                        bool v561;
+                        v561 = v560 == false;
+                        if (v561){
+                            assert("The read index needs to be in range for the static array." && v560);
+                        } else {
+                        }
+                        long v562;
+                        v562 = v530.v[v449];
+                        bool v563;
+                        v563 = v557 < v562;
+                        long v564;
+                        if (v563){
+                            v564 = v557;
+                        } else {
+                            v564 = v562;
+                        }
+                        static_array<long,2l> v565;
+                        long v566;
+                        v566 = 0l;
+                        while (while_method_0(v566)){
+                            bool v568;
+                            v568 = 0l <= v566;
+                            bool v570;
+                            if (v568){
+                                bool v569;
+                                v569 = v566 < 2l;
+                                v570 = v569;
+                            } else {
+                                v570 = false;
+                            }
                             bool v571;
-                            v571 = 0l <= v568;
-                            bool v573;
+                            v571 = v570 == false;
                             if (v571){
-                                bool v572;
-                                v572 = v568 < 2l;
-                                v573 = v572;
-                            } else {
-                                v573 = false;
-                            }
-                            bool v574;
-                            v574 = v573 == false;
-                            if (v574){
-                                assert("The read index needs to be in range for the static array." && v573);
+                                assert("The read index needs to be in range for the static array." && v570);
                             } else {
                             }
-                            long v575;
-                            v575 = v463.v[v568];
+                            long v572;
+                            v572 = v444.v[v566];
+                            bool v573;
+                            v573 = v449 == v566;
+                            long v574;
+                            if (v573){
+                                v574 = v564;
+                            } else {
+                                v574 = v572;
+                            }
                             bool v576;
-                            v576 = v569 >= v575;
-                            long v577;
-                            if (v576){
-                                v577 = v569;
+                            if (v568){
+                                bool v575;
+                                v575 = v566 < 2l;
+                                v576 = v575;
                             } else {
-                                v577 = v575;
+                                v576 = false;
                             }
-                            v569 = v577;
-                            v568 += 1l ;
+                            bool v577;
+                            v577 = v576 == false;
+                            if (v577){
+                                assert("The read index needs to be in range for the static array." && v576);
+                            } else {
+                            }
+                            v565.v[v566] = v574;
+                            v566 += 1l ;
                         }
                         static_array<long,2l> v578;
                         long v579;
@@ -8750,161 +8987,63 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             long v585;
-                            v585 = v551.v[v579];
-                            bool v586;
-                            v586 = v462 == v579;
-                            long v589;
-                            if (v586){
-                                bool v587;
-                                v587 = v569 < v585;
-                                if (v587){
-                                    v589 = v569;
-                                } else {
-                                    v589 = v585;
-                                }
-                            } else {
-                                v589 = v585;
-                            }
-                            bool v591;
+                            v585 = v530.v[v579];
+                            bool v587;
                             if (v581){
-                                bool v590;
-                                v590 = v579 < 2l;
-                                v591 = v590;
+                                bool v586;
+                                v586 = v579 < 2l;
+                                v587 = v586;
                             } else {
-                                v591 = false;
+                                v587 = false;
                             }
+                            bool v588;
+                            v588 = v587 == false;
+                            if (v588){
+                                assert("The read index needs to be in range for the static array." && v587);
+                            } else {
+                            }
+                            long v589;
+                            v589 = v565.v[v579];
+                            long v590;
+                            v590 = v585 - v589;
                             bool v592;
-                            v592 = v591 == false;
-                            if (v592){
-                                assert("The read index needs to be in range for the static array." && v591);
+                            if (v581){
+                                bool v591;
+                                v591 = v579 < 2l;
+                                v592 = v591;
+                            } else {
+                                v592 = false;
+                            }
+                            bool v593;
+                            v593 = v592 == false;
+                            if (v593){
+                                assert("The read index needs to be in range for the static array." && v592);
                             } else {
                             }
-                            v578.v[v579] = v589;
+                            v578.v[v579] = v590;
                             v579 += 1l ;
                         }
-                        static_array<long,2l> v593;
+                        write_47(v565);
+                        printf("\n");
                         long v594;
-                        v594 = 0l;
-                        while (while_method_0(v594)){
-                            bool v596;
-                            v596 = 0l <= v594;
-                            bool v598;
-                            if (v596){
-                                bool v597;
-                                v597 = v594 < 2l;
-                                v598 = v597;
-                            } else {
-                                v598 = false;
-                            }
-                            bool v599;
-                            v599 = v598 == false;
-                            if (v599){
-                                assert("The read index needs to be in range for the static array." && v598);
-                            } else {
-                            }
-                            long v600;
-                            v600 = v551.v[v594];
-                            bool v602;
-                            if (v596){
-                                bool v601;
-                                v601 = v594 < 2l;
-                                v602 = v601;
-                            } else {
-                                v602 = false;
-                            }
-                            bool v603;
-                            v603 = v602 == false;
-                            if (v603){
-                                assert("The read index needs to be in range for the static array." && v602);
-                            } else {
-                            }
-                            long v604;
-                            v604 = v578.v[v594];
-                            long v605;
-                            v605 = v600 - v604;
-                            bool v607;
-                            if (v596){
-                                bool v606;
-                                v606 = v594 < 2l;
-                                v607 = v606;
-                            } else {
-                                v607 = false;
-                            }
-                            bool v608;
-                            v608 = v607 == false;
-                            if (v608){
-                                assert("The read index needs to be in range for the static array." && v607);
-                            } else {
-                            }
-                            v593.v[v594] = v605;
-                            v594 += 1l ;
-                        }
-                        long v609;
-                        v609 = v462 ^ 1l;
-                        bool v610;
-                        v610 = 0l <= v609;
-                        bool v612;
-                        if (v610){
-                            bool v611;
-                            v611 = v609 < 2l;
-                            v612 = v611;
-                        } else {
-                            v612 = false;
-                        }
-                        bool v613;
-                        v613 = v612 == false;
-                        if (v613){
-                            assert("The read index needs to be in range for the static array." && v612);
-                        } else {
-                        }
-                        long v614;
-                        v614 = v593.v[v609];
-                        bool v615;
-                        v615 = v614 > 0l;
-                        if (v615){
-                            v631 = US5_4(v459, false, v461, v609, v578, v593, v465);
-                        } else {
-                            switch (v465.tag) {
-                                case 0: { // Flop
-                                    static_array<unsigned char,3l> v618 = v465.v.case0.v0;
-                                    v631 = US5_7(v459, v460, v461, v462, v578, v593, v465);
-                                    break;
-                                }
-                                case 1: { // Preflop
-                                    v631 = US5_0(v459, v460, v461, v462, v578, v593, v465);
-                                    break;
-                                }
-                                case 2: { // River
-                                    static_array<unsigned char,5l> v622 = v465.v.case2.v0;
-                                    v631 = US5_6(v459, v460, v461, v462, v578, v593, v465);
-                                    break;
-                                }
-                                case 3: { // Turn
-                                    static_array<unsigned char,4l> v620 = v465.v.case3.v0;
-                                    v631 = US5_3(v459, v460, v461, v462, v578, v593, v465);
-                                    break;
-                                }
-                                default: {
-                                    assert("Invalid tag." && false);
-                                }
-                            }
-                        }
+                        v594 = v445 + 1l;
+                        v598 = try_round_38(v442, v443, v565, v594, v578, v447);
                         break;
                     }
                     default: {
                         assert("Invalid tag." && false);
                     }
                 }
-                v806 = true; v807 = v631;
+                v775 = true; v776 = v598;
                 break;
             }
             case 6: { // G_Showdown
-                long v33 = v8.v.case6.v0; bool v34 = v8.v.case6.v1; static_array<static_array<unsigned char,2l>,2l> v35 = v8.v.case6.v2; long v36 = v8.v.case6.v3; static_array<long,2l> v37 = v8.v.case6.v4; static_array<long,2l> v38 = v8.v.case6.v5; US6 v39 = v8.v.case6.v6;
-                static_array<unsigned char,5l> v42;
-                switch (v39.tag) {
+                long v33 = v8.v.case6.v0; static_array<static_array<unsigned char,2l>,2l> v34 = v8.v.case6.v1; static_array<long,2l> v35 = v8.v.case6.v2; long v36 = v8.v.case6.v3; static_array<long,2l> v37 = v8.v.case6.v4; US6 v38 = v8.v.case6.v5;
+                static_array<unsigned char,5l> v41;
+                switch (v38.tag) {
                     case 2: { // River
-                        static_array<unsigned char,5l> v40 = v39.v.case2.v0;
-                        v42 = v40;
+                        static_array<unsigned char,5l> v39 = v38.v.case2.v0;
+                        v41 = v39;
                         break;
                     }
                     default: {
@@ -8912,184 +9051,186 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                static_array<unsigned char,2l> v43;
-                v43 = v35.v[0l];
-                static_array<unsigned char,7l> v44;
-                long v45;
-                v45 = 0l;
-                while (while_method_0(v45)){
-                    bool v47;
-                    v47 = 0l <= v45;
+                static_array<unsigned char,2l> v42;
+                v42 = v34.v[0l];
+                static_array<unsigned char,7l> v43;
+                long v44;
+                v44 = 0l;
+                while (while_method_0(v44)){
+                    bool v46;
+                    v46 = 0l <= v44;
+                    bool v48;
+                    if (v46){
+                        bool v47;
+                        v47 = v44 < 2l;
+                        v48 = v47;
+                    } else {
+                        v48 = false;
+                    }
                     bool v49;
-                    if (v47){
-                        bool v48;
-                        v48 = v45 < 2l;
-                        v49 = v48;
-                    } else {
-                        v49 = false;
-                    }
-                    bool v50;
-                    v50 = v49 == false;
-                    if (v50){
-                        assert("The read index needs to be in range for the static array." && v49);
+                    v49 = v48 == false;
+                    if (v49){
+                        assert("The read index needs to be in range for the static array." && v48);
                     } else {
                     }
-                    unsigned char v51;
-                    v51 = v43.v[v45];
+                    unsigned char v50;
+                    v50 = v42.v[v44];
+                    bool v52;
+                    if (v46){
+                        bool v51;
+                        v51 = v44 < 7l;
+                        v52 = v51;
+                    } else {
+                        v52 = false;
+                    }
                     bool v53;
-                    if (v47){
-                        bool v52;
-                        v52 = v45 < 7l;
-                        v53 = v52;
-                    } else {
-                        v53 = false;
-                    }
-                    bool v54;
-                    v54 = v53 == false;
-                    if (v54){
-                        assert("The read index needs to be in range for the static array." && v53);
+                    v53 = v52 == false;
+                    if (v53){
+                        assert("The read index needs to be in range for the static array." && v52);
                     } else {
                     }
-                    v44.v[v45] = v51;
-                    v45 += 1l ;
+                    v43.v[v44] = v50;
+                    v44 += 1l ;
                 }
-                long v55;
-                v55 = 0l;
-                while (while_method_2(v55)){
-                    bool v57;
-                    v57 = 0l <= v55;
+                long v54;
+                v54 = 0l;
+                while (while_method_2(v54)){
+                    bool v56;
+                    v56 = 0l <= v54;
+                    bool v58;
+                    if (v56){
+                        bool v57;
+                        v57 = v54 < 5l;
+                        v58 = v57;
+                    } else {
+                        v58 = false;
+                    }
                     bool v59;
-                    if (v57){
-                        bool v58;
-                        v58 = v55 < 5l;
-                        v59 = v58;
-                    } else {
-                        v59 = false;
-                    }
-                    bool v60;
-                    v60 = v59 == false;
-                    if (v60){
-                        assert("The read index needs to be in range for the static array." && v59);
+                    v59 = v58 == false;
+                    if (v59){
+                        assert("The read index needs to be in range for the static array." && v58);
                     } else {
                     }
-                    unsigned char v61;
-                    v61 = v42.v[v55];
-                    long v62;
-                    v62 = 2l + v55;
-                    bool v63;
-                    v63 = 0l <= v62;
+                    unsigned char v60;
+                    v60 = v41.v[v54];
+                    long v61;
+                    v61 = 2l + v54;
+                    bool v62;
+                    v62 = 0l <= v61;
+                    bool v64;
+                    if (v62){
+                        bool v63;
+                        v63 = v61 < 7l;
+                        v64 = v63;
+                    } else {
+                        v64 = false;
+                    }
                     bool v65;
-                    if (v63){
-                        bool v64;
-                        v64 = v62 < 7l;
-                        v65 = v64;
-                    } else {
-                        v65 = false;
-                    }
-                    bool v66;
-                    v66 = v65 == false;
-                    if (v66){
-                        assert("The read index needs to be in range for the static array." && v65);
+                    v65 = v64 == false;
+                    if (v65){
+                        assert("The read index needs to be in range for the static array." && v64);
                     } else {
                     }
-                    v44.v[v62] = v61;
-                    v55 += 1l ;
+                    v43.v[v61] = v60;
+                    v54 += 1l ;
                 }
-                static_array<unsigned char,5l> v67; char v68;
-                Tuple0 tmp59 = score_44(v44);
-                v67 = tmp59.v0; v68 = tmp59.v1;
-                static_array<unsigned char,2l> v69;
-                v69 = v35.v[1l];
-                static_array<unsigned char,7l> v70;
-                long v71;
-                v71 = 0l;
-                while (while_method_0(v71)){
-                    bool v73;
-                    v73 = 0l <= v71;
+                static_array<unsigned char,5l> v66; char v67;
+                Tuple0 tmp60 = score_49(v43);
+                v66 = tmp60.v0; v67 = tmp60.v1;
+                static_array<unsigned char,2l> v68;
+                v68 = v34.v[1l];
+                static_array<unsigned char,7l> v69;
+                long v70;
+                v70 = 0l;
+                while (while_method_0(v70)){
+                    bool v72;
+                    v72 = 0l <= v70;
+                    bool v74;
+                    if (v72){
+                        bool v73;
+                        v73 = v70 < 2l;
+                        v74 = v73;
+                    } else {
+                        v74 = false;
+                    }
                     bool v75;
-                    if (v73){
-                        bool v74;
-                        v74 = v71 < 2l;
-                        v75 = v74;
-                    } else {
-                        v75 = false;
-                    }
-                    bool v76;
-                    v76 = v75 == false;
-                    if (v76){
-                        assert("The read index needs to be in range for the static array." && v75);
+                    v75 = v74 == false;
+                    if (v75){
+                        assert("The read index needs to be in range for the static array." && v74);
                     } else {
                     }
-                    unsigned char v77;
-                    v77 = v69.v[v71];
+                    unsigned char v76;
+                    v76 = v68.v[v70];
+                    bool v78;
+                    if (v72){
+                        bool v77;
+                        v77 = v70 < 7l;
+                        v78 = v77;
+                    } else {
+                        v78 = false;
+                    }
                     bool v79;
-                    if (v73){
-                        bool v78;
-                        v78 = v71 < 7l;
-                        v79 = v78;
-                    } else {
-                        v79 = false;
-                    }
-                    bool v80;
-                    v80 = v79 == false;
-                    if (v80){
-                        assert("The read index needs to be in range for the static array." && v79);
+                    v79 = v78 == false;
+                    if (v79){
+                        assert("The read index needs to be in range for the static array." && v78);
                     } else {
                     }
-                    v70.v[v71] = v77;
-                    v71 += 1l ;
+                    v69.v[v70] = v76;
+                    v70 += 1l ;
                 }
-                long v81;
-                v81 = 0l;
-                while (while_method_2(v81)){
-                    bool v83;
-                    v83 = 0l <= v81;
+                long v80;
+                v80 = 0l;
+                while (while_method_2(v80)){
+                    bool v82;
+                    v82 = 0l <= v80;
+                    bool v84;
+                    if (v82){
+                        bool v83;
+                        v83 = v80 < 5l;
+                        v84 = v83;
+                    } else {
+                        v84 = false;
+                    }
                     bool v85;
-                    if (v83){
-                        bool v84;
-                        v84 = v81 < 5l;
-                        v85 = v84;
-                    } else {
-                        v85 = false;
-                    }
-                    bool v86;
-                    v86 = v85 == false;
-                    if (v86){
-                        assert("The read index needs to be in range for the static array." && v85);
+                    v85 = v84 == false;
+                    if (v85){
+                        assert("The read index needs to be in range for the static array." && v84);
                     } else {
                     }
-                    unsigned char v87;
-                    v87 = v42.v[v81];
-                    long v88;
-                    v88 = 2l + v81;
-                    bool v89;
-                    v89 = 0l <= v88;
+                    unsigned char v86;
+                    v86 = v41.v[v80];
+                    long v87;
+                    v87 = 2l + v80;
+                    bool v88;
+                    v88 = 0l <= v87;
+                    bool v90;
+                    if (v88){
+                        bool v89;
+                        v89 = v87 < 7l;
+                        v90 = v89;
+                    } else {
+                        v90 = false;
+                    }
                     bool v91;
-                    if (v89){
-                        bool v90;
-                        v90 = v88 < 7l;
-                        v91 = v90;
-                    } else {
-                        v91 = false;
-                    }
-                    bool v92;
-                    v92 = v91 == false;
-                    if (v92){
-                        assert("The read index needs to be in range for the static array." && v91);
+                    v91 = v90 == false;
+                    if (v91){
+                        assert("The read index needs to be in range for the static array." && v90);
                     } else {
                     }
-                    v70.v[v88] = v87;
-                    v81 += 1l ;
+                    v69.v[v87] = v86;
+                    v80 += 1l ;
                 }
-                static_array<unsigned char,5l> v93; char v94;
-                Tuple0 tmp60 = score_44(v70);
-                v93 = tmp60.v0; v94 = tmp60.v1;
+                static_array<unsigned char,5l> v92; char v93;
+                Tuple0 tmp61 = score_49(v69);
+                v92 = tmp61.v0; v93 = tmp61.v1;
+                long v94;
+                v94 = v36 % 2l;
                 bool v95;
-                v95 = 0l <= v36;
+                v95 = 0l <= v94;
                 bool v97;
                 if (v95){
                     bool v96;
-                    v96 = v36 < 2l;
+                    v96 = v94 < 2l;
                     v97 = v96;
                 } else {
                     v97 = false;
@@ -9101,15 +9242,15 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 } else {
                 }
                 long v99;
-                v99 = v37.v[v36];
+                v99 = v35.v[v94];
                 bool v100;
-                v100 = v68 < v94;
+                v100 = v67 < v93;
                 US8 v106;
                 if (v100){
                     v106 = US8_2();
                 } else {
                     bool v102;
-                    v102 = v68 > v94;
+                    v102 = v67 > v93;
                     if (v102){
                         v106 = US8_1();
                     } else {
@@ -9141,7 +9282,7 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             unsigned char v114;
-                            v114 = v67.v[v108];
+                            v114 = v66.v[v108];
                             bool v116;
                             if (v110){
                                 bool v115;
@@ -9157,7 +9298,7 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                             } else {
                             }
                             unsigned char v118;
-                            v118 = v93.v[v108];
+                            v118 = v92.v[v108];
                             bool v119;
                             v119 = v114 < v118;
                             US8 v125;
@@ -9217,8 +9358,8 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                     }
                 }
                 static_array<Tuple0,2l> v135;
-                v135.v[0l] = Tuple0(v67, v68);
-                v135.v[1l] = Tuple0(v93, v94);
+                v135.v[0l] = Tuple0(v66, v67);
+                v135.v[1l] = Tuple0(v92, v93);
                 long v136;
                 v136 = v5.length;
                 bool v137;
@@ -9253,137 +9394,137 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                 US3 v145;
                 v145 = US3_4(v133, v135, v134);
                 v5.v[v136] = v145;
-                v806 = false; v807 = v8;
+                v775 = false; v776 = v8;
                 break;
             }
             case 7: { // G_Turn
-                long v656 = v8.v.case7.v0; bool v657 = v8.v.case7.v1; static_array<static_array<unsigned char,2l>,2l> v658 = v8.v.case7.v2; long v659 = v8.v.case7.v3; static_array<long,2l> v660 = v8.v.case7.v4; static_array<long,2l> v661 = v8.v.case7.v5; US6 v662 = v8.v.case7.v6;
-                static_array<unsigned char,1l> v663; unsigned long long v664;
-                Tuple14 tmp61 = draw_cards_39(v2, v6);
-                v663 = tmp61.v0; v664 = tmp61.v1;
-                v0 = v664;
-                static_array_list<unsigned char,5l,long> v665;
-                v665 = get_community_cards_40(v662, v663);
-                long v666;
-                v666 = v5.length;
-                bool v667;
-                v667 = v666 < 128l;
-                bool v668;
-                v668 = v667 == false;
-                if (v668){
-                    assert("The length has to be less than the maximum length of the array." && v667);
+                long v623 = v8.v.case7.v0; static_array<static_array<unsigned char,2l>,2l> v624 = v8.v.case7.v1; static_array<long,2l> v625 = v8.v.case7.v2; long v626 = v8.v.case7.v3; static_array<long,2l> v627 = v8.v.case7.v4; US6 v628 = v8.v.case7.v5;
+                static_array<unsigned char,1l> v629; unsigned long long v630;
+                Tuple14 tmp62 = draw_cards_42(v2, v6);
+                v629 = tmp62.v0; v630 = tmp62.v1;
+                v0 = v630;
+                static_array_list<unsigned char,5l,long> v631;
+                v631 = get_community_cards_43(v628, v629);
+                long v632;
+                v632 = v5.length;
+                bool v633;
+                v633 = v632 < 128l;
+                bool v634;
+                v634 = v633 == false;
+                if (v634){
+                    assert("The length has to be less than the maximum length of the array." && v633);
                 } else {
                 }
-                long v669;
-                v669 = v666 + 1l;
-                v5.length = v669;
-                bool v670;
-                v670 = 0l <= v666;
-                bool v673;
-                if (v670){
-                    long v671;
-                    v671 = v5.length;
-                    bool v672;
-                    v672 = v666 < v671;
-                    v673 = v672;
+                long v635;
+                v635 = v632 + 1l;
+                v5.length = v635;
+                bool v636;
+                v636 = 0l <= v632;
+                bool v639;
+                if (v636){
+                    long v637;
+                    v637 = v5.length;
+                    bool v638;
+                    v638 = v632 < v637;
+                    v639 = v638;
                 } else {
-                    v673 = false;
+                    v639 = false;
                 }
-                bool v674;
-                v674 = v673 == false;
-                if (v674){
-                    assert("The set index needs to be in range for the static array list." && v673);
+                bool v640;
+                v640 = v639 == false;
+                if (v640){
+                    assert("The set index needs to be in range for the static array list." && v639);
                 } else {
                 }
-                US3 v675;
-                v675 = US3_0(v665);
-                v5.v[v666] = v675;
-                US6 v702;
-                switch (v662.tag) {
+                US3 v641;
+                v641 = US3_0(v631);
+                v5.v[v632] = v641;
+                US6 v668;
+                switch (v628.tag) {
                     case 0: { // Flop
-                        static_array<unsigned char,3l> v676 = v662.v.case0.v0;
-                        static_array<unsigned char,4l> v677;
-                        long v678;
-                        v678 = 0l;
-                        while (while_method_3(v678)){
-                            bool v680;
-                            v680 = 0l <= v678;
-                            bool v682;
-                            if (v680){
-                                bool v681;
-                                v681 = v678 < 3l;
-                                v682 = v681;
+                        static_array<unsigned char,3l> v642 = v628.v.case0.v0;
+                        static_array<unsigned char,4l> v643;
+                        long v644;
+                        v644 = 0l;
+                        while (while_method_3(v644)){
+                            bool v646;
+                            v646 = 0l <= v644;
+                            bool v648;
+                            if (v646){
+                                bool v647;
+                                v647 = v644 < 3l;
+                                v648 = v647;
                             } else {
-                                v682 = false;
+                                v648 = false;
                             }
-                            bool v683;
-                            v683 = v682 == false;
-                            if (v683){
-                                assert("The read index needs to be in range for the static array." && v682);
-                            } else {
-                            }
-                            unsigned char v684;
-                            v684 = v676.v[v678];
-                            bool v686;
-                            if (v680){
-                                bool v685;
-                                v685 = v678 < 4l;
-                                v686 = v685;
-                            } else {
-                                v686 = false;
-                            }
-                            bool v687;
-                            v687 = v686 == false;
-                            if (v687){
-                                assert("The read index needs to be in range for the static array." && v686);
+                            bool v649;
+                            v649 = v648 == false;
+                            if (v649){
+                                assert("The read index needs to be in range for the static array." && v648);
                             } else {
                             }
-                            v677.v[v678] = v684;
-                            v678 += 1l ;
+                            unsigned char v650;
+                            v650 = v642.v[v644];
+                            bool v652;
+                            if (v646){
+                                bool v651;
+                                v651 = v644 < 4l;
+                                v652 = v651;
+                            } else {
+                                v652 = false;
+                            }
+                            bool v653;
+                            v653 = v652 == false;
+                            if (v653){
+                                assert("The read index needs to be in range for the static array." && v652);
+                            } else {
+                            }
+                            v643.v[v644] = v650;
+                            v644 += 1l ;
                         }
-                        long v688;
-                        v688 = 0l;
-                        while (while_method_6(v688)){
-                            bool v690;
-                            v690 = 0l <= v688;
-                            bool v692;
-                            if (v690){
-                                bool v691;
-                                v691 = v688 < 1l;
-                                v692 = v691;
+                        long v654;
+                        v654 = 0l;
+                        while (while_method_6(v654)){
+                            bool v656;
+                            v656 = 0l <= v654;
+                            bool v658;
+                            if (v656){
+                                bool v657;
+                                v657 = v654 < 1l;
+                                v658 = v657;
                             } else {
-                                v692 = false;
+                                v658 = false;
                             }
-                            bool v693;
-                            v693 = v692 == false;
-                            if (v693){
-                                assert("The read index needs to be in range for the static array." && v692);
-                            } else {
-                            }
-                            unsigned char v694;
-                            v694 = v663.v[v688];
-                            long v695;
-                            v695 = 3l + v688;
-                            bool v696;
-                            v696 = 0l <= v695;
-                            bool v698;
-                            if (v696){
-                                bool v697;
-                                v697 = v695 < 4l;
-                                v698 = v697;
-                            } else {
-                                v698 = false;
-                            }
-                            bool v699;
-                            v699 = v698 == false;
-                            if (v699){
-                                assert("The read index needs to be in range for the static array." && v698);
+                            bool v659;
+                            v659 = v658 == false;
+                            if (v659){
+                                assert("The read index needs to be in range for the static array." && v658);
                             } else {
                             }
-                            v677.v[v695] = v694;
-                            v688 += 1l ;
+                            unsigned char v660;
+                            v660 = v629.v[v654];
+                            long v661;
+                            v661 = 3l + v654;
+                            bool v662;
+                            v662 = 0l <= v661;
+                            bool v664;
+                            if (v662){
+                                bool v663;
+                                v663 = v661 < 4l;
+                                v664 = v663;
+                            } else {
+                                v664 = false;
+                            }
+                            bool v665;
+                            v665 = v664 == false;
+                            if (v665){
+                                assert("The read index needs to be in range for the static array." && v664);
+                            } else {
+                            }
+                            v643.v[v661] = v660;
+                            v654 += 1l ;
                         }
-                        v702 = US6_3(v677);
+                        v668 = US6_3(v643);
                         break;
                     }
                     default: {
@@ -9391,17 +9532,19 @@ __device__ US5 play_loop_inner_33(unsigned long long & v0, static_array_list<US3
                         asm("exit;");
                     }
                 }
-                US5 v703;
-                v703 = US5_4(v656, true, v658, 0l, v660, v661, v702);
-                v806 = true; v807 = v703;
+                long v669;
+                v669 = 0l;
+                US5 v670;
+                v670 = try_round_38(v623, v624, v625, v669, v627, v668);
+                v775 = true; v776 = v670;
                 break;
             }
             default: {
                 assert("Invalid tag." && false);
             }
         }
-        v7 = v806;
-        v8 = v807;
+        v7 = v775;
+        v8 = v776;
     }
     return v8;
 }
@@ -9410,30 +9553,30 @@ __device__ Tuple8 play_loop_32(US4 v0, static_array<US2,2l> v1, US7 v2, unsigned
     v7 = play_loop_inner_33(v3, v4, v5, v1, v6);
     switch (v7.tag) {
         case 1: { // G_Fold
-            long v26 = v7.v.case1.v0; bool v27 = v7.v.case1.v1; static_array<static_array<unsigned char,2l>,2l> v28 = v7.v.case1.v2; long v29 = v7.v.case1.v3; static_array<long,2l> v30 = v7.v.case1.v4; static_array<long,2l> v31 = v7.v.case1.v5; US6 v32 = v7.v.case1.v6;
-            US4 v33;
-            v33 = US4_0();
-            US7 v34;
-            v34 = US7_1(v26, v27, v28, v29, v30, v31, v32);
-            return Tuple8(v33, v1, v34);
+            long v24 = v7.v.case1.v0; static_array<static_array<unsigned char,2l>,2l> v25 = v7.v.case1.v1; static_array<long,2l> v26 = v7.v.case1.v2; long v27 = v7.v.case1.v3; static_array<long,2l> v28 = v7.v.case1.v4; US6 v29 = v7.v.case1.v5;
+            US4 v30;
+            v30 = US4_0();
+            US7 v31;
+            v31 = US7_1(v24, v25, v26, v27, v28, v29);
+            return Tuple8(v30, v1, v31);
             break;
         }
         case 4: { // G_Round
-            long v8 = v7.v.case4.v0; bool v9 = v7.v.case4.v1; static_array<static_array<unsigned char,2l>,2l> v10 = v7.v.case4.v2; long v11 = v7.v.case4.v3; static_array<long,2l> v12 = v7.v.case4.v4; static_array<long,2l> v13 = v7.v.case4.v5; US6 v14 = v7.v.case4.v6;
-            US4 v15;
-            v15 = US4_1(v7);
-            US7 v16;
-            v16 = US7_2(v8, v9, v10, v11, v12, v13, v14);
-            return Tuple8(v15, v1, v16);
+            long v8 = v7.v.case4.v0; static_array<static_array<unsigned char,2l>,2l> v9 = v7.v.case4.v1; static_array<long,2l> v10 = v7.v.case4.v2; long v11 = v7.v.case4.v3; static_array<long,2l> v12 = v7.v.case4.v4; US6 v13 = v7.v.case4.v5;
+            US4 v14;
+            v14 = US4_1(v7);
+            US7 v15;
+            v15 = US7_2(v8, v9, v10, v11, v12, v13);
+            return Tuple8(v14, v1, v15);
             break;
         }
         case 6: { // G_Showdown
-            long v17 = v7.v.case6.v0; bool v18 = v7.v.case6.v1; static_array<static_array<unsigned char,2l>,2l> v19 = v7.v.case6.v2; long v20 = v7.v.case6.v3; static_array<long,2l> v21 = v7.v.case6.v4; static_array<long,2l> v22 = v7.v.case6.v5; US6 v23 = v7.v.case6.v6;
-            US4 v24;
-            v24 = US4_0();
-            US7 v25;
-            v25 = US7_1(v17, v18, v19, v20, v21, v22, v23);
-            return Tuple8(v24, v1, v25);
+            long v16 = v7.v.case6.v0; static_array<static_array<unsigned char,2l>,2l> v17 = v7.v.case6.v1; static_array<long,2l> v18 = v7.v.case6.v2; long v19 = v7.v.case6.v3; static_array<long,2l> v20 = v7.v.case6.v4; US6 v21 = v7.v.case6.v5;
+            US4 v22;
+            v22 = US4_0();
+            US7 v23;
+            v23 = US7_1(v16, v17, v18, v19, v20, v21);
+            return Tuple8(v22, v1, v23);
             break;
         }
         default: {
@@ -9442,37 +9585,37 @@ __device__ Tuple8 play_loop_32(US4 v0, static_array<US2,2l> v1, US7 v2, unsigned
         }
     }
 }
-__device__ void f_46(unsigned char * v0, unsigned long long v1){
+__device__ void f_51(unsigned char * v0, unsigned long long v1){
     unsigned long long * v2;
     v2 = (unsigned long long *)(v0+0ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_47(unsigned char * v0, long v1){
+__device__ void f_52(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+8ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_49(unsigned char * v0, long v1){
+__device__ void f_54(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+0ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_52(unsigned char * v0, unsigned char v1){
+__device__ void f_57(unsigned char * v0, unsigned char v1){
     unsigned char * v2;
     v2 = (unsigned char *)(v0+0ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_51(unsigned char * v0, unsigned char v1){
-    return f_52(v0, v1);
+__device__ void f_56(unsigned char * v0, unsigned char v1){
+    return f_57(v0, v1);
 }
-__device__ void f_50(unsigned char * v0, static_array_list<unsigned char,5l,long> v1){
+__device__ void f_55(unsigned char * v0, static_array_list<unsigned char,5l,long> v1){
     long v2;
     v2 = v1.length;
-    f_49(v0, v2);
+    f_54(v0, v2);
     long v3;
     v3 = v1.length;
     long v4;
@@ -9504,12 +9647,12 @@ __device__ void f_50(unsigned char * v0, static_array_list<unsigned char,5l,long
         }
         unsigned char v14;
         v14 = v1.v[v4];
-        f_51(v8, v14);
+        f_56(v8, v14);
         v4 += 1l ;
     }
     return ;
 }
-__device__ void f_53(unsigned char * v0, long v1, long v2){
+__device__ void f_58(unsigned char * v0, long v1, long v2){
     long * v3;
     v3 = (long *)(v0+0ull);
     v3[0l] = v1;
@@ -9518,36 +9661,36 @@ __device__ void f_53(unsigned char * v0, long v1, long v2){
     v4[0l] = v2;
     return ;
 }
-__device__ void f_55(unsigned char * v0, long v1){
+__device__ void f_60(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+4ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_56(unsigned char * v0){
+__device__ void f_61(unsigned char * v0){
     return ;
 }
-__device__ void f_54(unsigned char * v0, long v1, US1 v2){
+__device__ void f_59(unsigned char * v0, long v1, US1 v2){
     long * v3;
     v3 = (long *)(v0+0ull);
     v3[0l] = v1;
     long v4;
     v4 = v2.tag;
-    f_55(v0, v4);
+    f_60(v0, v4);
     unsigned char * v5;
     v5 = (unsigned char *)(v0+8ull);
     switch (v2.tag) {
         case 0: { // A_Call
-            return f_56(v5);
+            return f_61(v5);
             break;
         }
         case 1: { // A_Fold
-            return f_56(v5);
+            return f_61(v5);
             break;
         }
         case 2: { // A_Raise
             long v6 = v2.v.case2.v0;
-            return f_49(v5, v6);
+            return f_54(v5, v6);
             break;
         }
         default: {
@@ -9555,7 +9698,7 @@ __device__ void f_54(unsigned char * v0, long v1, US1 v2){
         }
     }
 }
-__device__ void f_57(unsigned char * v0, long v1, static_array<unsigned char,2l> v2){
+__device__ void f_62(unsigned char * v0, long v1, static_array<unsigned char,2l> v2){
     long * v3;
     v3 = (long *)(v0+0ull);
     v3[0l] = v1;
@@ -9586,12 +9729,12 @@ __device__ void f_57(unsigned char * v0, long v1, static_array<unsigned char,2l>
         }
         unsigned char v13;
         v13 = v2.v[v4];
-        f_51(v8, v13);
+        f_56(v8, v13);
         v4 += 1l ;
     }
     return ;
 }
-__device__ void f_60(unsigned char * v0, static_array<unsigned char,5l> v1, char v2){
+__device__ void f_65(unsigned char * v0, static_array<unsigned char,5l> v1, char v2){
     long v3;
     v3 = 0l;
     while (while_method_2(v3)){
@@ -9617,7 +9760,7 @@ __device__ void f_60(unsigned char * v0, static_array<unsigned char,5l> v1, char
         }
         unsigned char v11;
         v11 = v1.v[v3];
-        f_51(v6, v11);
+        f_56(v6, v11);
         v3 += 1l ;
     }
     char * v12;
@@ -9625,10 +9768,10 @@ __device__ void f_60(unsigned char * v0, static_array<unsigned char,5l> v1, char
     v12[0l] = v2;
     return ;
 }
-__device__ void f_59(unsigned char * v0, static_array<unsigned char,5l> v1, char v2){
-    return f_60(v0, v1, v2);
+__device__ void f_64(unsigned char * v0, static_array<unsigned char,5l> v1, char v2){
+    return f_65(v0, v1, v2);
 }
-__device__ void f_58(unsigned char * v0, long v1, static_array<Tuple0,2l> v2, long v3){
+__device__ void f_63(unsigned char * v0, long v1, static_array<Tuple0,2l> v2, long v3){
     long * v4;
     v4 = (long *)(v0+0ull);
     v4[0l] = v1;
@@ -9660,9 +9803,9 @@ __device__ void f_58(unsigned char * v0, long v1, static_array<Tuple0,2l> v2, lo
         } else {
         }
         static_array<unsigned char,5l> v15; char v16;
-        Tuple0 tmp64 = v2.v[v5];
-        v15 = tmp64.v0; v16 = tmp64.v1;
-        f_59(v10, v15, v16);
+        Tuple0 tmp65 = v2.v[v5];
+        v15 = tmp65.v0; v16 = tmp65.v1;
+        f_64(v10, v15, v16);
         v5 += 1l ;
     }
     long * v17;
@@ -9670,36 +9813,36 @@ __device__ void f_58(unsigned char * v0, long v1, static_array<Tuple0,2l> v2, lo
     v17[0l] = v3;
     return ;
 }
-__device__ void f_48(unsigned char * v0, US3 v1){
+__device__ void f_53(unsigned char * v0, US3 v1){
     long v2;
     v2 = v1.tag;
-    f_49(v0, v2);
+    f_54(v0, v2);
     unsigned char * v3;
     v3 = (unsigned char *)(v0+16ull);
     switch (v1.tag) {
         case 0: { // CommunityCardsAre
             static_array_list<unsigned char,5l,long> v4 = v1.v.case0.v0;
-            return f_50(v3, v4);
+            return f_55(v3, v4);
             break;
         }
         case 1: { // Fold
             long v5 = v1.v.case1.v0; long v6 = v1.v.case1.v1;
-            return f_53(v3, v5, v6);
+            return f_58(v3, v5, v6);
             break;
         }
         case 2: { // PlayerAction
             long v7 = v1.v.case2.v0; US1 v8 = v1.v.case2.v1;
-            return f_54(v3, v7, v8);
+            return f_59(v3, v7, v8);
             break;
         }
         case 3: { // PlayerGotCards
             long v9 = v1.v.case3.v0; static_array<unsigned char,2l> v10 = v1.v.case3.v1;
-            return f_57(v3, v9, v10);
+            return f_62(v3, v9, v10);
             break;
         }
         case 4: { // Showdown
             long v11 = v1.v.case4.v0; static_array<Tuple0,2l> v12 = v1.v.case4.v1; long v13 = v1.v.case4.v2;
-            return f_58(v3, v11, v12, v13);
+            return f_63(v3, v11, v12, v13);
             break;
         }
         default: {
@@ -9707,13 +9850,13 @@ __device__ void f_48(unsigned char * v0, US3 v1){
         }
     }
 }
-__device__ void f_61(unsigned char * v0, long v1){
+__device__ void f_66(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+6160ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_64(unsigned char * v0, static_array<unsigned char,2l> v1){
+__device__ void f_69(unsigned char * v0, static_array<unsigned char,2l> v1){
     long v2;
     v2 = 0l;
     while (while_method_0(v2)){
@@ -9739,18 +9882,18 @@ __device__ void f_64(unsigned char * v0, static_array<unsigned char,2l> v1){
         }
         unsigned char v10;
         v10 = v1.v[v2];
-        f_51(v5, v10);
+        f_56(v5, v10);
         v2 += 1l ;
     }
     return ;
 }
-__device__ void f_65(unsigned char * v0, long v1){
+__device__ void f_70(unsigned char * v0, long v1){
     long * v2;
-    v2 = (long *)(v0+32ull);
+    v2 = (long *)(v0+28ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_66(unsigned char * v0, static_array<unsigned char,3l> v1){
+__device__ void f_71(unsigned char * v0, static_array<unsigned char,3l> v1){
     long v2;
     v2 = 0l;
     while (while_method_3(v2)){
@@ -9776,12 +9919,12 @@ __device__ void f_66(unsigned char * v0, static_array<unsigned char,3l> v1){
         }
         unsigned char v10;
         v10 = v1.v[v2];
-        f_51(v5, v10);
+        f_56(v5, v10);
         v2 += 1l ;
     }
     return ;
 }
-__device__ void f_67(unsigned char * v0, static_array<unsigned char,5l> v1){
+__device__ void f_72(unsigned char * v0, static_array<unsigned char,5l> v1){
     long v2;
     v2 = 0l;
     while (while_method_2(v2)){
@@ -9807,12 +9950,12 @@ __device__ void f_67(unsigned char * v0, static_array<unsigned char,5l> v1){
         }
         unsigned char v10;
         v10 = v1.v[v2];
-        f_51(v5, v10);
+        f_56(v5, v10);
         v2 += 1l ;
     }
     return ;
 }
-__device__ void f_68(unsigned char * v0, static_array<unsigned char,4l> v1){
+__device__ void f_73(unsigned char * v0, static_array<unsigned char,4l> v1){
     long v2;
     v2 = 0l;
     while (while_method_4(v2)){
@@ -9838,140 +9981,137 @@ __device__ void f_68(unsigned char * v0, static_array<unsigned char,4l> v1){
         }
         unsigned char v10;
         v10 = v1.v[v2];
-        f_51(v5, v10);
+        f_56(v5, v10);
         v2 += 1l ;
     }
     return ;
 }
-__device__ void f_63(unsigned char * v0, long v1, bool v2, static_array<static_array<unsigned char,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US6 v7){
-    long * v8;
-    v8 = (long *)(v0+0ull);
-    v8[0l] = v1;
-    bool * v9;
-    v9 = (bool *)(v0+4ull);
-    v9[0l] = v2;
-    long v10;
-    v10 = 0l;
-    while (while_method_0(v10)){
+__device__ void f_68(unsigned char * v0, long v1, static_array<static_array<unsigned char,2l>,2l> v2, static_array<long,2l> v3, long v4, static_array<long,2l> v5, US6 v6){
+    long * v7;
+    v7 = (long *)(v0+0ull);
+    v7[0l] = v1;
+    long v8;
+    v8 = 0l;
+    while (while_method_0(v8)){
+        unsigned long long v10;
+        v10 = (unsigned long long)v8;
+        unsigned long long v11;
+        v11 = v10 * 2ull;
         unsigned long long v12;
-        v12 = (unsigned long long)v10;
-        unsigned long long v13;
-        v13 = v12 * 2ull;
-        unsigned long long v14;
-        v14 = 6ull + v13;
-        unsigned char * v15;
-        v15 = (unsigned char *)(v0+v14);
+        v12 = 4ull + v11;
+        unsigned char * v13;
+        v13 = (unsigned char *)(v0+v12);
+        bool v14;
+        v14 = 0l <= v8;
         bool v16;
-        v16 = 0l <= v10;
-        bool v18;
-        if (v16){
-            bool v17;
-            v17 = v10 < 2l;
-            v18 = v17;
+        if (v14){
+            bool v15;
+            v15 = v8 < 2l;
+            v16 = v15;
         } else {
-            v18 = false;
+            v16 = false;
         }
-        bool v19;
-        v19 = v18 == false;
-        if (v19){
-            assert("The read index needs to be in range for the static array." && v18);
+        bool v17;
+        v17 = v16 == false;
+        if (v17){
+            assert("The read index needs to be in range for the static array." && v16);
         } else {
         }
-        static_array<unsigned char,2l> v20;
-        v20 = v3.v[v10];
-        f_64(v15, v20);
-        v10 += 1l ;
+        static_array<unsigned char,2l> v18;
+        v18 = v2.v[v8];
+        f_69(v13, v18);
+        v8 += 1l ;
     }
-    long * v21;
-    v21 = (long *)(v0+12ull);
-    v21[0l] = v4;
-    long v22;
-    v22 = 0l;
-    while (while_method_0(v22)){
-        unsigned long long v24;
-        v24 = (unsigned long long)v22;
-        unsigned long long v25;
-        v25 = v24 * 4ull;
-        unsigned long long v26;
-        v26 = 16ull + v25;
-        unsigned char * v27;
-        v27 = (unsigned char *)(v0+v26);
+    long v19;
+    v19 = 0l;
+    while (while_method_0(v19)){
+        unsigned long long v21;
+        v21 = (unsigned long long)v19;
+        unsigned long long v22;
+        v22 = v21 * 4ull;
+        unsigned long long v23;
+        v23 = 8ull + v22;
+        unsigned char * v24;
+        v24 = (unsigned char *)(v0+v23);
+        bool v25;
+        v25 = 0l <= v19;
+        bool v27;
+        if (v25){
+            bool v26;
+            v26 = v19 < 2l;
+            v27 = v26;
+        } else {
+            v27 = false;
+        }
         bool v28;
-        v28 = 0l <= v22;
-        bool v30;
+        v28 = v27 == false;
         if (v28){
-            bool v29;
-            v29 = v22 < 2l;
-            v30 = v29;
-        } else {
-            v30 = false;
-        }
-        bool v31;
-        v31 = v30 == false;
-        if (v31){
-            assert("The read index needs to be in range for the static array." && v30);
+            assert("The read index needs to be in range for the static array." && v27);
         } else {
         }
-        long v32;
-        v32 = v5.v[v22];
-        f_49(v27, v32);
-        v22 += 1l ;
+        long v29;
+        v29 = v3.v[v19];
+        f_54(v24, v29);
+        v19 += 1l ;
     }
-    long v33;
-    v33 = 0l;
-    while (while_method_0(v33)){
+    long * v30;
+    v30 = (long *)(v0+16ull);
+    v30[0l] = v4;
+    long v31;
+    v31 = 0l;
+    while (while_method_0(v31)){
+        unsigned long long v33;
+        v33 = (unsigned long long)v31;
+        unsigned long long v34;
+        v34 = v33 * 4ull;
         unsigned long long v35;
-        v35 = (unsigned long long)v33;
-        unsigned long long v36;
-        v36 = v35 * 4ull;
-        unsigned long long v37;
-        v37 = 24ull + v36;
-        unsigned char * v38;
-        v38 = (unsigned char *)(v0+v37);
+        v35 = 20ull + v34;
+        unsigned char * v36;
+        v36 = (unsigned char *)(v0+v35);
+        bool v37;
+        v37 = 0l <= v31;
         bool v39;
-        v39 = 0l <= v33;
-        bool v41;
-        if (v39){
-            bool v40;
-            v40 = v33 < 2l;
-            v41 = v40;
+        if (v37){
+            bool v38;
+            v38 = v31 < 2l;
+            v39 = v38;
         } else {
-            v41 = false;
+            v39 = false;
         }
-        bool v42;
-        v42 = v41 == false;
-        if (v42){
-            assert("The read index needs to be in range for the static array." && v41);
+        bool v40;
+        v40 = v39 == false;
+        if (v40){
+            assert("The read index needs to be in range for the static array." && v39);
         } else {
         }
-        long v43;
-        v43 = v6.v[v33];
-        f_49(v38, v43);
-        v33 += 1l ;
+        long v41;
+        v41 = v5.v[v31];
+        f_54(v36, v41);
+        v31 += 1l ;
     }
-    long v44;
-    v44 = v7.tag;
-    f_65(v0, v44);
-    unsigned char * v45;
-    v45 = (unsigned char *)(v0+40ull);
-    switch (v7.tag) {
+    long v42;
+    v42 = v6.tag;
+    f_70(v0, v42);
+    unsigned char * v43;
+    v43 = (unsigned char *)(v0+32ull);
+    switch (v6.tag) {
         case 0: { // Flop
-            static_array<unsigned char,3l> v46 = v7.v.case0.v0;
-            return f_66(v45, v46);
+            static_array<unsigned char,3l> v44 = v6.v.case0.v0;
+            return f_71(v43, v44);
             break;
         }
         case 1: { // Preflop
-            return f_56(v45);
+            return f_61(v43);
             break;
         }
         case 2: { // River
-            static_array<unsigned char,5l> v47 = v7.v.case2.v0;
-            return f_67(v45, v47);
+            static_array<unsigned char,5l> v45 = v6.v.case2.v0;
+            return f_72(v43, v45);
             break;
         }
         case 3: { // Turn
-            static_array<unsigned char,4l> v48 = v7.v.case3.v0;
-            return f_68(v45, v48);
+            static_array<unsigned char,4l> v46 = v6.v.case3.v0;
+            return f_73(v43, v46);
             break;
         }
         default: {
@@ -9979,164 +10119,161 @@ __device__ void f_63(unsigned char * v0, long v1, bool v2, static_array<static_a
         }
     }
 }
-__device__ void f_70(unsigned char * v0, long v1){
+__device__ void f_75(unsigned char * v0, long v1){
     long * v2;
-    v2 = (long *)(v0+48ull);
+    v2 = (long *)(v0+40ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_69(unsigned char * v0, long v1, bool v2, static_array<static_array<unsigned char,2l>,2l> v3, long v4, static_array<long,2l> v5, static_array<long,2l> v6, US6 v7, US1 v8){
-    long * v9;
-    v9 = (long *)(v0+0ull);
-    v9[0l] = v1;
-    bool * v10;
-    v10 = (bool *)(v0+4ull);
-    v10[0l] = v2;
-    long v11;
-    v11 = 0l;
-    while (while_method_0(v11)){
+__device__ void f_74(unsigned char * v0, long v1, static_array<static_array<unsigned char,2l>,2l> v2, static_array<long,2l> v3, long v4, static_array<long,2l> v5, US6 v6, US1 v7){
+    long * v8;
+    v8 = (long *)(v0+0ull);
+    v8[0l] = v1;
+    long v9;
+    v9 = 0l;
+    while (while_method_0(v9)){
+        unsigned long long v11;
+        v11 = (unsigned long long)v9;
+        unsigned long long v12;
+        v12 = v11 * 2ull;
         unsigned long long v13;
-        v13 = (unsigned long long)v11;
-        unsigned long long v14;
-        v14 = v13 * 2ull;
-        unsigned long long v15;
-        v15 = 6ull + v14;
-        unsigned char * v16;
-        v16 = (unsigned char *)(v0+v15);
+        v13 = 4ull + v12;
+        unsigned char * v14;
+        v14 = (unsigned char *)(v0+v13);
+        bool v15;
+        v15 = 0l <= v9;
         bool v17;
-        v17 = 0l <= v11;
-        bool v19;
-        if (v17){
-            bool v18;
-            v18 = v11 < 2l;
-            v19 = v18;
+        if (v15){
+            bool v16;
+            v16 = v9 < 2l;
+            v17 = v16;
         } else {
-            v19 = false;
+            v17 = false;
         }
-        bool v20;
-        v20 = v19 == false;
-        if (v20){
-            assert("The read index needs to be in range for the static array." && v19);
+        bool v18;
+        v18 = v17 == false;
+        if (v18){
+            assert("The read index needs to be in range for the static array." && v17);
         } else {
         }
-        static_array<unsigned char,2l> v21;
-        v21 = v3.v[v11];
-        f_64(v16, v21);
-        v11 += 1l ;
+        static_array<unsigned char,2l> v19;
+        v19 = v2.v[v9];
+        f_69(v14, v19);
+        v9 += 1l ;
     }
-    long * v22;
-    v22 = (long *)(v0+12ull);
-    v22[0l] = v4;
-    long v23;
-    v23 = 0l;
-    while (while_method_0(v23)){
-        unsigned long long v25;
-        v25 = (unsigned long long)v23;
-        unsigned long long v26;
-        v26 = v25 * 4ull;
-        unsigned long long v27;
-        v27 = 16ull + v26;
-        unsigned char * v28;
-        v28 = (unsigned char *)(v0+v27);
+    long v20;
+    v20 = 0l;
+    while (while_method_0(v20)){
+        unsigned long long v22;
+        v22 = (unsigned long long)v20;
+        unsigned long long v23;
+        v23 = v22 * 4ull;
+        unsigned long long v24;
+        v24 = 8ull + v23;
+        unsigned char * v25;
+        v25 = (unsigned char *)(v0+v24);
+        bool v26;
+        v26 = 0l <= v20;
+        bool v28;
+        if (v26){
+            bool v27;
+            v27 = v20 < 2l;
+            v28 = v27;
+        } else {
+            v28 = false;
+        }
         bool v29;
-        v29 = 0l <= v23;
-        bool v31;
+        v29 = v28 == false;
         if (v29){
-            bool v30;
-            v30 = v23 < 2l;
-            v31 = v30;
-        } else {
-            v31 = false;
-        }
-        bool v32;
-        v32 = v31 == false;
-        if (v32){
-            assert("The read index needs to be in range for the static array." && v31);
+            assert("The read index needs to be in range for the static array." && v28);
         } else {
         }
-        long v33;
-        v33 = v5.v[v23];
-        f_49(v28, v33);
-        v23 += 1l ;
+        long v30;
+        v30 = v3.v[v20];
+        f_54(v25, v30);
+        v20 += 1l ;
     }
-    long v34;
-    v34 = 0l;
-    while (while_method_0(v34)){
+    long * v31;
+    v31 = (long *)(v0+16ull);
+    v31[0l] = v4;
+    long v32;
+    v32 = 0l;
+    while (while_method_0(v32)){
+        unsigned long long v34;
+        v34 = (unsigned long long)v32;
+        unsigned long long v35;
+        v35 = v34 * 4ull;
         unsigned long long v36;
-        v36 = (unsigned long long)v34;
-        unsigned long long v37;
-        v37 = v36 * 4ull;
-        unsigned long long v38;
-        v38 = 24ull + v37;
-        unsigned char * v39;
-        v39 = (unsigned char *)(v0+v38);
+        v36 = 20ull + v35;
+        unsigned char * v37;
+        v37 = (unsigned char *)(v0+v36);
+        bool v38;
+        v38 = 0l <= v32;
         bool v40;
-        v40 = 0l <= v34;
-        bool v42;
-        if (v40){
-            bool v41;
-            v41 = v34 < 2l;
-            v42 = v41;
+        if (v38){
+            bool v39;
+            v39 = v32 < 2l;
+            v40 = v39;
         } else {
-            v42 = false;
+            v40 = false;
         }
-        bool v43;
-        v43 = v42 == false;
-        if (v43){
-            assert("The read index needs to be in range for the static array." && v42);
+        bool v41;
+        v41 = v40 == false;
+        if (v41){
+            assert("The read index needs to be in range for the static array." && v40);
         } else {
         }
-        long v44;
-        v44 = v6.v[v34];
-        f_49(v39, v44);
-        v34 += 1l ;
+        long v42;
+        v42 = v5.v[v32];
+        f_54(v37, v42);
+        v32 += 1l ;
     }
-    long v45;
-    v45 = v7.tag;
-    f_65(v0, v45);
-    unsigned char * v46;
-    v46 = (unsigned char *)(v0+40ull);
-    switch (v7.tag) {
+    long v43;
+    v43 = v6.tag;
+    f_70(v0, v43);
+    unsigned char * v44;
+    v44 = (unsigned char *)(v0+32ull);
+    switch (v6.tag) {
         case 0: { // Flop
-            static_array<unsigned char,3l> v47 = v7.v.case0.v0;
-            f_66(v46, v47);
+            static_array<unsigned char,3l> v45 = v6.v.case0.v0;
+            f_71(v44, v45);
             break;
         }
         case 1: { // Preflop
-            f_56(v46);
+            f_61(v44);
             break;
         }
         case 2: { // River
-            static_array<unsigned char,5l> v48 = v7.v.case2.v0;
-            f_67(v46, v48);
+            static_array<unsigned char,5l> v46 = v6.v.case2.v0;
+            f_72(v44, v46);
             break;
         }
         case 3: { // Turn
-            static_array<unsigned char,4l> v49 = v7.v.case3.v0;
-            f_68(v46, v49);
+            static_array<unsigned char,4l> v47 = v6.v.case3.v0;
+            f_73(v44, v47);
             break;
         }
         default: {
             assert("Invalid tag." && false);
         }
     }
-    long v50;
-    v50 = v8.tag;
-    f_70(v0, v50);
-    unsigned char * v51;
-    v51 = (unsigned char *)(v0+52ull);
-    switch (v8.tag) {
+    long v48;
+    v48 = v7.tag;
+    f_75(v0, v48);
+    unsigned char * v49;
+    v49 = (unsigned char *)(v0+44ull);
+    switch (v7.tag) {
         case 0: { // A_Call
-            return f_56(v51);
+            return f_61(v49);
             break;
         }
         case 1: { // A_Fold
-            return f_56(v51);
+            return f_61(v49);
             break;
         }
         case 2: { // A_Raise
-            long v52 = v8.v.case2.v0;
-            return f_49(v51, v52);
+            long v50 = v7.v.case2.v0;
+            return f_54(v49, v50);
             break;
         }
         default: {
@@ -10144,50 +10281,50 @@ __device__ void f_69(unsigned char * v0, long v1, bool v2, static_array<static_a
         }
     }
 }
-__device__ void f_62(unsigned char * v0, US5 v1){
+__device__ void f_67(unsigned char * v0, US5 v1){
     long v2;
     v2 = v1.tag;
-    f_49(v0, v2);
+    f_54(v0, v2);
     unsigned char * v3;
     v3 = (unsigned char *)(v0+16ull);
     switch (v1.tag) {
         case 0: { // G_Flop
-            long v4 = v1.v.case0.v0; bool v5 = v1.v.case0.v1; static_array<static_array<unsigned char,2l>,2l> v6 = v1.v.case0.v2; long v7 = v1.v.case0.v3; static_array<long,2l> v8 = v1.v.case0.v4; static_array<long,2l> v9 = v1.v.case0.v5; US6 v10 = v1.v.case0.v6;
-            return f_63(v3, v4, v5, v6, v7, v8, v9, v10);
+            long v4 = v1.v.case0.v0; static_array<static_array<unsigned char,2l>,2l> v5 = v1.v.case0.v1; static_array<long,2l> v6 = v1.v.case0.v2; long v7 = v1.v.case0.v3; static_array<long,2l> v8 = v1.v.case0.v4; US6 v9 = v1.v.case0.v5;
+            return f_68(v3, v4, v5, v6, v7, v8, v9);
             break;
         }
         case 1: { // G_Fold
-            long v11 = v1.v.case1.v0; bool v12 = v1.v.case1.v1; static_array<static_array<unsigned char,2l>,2l> v13 = v1.v.case1.v2; long v14 = v1.v.case1.v3; static_array<long,2l> v15 = v1.v.case1.v4; static_array<long,2l> v16 = v1.v.case1.v5; US6 v17 = v1.v.case1.v6;
-            return f_63(v3, v11, v12, v13, v14, v15, v16, v17);
+            long v10 = v1.v.case1.v0; static_array<static_array<unsigned char,2l>,2l> v11 = v1.v.case1.v1; static_array<long,2l> v12 = v1.v.case1.v2; long v13 = v1.v.case1.v3; static_array<long,2l> v14 = v1.v.case1.v4; US6 v15 = v1.v.case1.v5;
+            return f_68(v3, v10, v11, v12, v13, v14, v15);
             break;
         }
         case 2: { // G_Preflop
-            return f_56(v3);
+            return f_61(v3);
             break;
         }
         case 3: { // G_River
-            long v18 = v1.v.case3.v0; bool v19 = v1.v.case3.v1; static_array<static_array<unsigned char,2l>,2l> v20 = v1.v.case3.v2; long v21 = v1.v.case3.v3; static_array<long,2l> v22 = v1.v.case3.v4; static_array<long,2l> v23 = v1.v.case3.v5; US6 v24 = v1.v.case3.v6;
-            return f_63(v3, v18, v19, v20, v21, v22, v23, v24);
+            long v16 = v1.v.case3.v0; static_array<static_array<unsigned char,2l>,2l> v17 = v1.v.case3.v1; static_array<long,2l> v18 = v1.v.case3.v2; long v19 = v1.v.case3.v3; static_array<long,2l> v20 = v1.v.case3.v4; US6 v21 = v1.v.case3.v5;
+            return f_68(v3, v16, v17, v18, v19, v20, v21);
             break;
         }
         case 4: { // G_Round
-            long v25 = v1.v.case4.v0; bool v26 = v1.v.case4.v1; static_array<static_array<unsigned char,2l>,2l> v27 = v1.v.case4.v2; long v28 = v1.v.case4.v3; static_array<long,2l> v29 = v1.v.case4.v4; static_array<long,2l> v30 = v1.v.case4.v5; US6 v31 = v1.v.case4.v6;
-            return f_63(v3, v25, v26, v27, v28, v29, v30, v31);
+            long v22 = v1.v.case4.v0; static_array<static_array<unsigned char,2l>,2l> v23 = v1.v.case4.v1; static_array<long,2l> v24 = v1.v.case4.v2; long v25 = v1.v.case4.v3; static_array<long,2l> v26 = v1.v.case4.v4; US6 v27 = v1.v.case4.v5;
+            return f_68(v3, v22, v23, v24, v25, v26, v27);
             break;
         }
         case 5: { // G_Round'
-            long v32 = v1.v.case5.v0; bool v33 = v1.v.case5.v1; static_array<static_array<unsigned char,2l>,2l> v34 = v1.v.case5.v2; long v35 = v1.v.case5.v3; static_array<long,2l> v36 = v1.v.case5.v4; static_array<long,2l> v37 = v1.v.case5.v5; US6 v38 = v1.v.case5.v6; US1 v39 = v1.v.case5.v7;
-            return f_69(v3, v32, v33, v34, v35, v36, v37, v38, v39);
+            long v28 = v1.v.case5.v0; static_array<static_array<unsigned char,2l>,2l> v29 = v1.v.case5.v1; static_array<long,2l> v30 = v1.v.case5.v2; long v31 = v1.v.case5.v3; static_array<long,2l> v32 = v1.v.case5.v4; US6 v33 = v1.v.case5.v5; US1 v34 = v1.v.case5.v6;
+            return f_74(v3, v28, v29, v30, v31, v32, v33, v34);
             break;
         }
         case 6: { // G_Showdown
-            long v40 = v1.v.case6.v0; bool v41 = v1.v.case6.v1; static_array<static_array<unsigned char,2l>,2l> v42 = v1.v.case6.v2; long v43 = v1.v.case6.v3; static_array<long,2l> v44 = v1.v.case6.v4; static_array<long,2l> v45 = v1.v.case6.v5; US6 v46 = v1.v.case6.v6;
-            return f_63(v3, v40, v41, v42, v43, v44, v45, v46);
+            long v35 = v1.v.case6.v0; static_array<static_array<unsigned char,2l>,2l> v36 = v1.v.case6.v1; static_array<long,2l> v37 = v1.v.case6.v2; long v38 = v1.v.case6.v3; static_array<long,2l> v39 = v1.v.case6.v4; US6 v40 = v1.v.case6.v5;
+            return f_68(v3, v35, v36, v37, v38, v39, v40);
             break;
         }
         case 7: { // G_Turn
-            long v47 = v1.v.case7.v0; bool v48 = v1.v.case7.v1; static_array<static_array<unsigned char,2l>,2l> v49 = v1.v.case7.v2; long v50 = v1.v.case7.v3; static_array<long,2l> v51 = v1.v.case7.v4; static_array<long,2l> v52 = v1.v.case7.v5; US6 v53 = v1.v.case7.v6;
-            return f_63(v3, v47, v48, v49, v50, v51, v52, v53);
+            long v41 = v1.v.case7.v0; static_array<static_array<unsigned char,2l>,2l> v42 = v1.v.case7.v1; static_array<long,2l> v43 = v1.v.case7.v2; long v44 = v1.v.case7.v3; static_array<long,2l> v45 = v1.v.case7.v4; US6 v46 = v1.v.case7.v5;
+            return f_68(v3, v41, v42, v43, v44, v45, v46);
             break;
         }
         default: {
@@ -10195,19 +10332,19 @@ __device__ void f_62(unsigned char * v0, US5 v1){
         }
     }
 }
-__device__ void f_71(unsigned char * v0, US2 v1){
+__device__ void f_76(unsigned char * v0, US2 v1){
     long v2;
     v2 = v1.tag;
-    f_49(v0, v2);
+    f_54(v0, v2);
     unsigned char * v3;
     v3 = (unsigned char *)(v0+4ull);
     switch (v1.tag) {
         case 0: { // Computer
-            return f_56(v3);
+            return f_61(v3);
             break;
         }
         case 1: { // Human
-            return f_56(v3);
+            return f_61(v3);
             break;
         }
         default: {
@@ -10215,17 +10352,17 @@ __device__ void f_71(unsigned char * v0, US2 v1){
         }
     }
 }
-__device__ void f_72(unsigned char * v0, long v1){
+__device__ void f_77(unsigned char * v0, long v1){
     long * v2;
-    v2 = (long *)(v0+6264ull);
+    v2 = (long *)(v0+6248ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_45(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US4 v3, static_array<US2,2l> v4, US7 v5){
-    f_46(v0, v1);
+__device__ void f_50(unsigned char * v0, unsigned long long v1, static_array_list<US3,128l,long> v2, US4 v3, static_array<US2,2l> v4, US7 v5){
+    f_51(v0, v1);
     long v6;
     v6 = v2.length;
-    f_47(v0, v6);
+    f_52(v0, v6);
     long v7;
     v7 = v2.length;
     long v8;
@@ -10259,22 +10396,22 @@ __device__ void f_45(unsigned char * v0, unsigned long long v1, static_array_lis
         }
         US3 v19;
         v19 = v2.v[v8];
-        f_48(v13, v19);
+        f_53(v13, v19);
         v8 += 1l ;
     }
     long v20;
     v20 = v3.tag;
-    f_61(v0, v20);
+    f_66(v0, v20);
     unsigned char * v21;
     v21 = (unsigned char *)(v0+6176ull);
     switch (v3.tag) {
         case 0: { // None
-            f_56(v21);
+            f_61(v21);
             break;
         }
         case 1: { // Some
             US5 v22 = v3.v.case1.v0;
-            f_62(v21, v22);
+            f_67(v21, v22);
             break;
         }
         default: {
@@ -10289,7 +10426,7 @@ __device__ void f_45(unsigned char * v0, unsigned long long v1, static_array_lis
         unsigned long long v26;
         v26 = v25 * 4ull;
         unsigned long long v27;
-        v27 = 6256ull + v26;
+        v27 = 6240ull + v26;
         unsigned char * v28;
         v28 = (unsigned char *)(v0+v27);
         bool v29;
@@ -10310,27 +10447,27 @@ __device__ void f_45(unsigned char * v0, unsigned long long v1, static_array_lis
         }
         US2 v33;
         v33 = v4.v[v23];
-        f_71(v28, v33);
+        f_76(v28, v33);
         v23 += 1l ;
     }
     long v34;
     v34 = v5.tag;
-    f_72(v0, v34);
+    f_77(v0, v34);
     unsigned char * v35;
-    v35 = (unsigned char *)(v0+6272ull);
+    v35 = (unsigned char *)(v0+6256ull);
     switch (v5.tag) {
         case 0: { // GameNotStarted
-            return f_56(v35);
+            return f_61(v35);
             break;
         }
         case 1: { // GameOver
-            long v36 = v5.v.case1.v0; bool v37 = v5.v.case1.v1; static_array<static_array<unsigned char,2l>,2l> v38 = v5.v.case1.v2; long v39 = v5.v.case1.v3; static_array<long,2l> v40 = v5.v.case1.v4; static_array<long,2l> v41 = v5.v.case1.v5; US6 v42 = v5.v.case1.v6;
-            return f_63(v35, v36, v37, v38, v39, v40, v41, v42);
+            long v36 = v5.v.case1.v0; static_array<static_array<unsigned char,2l>,2l> v37 = v5.v.case1.v1; static_array<long,2l> v38 = v5.v.case1.v2; long v39 = v5.v.case1.v3; static_array<long,2l> v40 = v5.v.case1.v4; US6 v41 = v5.v.case1.v5;
+            return f_68(v35, v36, v37, v38, v39, v40, v41);
             break;
         }
         case 2: { // WaitingForActionFromPlayerId
-            long v43 = v5.v.case2.v0; bool v44 = v5.v.case2.v1; static_array<static_array<unsigned char,2l>,2l> v45 = v5.v.case2.v2; long v46 = v5.v.case2.v3; static_array<long,2l> v47 = v5.v.case2.v4; static_array<long,2l> v48 = v5.v.case2.v5; US6 v49 = v5.v.case2.v6;
-            return f_63(v35, v43, v44, v45, v46, v47, v48, v49);
+            long v42 = v5.v.case2.v0; static_array<static_array<unsigned char,2l>,2l> v43 = v5.v.case2.v1; static_array<long,2l> v44 = v5.v.case2.v2; long v45 = v5.v.case2.v3; static_array<long,2l> v46 = v5.v.case2.v4; US6 v47 = v5.v.case2.v5;
+            return f_68(v35, v42, v43, v44, v45, v46, v47);
             break;
         }
         default: {
@@ -10338,16 +10475,16 @@ __device__ void f_45(unsigned char * v0, unsigned long long v1, static_array_lis
         }
     }
 }
-__device__ void f_74(unsigned char * v0, long v1){
+__device__ void f_79(unsigned char * v0, long v1){
     long * v2;
     v2 = (long *)(v0+6168ull);
     v2[0l] = v1;
     return ;
 }
-__device__ void f_73(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US7 v3){
+__device__ void f_78(unsigned char * v0, static_array_list<US3,128l,long> v1, static_array<US2,2l> v2, US7 v3){
     long v4;
     v4 = v1.length;
-    f_49(v0, v4);
+    f_54(v0, v4);
     long v5;
     v5 = v1.length;
     long v6;
@@ -10381,7 +10518,7 @@ __device__ void f_73(unsigned char * v0, static_array_list<US3,128l,long> v1, st
         }
         US3 v17;
         v17 = v1.v[v6];
-        f_48(v11, v17);
+        f_53(v11, v17);
         v6 += 1l ;
     }
     long v18;
@@ -10413,27 +10550,27 @@ __device__ void f_73(unsigned char * v0, static_array_list<US3,128l,long> v1, st
         }
         US2 v28;
         v28 = v2.v[v18];
-        f_71(v23, v28);
+        f_76(v23, v28);
         v18 += 1l ;
     }
     long v29;
     v29 = v3.tag;
-    f_74(v0, v29);
+    f_79(v0, v29);
     unsigned char * v30;
     v30 = (unsigned char *)(v0+6176ull);
     switch (v3.tag) {
         case 0: { // GameNotStarted
-            return f_56(v30);
+            return f_61(v30);
             break;
         }
         case 1: { // GameOver
-            long v31 = v3.v.case1.v0; bool v32 = v3.v.case1.v1; static_array<static_array<unsigned char,2l>,2l> v33 = v3.v.case1.v2; long v34 = v3.v.case1.v3; static_array<long,2l> v35 = v3.v.case1.v4; static_array<long,2l> v36 = v3.v.case1.v5; US6 v37 = v3.v.case1.v6;
-            return f_63(v30, v31, v32, v33, v34, v35, v36, v37);
+            long v31 = v3.v.case1.v0; static_array<static_array<unsigned char,2l>,2l> v32 = v3.v.case1.v1; static_array<long,2l> v33 = v3.v.case1.v2; long v34 = v3.v.case1.v3; static_array<long,2l> v35 = v3.v.case1.v4; US6 v36 = v3.v.case1.v5;
+            return f_68(v30, v31, v32, v33, v34, v35, v36);
             break;
         }
         case 2: { // WaitingForActionFromPlayerId
-            long v38 = v3.v.case2.v0; bool v39 = v3.v.case2.v1; static_array<static_array<unsigned char,2l>,2l> v40 = v3.v.case2.v2; long v41 = v3.v.case2.v3; static_array<long,2l> v42 = v3.v.case2.v4; static_array<long,2l> v43 = v3.v.case2.v5; US6 v44 = v3.v.case2.v6;
-            return f_63(v30, v38, v39, v40, v41, v42, v43, v44);
+            long v37 = v3.v.case2.v0; static_array<static_array<unsigned char,2l>,2l> v38 = v3.v.case2.v1; static_array<long,2l> v39 = v3.v.case2.v2; long v40 = v3.v.case2.v3; static_array<long,2l> v41 = v3.v.case2.v4; US6 v42 = v3.v.case2.v5;
+            return f_68(v30, v37, v38, v39, v40, v41, v42);
             break;
         }
         default: {
@@ -10478,24 +10615,24 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1, unsign
         v22 = (unsigned long long)v21;
         curandStatePhilox4_32_10_t v23;
         curand_init(v17,v22,0ull,&v23);
-        US4 v66; static_array<US2,2l> v67; US7 v68;
+        US4 v65; static_array<US2,2l> v66; US7 v67;
         switch (v9.tag) {
             case 0: { // ActionSelected
                 US1 v35 = v9.v.case0.v0;
                 switch (v12.tag) {
                     case 0: { // None
-                        v66 = v12; v67 = v13; v68 = v14;
+                        v65 = v12; v66 = v13; v67 = v14;
                         break;
                     }
                     case 1: { // Some
                         US5 v36 = v12.v.case1.v0;
                         switch (v36.tag) {
                             case 4: { // G_Round
-                                long v37 = v36.v.case4.v0; bool v38 = v36.v.case4.v1; static_array<static_array<unsigned char,2l>,2l> v39 = v36.v.case4.v2; long v40 = v36.v.case4.v3; static_array<long,2l> v41 = v36.v.case4.v4; static_array<long,2l> v42 = v36.v.case4.v5; US6 v43 = v36.v.case4.v6;
-                                US5 v44;
-                                v44 = US5_5(v37, v38, v39, v40, v41, v42, v43, v35);
-                                Tuple8 tmp62 = play_loop_32(v12, v13, v14, v15, v16, v23, v44);
-                                v66 = tmp62.v0; v67 = tmp62.v1; v68 = tmp62.v2;
+                                long v37 = v36.v.case4.v0; static_array<static_array<unsigned char,2l>,2l> v38 = v36.v.case4.v1; static_array<long,2l> v39 = v36.v.case4.v2; long v40 = v36.v.case4.v3; static_array<long,2l> v41 = v36.v.case4.v4; US6 v42 = v36.v.case4.v5;
+                                US5 v43;
+                                v43 = US5_5(v37, v38, v39, v40, v41, v42, v35);
+                                Tuple8 tmp63 = play_loop_32(v12, v13, v14, v15, v16, v23, v43);
+                                v65 = tmp63.v0; v66 = tmp63.v1; v67 = tmp63.v2;
                                 break;
                             }
                             default: {
@@ -10513,7 +10650,7 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1, unsign
             }
             case 1: { // PlayerChanged
                 static_array<US2,2l> v34 = v9.v.case1.v0;
-                v66 = v12; v67 = v34; v68 = v14;
+                v65 = v12; v66 = v34; v67 = v14;
                 break;
             }
             case 2: { // StartGame
@@ -10534,16 +10671,16 @@ extern "C" __global__ void entry0(unsigned char * v0, unsigned char * v1, unsign
                 v29 = US7_0();
                 US5 v30;
                 v30 = US5_2();
-                Tuple8 tmp63 = play_loop_32(v28, v24, v29, v15, v16, v23, v30);
-                v66 = tmp63.v0; v67 = tmp63.v1; v68 = tmp63.v2;
+                Tuple8 tmp64 = play_loop_32(v28, v24, v29, v15, v16, v23, v30);
+                v65 = tmp64.v0; v66 = tmp64.v1; v67 = tmp64.v2;
                 break;
             }
             default: {
                 assert("Invalid tag." && false);
             }
         }
-        f_45(v0, v10, v11, v66, v67, v68);
-        return f_73(v2, v11, v67, v68);
+        f_50(v0, v10, v11, v65, v66, v67);
+        return f_78(v2, v11, v66, v67);
     } else {
         return ;
     }
@@ -10606,69 +10743,62 @@ class US5_3(NamedTuple): # Turn
 US5 = Union[US5_0, US5_1, US5_2, US5_3]
 class US4_0(NamedTuple): # G_Flop
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 0
 class US4_1(NamedTuple): # G_Fold
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 1
 class US4_2(NamedTuple): # G_Preflop
     tag = 2
 class US4_3(NamedTuple): # G_River
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 3
 class US4_4(NamedTuple): # G_Round
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 4
 class US4_5(NamedTuple): # G_Round'
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
-    v7 : US1
+    v5 : US5
+    v6 : US1
     tag = 5
 class US4_6(NamedTuple): # G_Showdown
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 6
 class US4_7(NamedTuple): # G_Turn
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 7
 US4 = Union[US4_0, US4_1, US4_2, US4_3, US4_4, US4_5, US4_6, US4_7]
 class US3_0(NamedTuple): # None
@@ -10681,21 +10811,19 @@ class US6_0(NamedTuple): # GameNotStarted
     tag = 0
 class US6_1(NamedTuple): # GameOver
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 1
 class US6_2(NamedTuple): # WaitingForActionFromPlayerId
     v0 : i32
-    v1 : bool
+    v1 : static_array
     v2 : static_array
     v3 : i32
     v4 : static_array
-    v5 : static_array
-    v6 : US5
+    v5 : US5
     tag = 2
 US6 = Union[US6_0, US6_1, US6_2]
 class US7_0(NamedTuple): # CommunityCardsAre
@@ -10722,7 +10850,7 @@ US7 = Union[US7_0, US7_1, US7_2, US7_3, US7_4]
 def Closure0():
     def inner(v0 : object, v1 : object) -> object:
         v2 = cp.empty(16,dtype=cp.uint8)
-        v3 = cp.empty(6320,dtype=cp.uint8)
+        v3 = cp.empty(6304,dtype=cp.uint8)
         v4 = cp.empty(6224,dtype=cp.uint8)
         v5 = "Deserializing the message and game_state from JSON."
         method0(v5)
@@ -10734,9 +10862,9 @@ def Closure0():
         method0(v12)
         del v12
         print()
-        method42(v2, v6)
+        method41(v2, v6)
         del v6
-        method49(v3, v7, v8, v9, v10, v11)
+        method48(v3, v7, v8, v9, v10, v11)
         del v7, v8, v9, v10, v11
         v13 = "Done serializing the gpu state"
         method0(v13)
@@ -10748,11 +10876,11 @@ def Closure0():
         v15.max_dynamic_shared_size_bytes = 0 
         v15((1,),(512,),(v3, v2, v4),shared_mem=0)
         del v2, v15
-        v16, v17, v18, v19, v20 = method77(v3)
+        v16, v17, v18, v19, v20 = method76(v3)
         del v3
-        v21, v22, v23 = method105(v4)
+        v21, v22, v23 = method104(v4)
         del v4
-        return method107(v16, v17, v18, v19, v20, v21, v22, v23)
+        return method106(v16, v17, v18, v19, v20, v21, v22, v23)
     return inner
 def Closure1():
     def inner() -> object:
@@ -10767,7 +10895,7 @@ def Closure1():
         v4 = 4503599627370495
         v5 = US3_0()
         v6 = US6_0()
-        return method147(v4, v3, v5, v0, v6)
+        return method145(v4, v3, v5, v0, v6)
     return inner
 def method0(v0 : string) -> None:
     print(v0, end="")
@@ -11250,12 +11378,7 @@ def method33(v0 : object) -> i32:
     v2 = method5(v1)
     del v1
     return v2
-def method34(v0 : object) -> bool:
-    assert isinstance(v0,bool), f'The object needs to be the right primitive type. Got: {v0}'
-    v1 = v0
-    del v0
-    return v1
-def method35(v0 : object) -> static_array:
+def method34(v0 : object) -> static_array:
     assert isinstance(v0,list), f'The object needs to be a Python list. Got: {v0}'
     v1 = len(v0) # type: ignore
     v2 = 2 == v1
@@ -11293,7 +11416,7 @@ def method35(v0 : object) -> static_array:
         v6 += 1 
     del v0, v1, v6
     return v5
-def method36(v0 : object) -> static_array:
+def method35(v0 : object) -> static_array:
     assert isinstance(v0,list), f'The object needs to be a Python list. Got: {v0}'
     v1 = len(v0) # type: ignore
     v2 = 2 == v1
@@ -11331,7 +11454,7 @@ def method36(v0 : object) -> static_array:
         v6 += 1 
     del v0, v1, v6
     return v5
-def method38(v0 : object) -> static_array:
+def method37(v0 : object) -> static_array:
     assert isinstance(v0,list), f'The object needs to be a Python list. Got: {v0}'
     v1 = len(v0) # type: ignore
     v2 = 3 == v1
@@ -11369,7 +11492,7 @@ def method38(v0 : object) -> static_array:
         v6 += 1 
     del v0, v1, v6
     return v5
-def method39(v0 : object) -> static_array:
+def method38(v0 : object) -> static_array:
     assert isinstance(v0,list), f'The object needs to be a Python list. Got: {v0}'
     v1 = len(v0) # type: ignore
     v2 = 4 == v1
@@ -11407,14 +11530,14 @@ def method39(v0 : object) -> static_array:
         v6 += 1 
     del v0, v1, v6
     return v5
-def method37(v0 : object) -> US5:
+def method36(v0 : object) -> US5:
     v1 = v0[0] # type: ignore
     v2 = v0[1] # type: ignore
     del v0
     v4 = "Flop" == v1
     if v4:
         del v1, v4
-        v5 = method38(v2)
+        v5 = method37(v2)
         del v2
         return US5_0(v5)
     else:
@@ -11438,7 +11561,7 @@ def method37(v0 : object) -> US5:
                 v15 = "Turn" == v1
                 if v15:
                     del v1, v15
-                    v16 = method39(v2)
+                    v16 = method38(v2)
                     del v2
                     return US5_3(v16)
                 else:
@@ -11446,39 +11569,36 @@ def method37(v0 : object) -> US5:
                     raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
                     del v1
                     raise Exception("Error")
-def method32(v0 : object) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5]:
+def method32(v0 : object) -> Tuple[i32, static_array, static_array, i32, static_array, US5]:
     v1 = v0["config"] # type: ignore
     v2 = method33(v1)
     del v1
-    v3 = v0["is_button_s_first_move"] # type: ignore
+    v3 = v0["pl_card"] # type: ignore
     v4 = method34(v3)
     del v3
-    v5 = v0["pl_card"] # type: ignore
+    v5 = v0["pot"] # type: ignore
     v6 = method35(v5)
     del v5
-    v7 = v0["player_turn"] # type: ignore
+    v7 = v0["round_turn"] # type: ignore
     v8 = method5(v7)
     del v7
-    v9 = v0["pot"] # type: ignore
-    v10 = method36(v9)
+    v9 = v0["stack"] # type: ignore
+    v10 = method35(v9)
     del v9
-    v11 = v0["stack"] # type: ignore
+    v11 = v0["street"] # type: ignore
+    del v0
     v12 = method36(v11)
     del v11
-    v13 = v0["street"] # type: ignore
-    del v0
-    v14 = method37(v13)
-    del v13
-    return v2, v4, v6, v8, v10, v12, v14
-def method40(v0 : object) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5, US1]:
+    return v2, v4, v6, v8, v10, v12
+def method39(v0 : object) -> Tuple[i32, static_array, static_array, i32, static_array, US5, US1]:
     v1 = v0[0] # type: ignore
-    v2, v3, v4, v5, v6, v7, v8 = method32(v1)
+    v2, v3, v4, v5, v6, v7 = method32(v1)
     del v1
-    v9 = v0[1] # type: ignore
+    v8 = v0[1] # type: ignore
     del v0
-    v10 = method3(v9)
-    del v9
-    return v2, v3, v4, v5, v6, v7, v8, v10
+    v9 = method3(v8)
+    del v8
+    return v2, v3, v4, v5, v6, v7, v9
 def method31(v0 : object) -> US4:
     v1 = v0[0] # type: ignore
     v2 = v0[1] # type: ignore
@@ -11486,67 +11606,67 @@ def method31(v0 : object) -> US4:
     v4 = "G_Flop" == v1
     if v4:
         del v1, v4
-        v5, v6, v7, v8, v9, v10, v11 = method32(v2)
+        v5, v6, v7, v8, v9, v10 = method32(v2)
         del v2
-        return US4_0(v5, v6, v7, v8, v9, v10, v11)
+        return US4_0(v5, v6, v7, v8, v9, v10)
     else:
         del v4
-        v14 = "G_Fold" == v1
-        if v14:
-            del v1, v14
-            v15, v16, v17, v18, v19, v20, v21 = method32(v2)
+        v13 = "G_Fold" == v1
+        if v13:
+            del v1, v13
+            v14, v15, v16, v17, v18, v19 = method32(v2)
             del v2
-            return US4_1(v15, v16, v17, v18, v19, v20, v21)
+            return US4_1(v14, v15, v16, v17, v18, v19)
         else:
-            del v14
-            v24 = "G_Preflop" == v1
-            if v24:
-                del v1, v24
+            del v13
+            v22 = "G_Preflop" == v1
+            if v22:
+                del v1, v22
                 method4(v2)
                 del v2
                 return US4_2()
             else:
-                del v24
-                v27 = "G_River" == v1
-                if v27:
-                    del v1, v27
-                    v28, v29, v30, v31, v32, v33, v34 = method32(v2)
+                del v22
+                v25 = "G_River" == v1
+                if v25:
+                    del v1, v25
+                    v26, v27, v28, v29, v30, v31 = method32(v2)
                     del v2
-                    return US4_3(v28, v29, v30, v31, v32, v33, v34)
+                    return US4_3(v26, v27, v28, v29, v30, v31)
                 else:
-                    del v27
-                    v37 = "G_Round" == v1
-                    if v37:
-                        del v1, v37
-                        v38, v39, v40, v41, v42, v43, v44 = method32(v2)
+                    del v25
+                    v34 = "G_Round" == v1
+                    if v34:
+                        del v1, v34
+                        v35, v36, v37, v38, v39, v40 = method32(v2)
                         del v2
-                        return US4_4(v38, v39, v40, v41, v42, v43, v44)
+                        return US4_4(v35, v36, v37, v38, v39, v40)
                     else:
-                        del v37
-                        v47 = "G_Round'" == v1
-                        if v47:
-                            del v1, v47
-                            v48, v49, v50, v51, v52, v53, v54, v55 = method40(v2)
+                        del v34
+                        v43 = "G_Round'" == v1
+                        if v43:
+                            del v1, v43
+                            v44, v45, v46, v47, v48, v49, v50 = method39(v2)
                             del v2
-                            return US4_5(v48, v49, v50, v51, v52, v53, v54, v55)
+                            return US4_5(v44, v45, v46, v47, v48, v49, v50)
                         else:
-                            del v47
-                            v58 = "G_Showdown" == v1
-                            if v58:
-                                del v1, v58
-                                v59, v60, v61, v62, v63, v64, v65 = method32(v2)
+                            del v43
+                            v53 = "G_Showdown" == v1
+                            if v53:
+                                del v1, v53
+                                v54, v55, v56, v57, v58, v59 = method32(v2)
                                 del v2
-                                return US4_6(v59, v60, v61, v62, v63, v64, v65)
+                                return US4_6(v54, v55, v56, v57, v58, v59)
                             else:
-                                del v58
-                                v68 = "G_Turn" == v1
-                                if v68:
-                                    del v1, v68
-                                    v69, v70, v71, v72, v73, v74, v75 = method32(v2)
+                                del v53
+                                v62 = "G_Turn" == v1
+                                if v62:
+                                    del v1, v62
+                                    v63, v64, v65, v66, v67, v68 = method32(v2)
                                     del v2
-                                    return US4_7(v69, v70, v71, v72, v73, v74, v75)
+                                    return US4_7(v63, v64, v65, v66, v67, v68)
                                 else:
-                                    del v2, v68
+                                    del v2, v62
                                     raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
                                     del v1
                                     raise Exception("Error")
@@ -11573,7 +11693,7 @@ def method30(v0 : object) -> US3:
             raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
             del v1
             raise Exception("Error")
-def method41(v0 : object) -> US6:
+def method40(v0 : object) -> US6:
     v1 = v0[0] # type: ignore
     v2 = v0[1] # type: ignore
     del v0
@@ -11588,19 +11708,19 @@ def method41(v0 : object) -> US6:
         v7 = "GameOver" == v1
         if v7:
             del v1, v7
-            v8, v9, v10, v11, v12, v13, v14 = method32(v2)
+            v8, v9, v10, v11, v12, v13 = method32(v2)
             del v2
-            return US6_1(v8, v9, v10, v11, v12, v13, v14)
+            return US6_1(v8, v9, v10, v11, v12, v13)
         else:
             del v7
-            v17 = "WaitingForActionFromPlayerId" == v1
-            if v17:
-                del v1, v17
-                v18, v19, v20, v21, v22, v23, v24 = method32(v2)
+            v16 = "WaitingForActionFromPlayerId" == v1
+            if v16:
+                del v1, v16
+                v17, v18, v19, v20, v21, v22 = method32(v2)
                 del v2
-                return US6_2(v18, v19, v20, v21, v22, v23, v24)
+                return US6_2(v17, v18, v19, v20, v21, v22)
             else:
-                del v2, v17
+                del v2, v16
                 raise TypeError(f"Cannot convert the Python object into a Spiral union type. Invalid string tag. Got: {v1}")
                 del v1
                 raise Exception("Error")
@@ -11613,7 +11733,7 @@ def method29(v0 : object) -> Tuple[US3, static_array, US6]:
     del v3
     v5 = v0["ui_game_state"] # type: ignore
     del v0
-    v6 = method41(v5)
+    v6 = method40(v5)
     del v5
     return v2, v4, v6
 def method10(v0 : object) -> Tuple[u64, static_array_list, US3, static_array, US6]:
@@ -11627,55 +11747,55 @@ def method10(v0 : object) -> Tuple[u64, static_array_list, US3, static_array, US
     return v2, v3, v5, v6, v7
 def method9(v0 : object) -> Tuple[u64, static_array_list, US3, static_array, US6]:
     return method10(v0)
-def method43(v0 : cp.ndarray, v1 : i32) -> None:
+def method42(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[0:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method45(v0 : cp.ndarray) -> None:
+def method44(v0 : cp.ndarray) -> None:
     del v0
     return 
-def method44(v0 : cp.ndarray, v1 : US1) -> None:
+def method43(v0 : cp.ndarray, v1 : US1) -> None:
     v2 = v1.tag
-    method43(v0, v2)
+    method42(v0, v2)
     del v2
     v3 = v0[4:].view(cp.uint8)
     del v0
     match v1:
         case US1_0(): # A_Call
             del v1
-            return method45(v3)
+            return method44(v3)
         case US1_1(): # A_Fold
             del v1
-            return method45(v3)
+            return method44(v3)
         case US1_2(v4): # A_Raise
             del v1
-            return method43(v3, v4)
+            return method42(v3, v4)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method47(v0 : i32) -> bool:
+def method46(v0 : i32) -> bool:
     v1 = v0 < 2
     del v0
     return v1
-def method48(v0 : cp.ndarray, v1 : US2) -> None:
+def method47(v0 : cp.ndarray, v1 : US2) -> None:
     v2 = v1.tag
-    method43(v0, v2)
+    method42(v0, v2)
     del v2
     v3 = v0[4:].view(cp.uint8)
     del v0
     match v1:
         case US2_0(): # Computer
             del v1
-            return method45(v3)
+            return method44(v3)
         case US2_1(): # Human
             del v1
-            return method45(v3)
+            return method44(v3)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method46(v0 : cp.ndarray, v1 : static_array) -> None:
+def method45(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = u64(v2)
         v5 = v4 * 4
         del v4
@@ -11697,52 +11817,52 @@ def method46(v0 : cp.ndarray, v1 : static_array) -> None:
             pass
         del v9, v10
         v12 = v1[v2]
-        method48(v6, v12)
+        method47(v6, v12)
         del v6, v12
         v2 += 1 
     del v0, v1, v2
     return 
-def method42(v0 : cp.ndarray, v1 : US0) -> None:
+def method41(v0 : cp.ndarray, v1 : US0) -> None:
     v2 = v1.tag
-    method43(v0, v2)
+    method42(v0, v2)
     del v2
     v3 = v0[8:].view(cp.uint8)
     del v0
     match v1:
         case US0_0(v4): # ActionSelected
             del v1
-            return method44(v3, v4)
+            return method43(v3, v4)
         case US0_1(v5): # PlayerChanged
             del v1
-            return method46(v3, v5)
+            return method45(v3, v5)
         case US0_2(): # StartGame
             del v1
-            return method45(v3)
+            return method44(v3)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method50(v0 : cp.ndarray, v1 : u64) -> None:
+def method49(v0 : cp.ndarray, v1 : u64) -> None:
     v2 = v0[0:].view(cp.uint64)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method51(v0 : cp.ndarray, v1 : i32) -> None:
+def method50(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[8:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method55(v0 : cp.ndarray, v1 : u8) -> None:
+def method54(v0 : cp.ndarray, v1 : u8) -> None:
     v2 = v0[0:].view(cp.uint8)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method54(v0 : cp.ndarray, v1 : u8) -> None:
-    return method55(v0, v1)
-def method53(v0 : cp.ndarray, v1 : static_array_list) -> None:
+def method53(v0 : cp.ndarray, v1 : u8) -> None:
+    return method54(v0, v1)
+def method52(v0 : cp.ndarray, v1 : static_array_list) -> None:
     v2 = v1.length
-    method43(v0, v2)
+    method42(v0, v2)
     del v2
     v3 = v1.length
     v4 = 0
@@ -11770,12 +11890,12 @@ def method53(v0 : cp.ndarray, v1 : static_array_list) -> None:
             pass
         del v12, v13
         v15 = v1[v4]
-        method54(v8, v15)
+        method53(v8, v15)
         del v8, v15
         v4 += 1 
     del v0, v1, v3, v4
     return 
-def method56(v0 : cp.ndarray, v1 : i32, v2 : i32) -> None:
+def method55(v0 : cp.ndarray, v1 : i32, v2 : i32) -> None:
     v3 = v0[0:].view(cp.int32)
     v3[0] = v1
     del v1, v3
@@ -11784,39 +11904,39 @@ def method56(v0 : cp.ndarray, v1 : i32, v2 : i32) -> None:
     v4[0] = v2
     del v2, v4
     return 
-def method58(v0 : cp.ndarray, v1 : i32) -> None:
+def method57(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[4:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method57(v0 : cp.ndarray, v1 : i32, v2 : US1) -> None:
+def method56(v0 : cp.ndarray, v1 : i32, v2 : US1) -> None:
     v3 = v0[0:].view(cp.int32)
     v3[0] = v1
     del v1, v3
     v4 = v2.tag
-    method58(v0, v4)
+    method57(v0, v4)
     del v4
     v5 = v0[8:].view(cp.uint8)
     del v0
     match v2:
         case US1_0(): # A_Call
             del v2
-            return method45(v5)
+            return method44(v5)
         case US1_1(): # A_Fold
             del v2
-            return method45(v5)
+            return method44(v5)
         case US1_2(v6): # A_Raise
             del v2
-            return method43(v5, v6)
+            return method42(v5, v6)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method59(v0 : cp.ndarray, v1 : i32, v2 : static_array) -> None:
+def method58(v0 : cp.ndarray, v1 : i32, v2 : static_array) -> None:
     v3 = v0[0:].view(cp.int32)
     v3[0] = v1
     del v1, v3
     v4 = 0
-    while method47(v4):
+    while method46(v4):
         v6 = u64(v4)
         v7 = 4 + v6
         del v6
@@ -11838,18 +11958,18 @@ def method59(v0 : cp.ndarray, v1 : i32, v2 : static_array) -> None:
             pass
         del v11, v12
         v14 = v2[v4]
-        method54(v8, v14)
+        method53(v8, v14)
         del v8, v14
         v4 += 1 
     del v0, v2, v4
     return 
-def method63(v0 : i32) -> bool:
+def method62(v0 : i32) -> bool:
     v1 = v0 < 5
     del v0
     return v1
-def method62(v0 : cp.ndarray, v1 : static_array, v2 : i8) -> None:
+def method61(v0 : cp.ndarray, v1 : static_array, v2 : i8) -> None:
     v3 = 0
-    while method63(v3):
+    while method62(v3):
         v5 = u64(v3)
         v6 = v0[v5:].view(cp.uint8)
         del v5
@@ -11869,7 +11989,7 @@ def method62(v0 : cp.ndarray, v1 : static_array, v2 : i8) -> None:
             pass
         del v9, v10
         v12 = v1[v3]
-        method54(v6, v12)
+        method53(v6, v12)
         del v6, v12
         v3 += 1 
     del v1, v3
@@ -11878,14 +11998,14 @@ def method62(v0 : cp.ndarray, v1 : static_array, v2 : i8) -> None:
     v13[0] = v2
     del v2, v13
     return 
-def method61(v0 : cp.ndarray, v1 : static_array, v2 : i8) -> None:
-    return method62(v0, v1, v2)
-def method60(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : i32) -> None:
+def method60(v0 : cp.ndarray, v1 : static_array, v2 : i8) -> None:
+    return method61(v0, v1, v2)
+def method59(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : i32) -> None:
     v4 = v0[0:].view(cp.int32)
     v4[0] = v1
     del v1, v4
     v5 = 0
-    while method47(v5):
+    while method46(v5):
         v7 = u64(v5)
         v8 = v7 * 8
         del v7
@@ -11909,7 +12029,7 @@ def method60(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : i32) -> None:
             pass
         del v13, v14
         v16, v17 = v2[v5]
-        method61(v10, v16, v17)
+        method60(v10, v16, v17)
         del v10, v16, v17
         v5 += 1 
     del v2, v5
@@ -11918,39 +12038,39 @@ def method60(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : i32) -> None:
     v18[0] = v3
     del v3, v18
     return 
-def method52(v0 : cp.ndarray, v1 : US7) -> None:
+def method51(v0 : cp.ndarray, v1 : US7) -> None:
     v2 = v1.tag
-    method43(v0, v2)
+    method42(v0, v2)
     del v2
     v3 = v0[16:].view(cp.uint8)
     del v0
     match v1:
         case US7_0(v4): # CommunityCardsAre
             del v1
-            return method53(v3, v4)
+            return method52(v3, v4)
         case US7_1(v5, v6): # Fold
             del v1
-            return method56(v3, v5, v6)
+            return method55(v3, v5, v6)
         case US7_2(v7, v8): # PlayerAction
             del v1
-            return method57(v3, v7, v8)
+            return method56(v3, v7, v8)
         case US7_3(v9, v10): # PlayerGotCards
             del v1
-            return method59(v3, v9, v10)
+            return method58(v3, v9, v10)
         case US7_4(v11, v12, v13): # Showdown
             del v1
-            return method60(v3, v11, v12, v13)
+            return method59(v3, v11, v12, v13)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method64(v0 : cp.ndarray, v1 : i32) -> None:
+def method63(v0 : cp.ndarray, v1 : i32) -> None:
     v2 = v0[6160:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method67(v0 : cp.ndarray, v1 : static_array) -> None:
+def method66(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
@@ -11970,24 +12090,24 @@ def method67(v0 : cp.ndarray, v1 : static_array) -> None:
             pass
         del v8, v9
         v11 = v1[v2]
-        method54(v5, v11)
+        method53(v5, v11)
         del v5, v11
         v2 += 1 
     del v0, v1, v2
     return 
-def method68(v0 : cp.ndarray, v1 : i32) -> None:
-    v2 = v0[32:].view(cp.int32)
+def method67(v0 : cp.ndarray, v1 : i32) -> None:
+    v2 = v0[28:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method70(v0 : i32) -> bool:
+def method69(v0 : i32) -> bool:
     v1 = v0 < 3
     del v0
     return v1
-def method69(v0 : cp.ndarray, v1 : static_array) -> None:
+def method68(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    while method70(v2):
+    while method69(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
@@ -12007,14 +12127,14 @@ def method69(v0 : cp.ndarray, v1 : static_array) -> None:
             pass
         del v8, v9
         v11 = v1[v2]
-        method54(v5, v11)
+        method53(v5, v11)
         del v5, v11
         v2 += 1 
     del v0, v1, v2
     return 
-def method71(v0 : cp.ndarray, v1 : static_array) -> None:
+def method70(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    while method63(v2):
+    while method62(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
@@ -12034,18 +12154,18 @@ def method71(v0 : cp.ndarray, v1 : static_array) -> None:
             pass
         del v8, v9
         v11 = v1[v2]
-        method54(v5, v11)
+        method53(v5, v11)
         del v5, v11
         v2 += 1 
     del v0, v1, v2
     return 
-def method73(v0 : i32) -> bool:
+def method72(v0 : i32) -> bool:
     v1 = v0 < 4
     del v0
     return v1
-def method72(v0 : cp.ndarray, v1 : static_array) -> None:
+def method71(v0 : cp.ndarray, v1 : static_array) -> None:
     v2 = 0
-    while method73(v2):
+    while method72(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
@@ -12065,308 +12185,302 @@ def method72(v0 : cp.ndarray, v1 : static_array) -> None:
             pass
         del v8, v9
         v11 = v1[v2]
-        method54(v5, v11)
+        method53(v5, v11)
         del v5, v11
         v2 += 1 
     del v0, v1, v2
     return 
-def method66(v0 : cp.ndarray, v1 : i32, v2 : bool, v3 : static_array, v4 : i32, v5 : static_array, v6 : static_array, v7 : US5) -> None:
-    v8 = v0[0:].view(cp.int32)
-    v8[0] = v1
-    del v1, v8
-    v9 = v0[4:].view(cp.bool_)
-    v9[0] = v2
-    del v2, v9
-    v10 = 0
-    while method47(v10):
-        v12 = u64(v10)
-        v13 = v12 * 2
+def method65(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : static_array, v4 : i32, v5 : static_array, v6 : US5) -> None:
+    v7 = v0[0:].view(cp.int32)
+    v7[0] = v1
+    del v1, v7
+    v8 = 0
+    while method46(v8):
+        v10 = u64(v8)
+        v11 = v10 * 2
+        del v10
+        v12 = 4 + v11
+        del v11
+        v13 = v0[v12:].view(cp.uint8)
         del v12
-        v14 = 6 + v13
-        del v13
-        v15 = v0[v14:].view(cp.uint8)
+        v14 = 0 <= v8
+        if v14:
+            v15 = v8 < 2
+            v16 = v15
+        else:
+            v16 = False
         del v14
-        v16 = 0 <= v10
-        if v16:
-            v17 = v10 < 2
-            v18 = v17
-        else:
-            v18 = False
-        del v16
-        v19 = v18 == False
-        if v19:
-            v20 = "The read index needs to be in range for the static array."
-            assert v18, v20
-            del v20
+        v17 = v16 == False
+        if v17:
+            v18 = "The read index needs to be in range for the static array."
+            assert v16, v18
+            del v18
         else:
             pass
-        del v18, v19
-        v21 = v3[v10]
-        method67(v15, v21)
-        del v15, v21
-        v10 += 1 
-    del v3, v10
-    v22 = v0[12:].view(cp.int32)
-    v22[0] = v4
-    del v4, v22
-    v23 = 0
-    while method47(v23):
-        v25 = u64(v23)
-        v26 = v25 * 4
-        del v25
-        v27 = 16 + v26
+        del v16, v17
+        v19 = v2[v8]
+        method66(v13, v19)
+        del v13, v19
+        v8 += 1 
+    del v2, v8
+    v20 = 0
+    while method46(v20):
+        v22 = u64(v20)
+        v23 = v22 * 4
+        del v22
+        v24 = 8 + v23
+        del v23
+        v25 = v0[v24:].view(cp.uint8)
+        del v24
+        v26 = 0 <= v20
+        if v26:
+            v27 = v20 < 2
+            v28 = v27
+        else:
+            v28 = False
         del v26
-        v28 = v0[v27:].view(cp.uint8)
-        del v27
-        v29 = 0 <= v23
+        v29 = v28 == False
         if v29:
-            v30 = v23 < 2
-            v31 = v30
-        else:
-            v31 = False
-        del v29
-        v32 = v31 == False
-        if v32:
-            v33 = "The read index needs to be in range for the static array."
-            assert v31, v33
-            del v33
+            v30 = "The read index needs to be in range for the static array."
+            assert v28, v30
+            del v30
         else:
             pass
-        del v31, v32
-        v34 = v5[v23]
-        method43(v28, v34)
-        del v28, v34
-        v23 += 1 
-    del v5, v23
-    v35 = 0
-    while method47(v35):
-        v37 = u64(v35)
-        v38 = v37 * 4
+        del v28, v29
+        v31 = v3[v20]
+        method42(v25, v31)
+        del v25, v31
+        v20 += 1 
+    del v3, v20
+    v32 = v0[16:].view(cp.int32)
+    v32[0] = v4
+    del v4, v32
+    v33 = 0
+    while method46(v33):
+        v35 = u64(v33)
+        v36 = v35 * 4
+        del v35
+        v37 = 20 + v36
+        del v36
+        v38 = v0[v37:].view(cp.uint8)
         del v37
-        v39 = 24 + v38
-        del v38
-        v40 = v0[v39:].view(cp.uint8)
-        del v39
-        v41 = 0 <= v35
-        if v41:
-            v42 = v35 < 2
-            v43 = v42
+        v39 = 0 <= v33
+        if v39:
+            v40 = v33 < 2
+            v41 = v40
         else:
-            v43 = False
-        del v41
-        v44 = v43 == False
-        if v44:
-            v45 = "The read index needs to be in range for the static array."
-            assert v43, v45
-            del v45
+            v41 = False
+        del v39
+        v42 = v41 == False
+        if v42:
+            v43 = "The read index needs to be in range for the static array."
+            assert v41, v43
+            del v43
         else:
             pass
-        del v43, v44
-        v46 = v6[v35]
-        method43(v40, v46)
-        del v40, v46
-        v35 += 1 
-    del v6, v35
-    v47 = v7.tag
-    method68(v0, v47)
-    del v47
-    v48 = v0[40:].view(cp.uint8)
+        del v41, v42
+        v44 = v5[v33]
+        method42(v38, v44)
+        del v38, v44
+        v33 += 1 
+    del v5, v33
+    v45 = v6.tag
+    method67(v0, v45)
+    del v45
+    v46 = v0[32:].view(cp.uint8)
     del v0
-    match v7:
-        case US5_0(v49): # Flop
-            del v7
-            return method69(v48, v49)
+    match v6:
+        case US5_0(v47): # Flop
+            del v6
+            return method68(v46, v47)
         case US5_1(): # Preflop
-            del v7
-            return method45(v48)
-        case US5_2(v50): # River
-            del v7
-            return method71(v48, v50)
-        case US5_3(v51): # Turn
-            del v7
-            return method72(v48, v51)
+            del v6
+            return method44(v46)
+        case US5_2(v48): # River
+            del v6
+            return method70(v46, v48)
+        case US5_3(v49): # Turn
+            del v6
+            return method71(v46, v49)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method75(v0 : cp.ndarray, v1 : i32) -> None:
-    v2 = v0[48:].view(cp.int32)
+def method74(v0 : cp.ndarray, v1 : i32) -> None:
+    v2 = v0[40:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method74(v0 : cp.ndarray, v1 : i32, v2 : bool, v3 : static_array, v4 : i32, v5 : static_array, v6 : static_array, v7 : US5, v8 : US1) -> None:
-    v9 = v0[0:].view(cp.int32)
-    v9[0] = v1
-    del v1, v9
-    v10 = v0[4:].view(cp.bool_)
-    v10[0] = v2
-    del v2, v10
-    v11 = 0
-    while method47(v11):
-        v13 = u64(v11)
-        v14 = v13 * 2
+def method73(v0 : cp.ndarray, v1 : i32, v2 : static_array, v3 : static_array, v4 : i32, v5 : static_array, v6 : US5, v7 : US1) -> None:
+    v8 = v0[0:].view(cp.int32)
+    v8[0] = v1
+    del v1, v8
+    v9 = 0
+    while method46(v9):
+        v11 = u64(v9)
+        v12 = v11 * 2
+        del v11
+        v13 = 4 + v12
+        del v12
+        v14 = v0[v13:].view(cp.uint8)
         del v13
-        v15 = 6 + v14
-        del v14
-        v16 = v0[v15:].view(cp.uint8)
+        v15 = 0 <= v9
+        if v15:
+            v16 = v9 < 2
+            v17 = v16
+        else:
+            v17 = False
         del v15
-        v17 = 0 <= v11
-        if v17:
-            v18 = v11 < 2
-            v19 = v18
-        else:
-            v19 = False
-        del v17
-        v20 = v19 == False
-        if v20:
-            v21 = "The read index needs to be in range for the static array."
-            assert v19, v21
-            del v21
+        v18 = v17 == False
+        if v18:
+            v19 = "The read index needs to be in range for the static array."
+            assert v17, v19
+            del v19
         else:
             pass
-        del v19, v20
-        v22 = v3[v11]
-        method67(v16, v22)
-        del v16, v22
-        v11 += 1 
-    del v3, v11
-    v23 = v0[12:].view(cp.int32)
-    v23[0] = v4
-    del v4, v23
-    v24 = 0
-    while method47(v24):
-        v26 = u64(v24)
-        v27 = v26 * 4
-        del v26
-        v28 = 16 + v27
+        del v17, v18
+        v20 = v2[v9]
+        method66(v14, v20)
+        del v14, v20
+        v9 += 1 
+    del v2, v9
+    v21 = 0
+    while method46(v21):
+        v23 = u64(v21)
+        v24 = v23 * 4
+        del v23
+        v25 = 8 + v24
+        del v24
+        v26 = v0[v25:].view(cp.uint8)
+        del v25
+        v27 = 0 <= v21
+        if v27:
+            v28 = v21 < 2
+            v29 = v28
+        else:
+            v29 = False
         del v27
-        v29 = v0[v28:].view(cp.uint8)
-        del v28
-        v30 = 0 <= v24
+        v30 = v29 == False
         if v30:
-            v31 = v24 < 2
-            v32 = v31
-        else:
-            v32 = False
-        del v30
-        v33 = v32 == False
-        if v33:
-            v34 = "The read index needs to be in range for the static array."
-            assert v32, v34
-            del v34
+            v31 = "The read index needs to be in range for the static array."
+            assert v29, v31
+            del v31
         else:
             pass
-        del v32, v33
-        v35 = v5[v24]
-        method43(v29, v35)
-        del v29, v35
-        v24 += 1 
-    del v5, v24
-    v36 = 0
-    while method47(v36):
-        v38 = u64(v36)
-        v39 = v38 * 4
+        del v29, v30
+        v32 = v3[v21]
+        method42(v26, v32)
+        del v26, v32
+        v21 += 1 
+    del v3, v21
+    v33 = v0[16:].view(cp.int32)
+    v33[0] = v4
+    del v4, v33
+    v34 = 0
+    while method46(v34):
+        v36 = u64(v34)
+        v37 = v36 * 4
+        del v36
+        v38 = 20 + v37
+        del v37
+        v39 = v0[v38:].view(cp.uint8)
         del v38
-        v40 = 24 + v39
-        del v39
-        v41 = v0[v40:].view(cp.uint8)
-        del v40
-        v42 = 0 <= v36
-        if v42:
-            v43 = v36 < 2
-            v44 = v43
+        v40 = 0 <= v34
+        if v40:
+            v41 = v34 < 2
+            v42 = v41
         else:
-            v44 = False
-        del v42
-        v45 = v44 == False
-        if v45:
-            v46 = "The read index needs to be in range for the static array."
-            assert v44, v46
-            del v46
+            v42 = False
+        del v40
+        v43 = v42 == False
+        if v43:
+            v44 = "The read index needs to be in range for the static array."
+            assert v42, v44
+            del v44
         else:
             pass
-        del v44, v45
-        v47 = v6[v36]
-        method43(v41, v47)
-        del v41, v47
-        v36 += 1 
-    del v6, v36
-    v48 = v7.tag
-    method68(v0, v48)
-    del v48
-    v49 = v0[40:].view(cp.uint8)
-    match v7:
-        case US5_0(v50): # Flop
-            method69(v49, v50)
+        del v42, v43
+        v45 = v5[v34]
+        method42(v39, v45)
+        del v39, v45
+        v34 += 1 
+    del v5, v34
+    v46 = v6.tag
+    method67(v0, v46)
+    del v46
+    v47 = v0[32:].view(cp.uint8)
+    match v6:
+        case US5_0(v48): # Flop
+            method68(v47, v48)
         case US5_1(): # Preflop
-            method45(v49)
-        case US5_2(v51): # River
-            method71(v49, v51)
-        case US5_3(v52): # Turn
-            method72(v49, v52)
+            method44(v47)
+        case US5_2(v49): # River
+            method70(v47, v49)
+        case US5_3(v50): # Turn
+            method71(v47, v50)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-    del v7, v49
-    v53 = v8.tag
-    method75(v0, v53)
-    del v53
-    v54 = v0[52:].view(cp.uint8)
+    del v6, v47
+    v51 = v7.tag
+    method74(v0, v51)
+    del v51
+    v52 = v0[44:].view(cp.uint8)
     del v0
-    match v8:
+    match v7:
         case US1_0(): # A_Call
-            del v8
-            return method45(v54)
+            del v7
+            return method44(v52)
         case US1_1(): # A_Fold
-            del v8
-            return method45(v54)
-        case US1_2(v55): # A_Raise
-            del v8
-            return method43(v54, v55)
+            del v7
+            return method44(v52)
+        case US1_2(v53): # A_Raise
+            del v7
+            return method42(v52, v53)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method65(v0 : cp.ndarray, v1 : US4) -> None:
+def method64(v0 : cp.ndarray, v1 : US4) -> None:
     v2 = v1.tag
-    method43(v0, v2)
+    method42(v0, v2)
     del v2
     v3 = v0[16:].view(cp.uint8)
     del v0
     match v1:
-        case US4_0(v4, v5, v6, v7, v8, v9, v10): # G_Flop
+        case US4_0(v4, v5, v6, v7, v8, v9): # G_Flop
             del v1
-            return method66(v3, v4, v5, v6, v7, v8, v9, v10)
-        case US4_1(v11, v12, v13, v14, v15, v16, v17): # G_Fold
+            return method65(v3, v4, v5, v6, v7, v8, v9)
+        case US4_1(v10, v11, v12, v13, v14, v15): # G_Fold
             del v1
-            return method66(v3, v11, v12, v13, v14, v15, v16, v17)
+            return method65(v3, v10, v11, v12, v13, v14, v15)
         case US4_2(): # G_Preflop
             del v1
-            return method45(v3)
-        case US4_3(v18, v19, v20, v21, v22, v23, v24): # G_River
+            return method44(v3)
+        case US4_3(v16, v17, v18, v19, v20, v21): # G_River
             del v1
-            return method66(v3, v18, v19, v20, v21, v22, v23, v24)
-        case US4_4(v25, v26, v27, v28, v29, v30, v31): # G_Round
+            return method65(v3, v16, v17, v18, v19, v20, v21)
+        case US4_4(v22, v23, v24, v25, v26, v27): # G_Round
             del v1
-            return method66(v3, v25, v26, v27, v28, v29, v30, v31)
-        case US4_5(v32, v33, v34, v35, v36, v37, v38, v39): # G_Round'
+            return method65(v3, v22, v23, v24, v25, v26, v27)
+        case US4_5(v28, v29, v30, v31, v32, v33, v34): # G_Round'
             del v1
-            return method74(v3, v32, v33, v34, v35, v36, v37, v38, v39)
-        case US4_6(v40, v41, v42, v43, v44, v45, v46): # G_Showdown
+            return method73(v3, v28, v29, v30, v31, v32, v33, v34)
+        case US4_6(v35, v36, v37, v38, v39, v40): # G_Showdown
             del v1
-            return method66(v3, v40, v41, v42, v43, v44, v45, v46)
-        case US4_7(v47, v48, v49, v50, v51, v52, v53): # G_Turn
+            return method65(v3, v35, v36, v37, v38, v39, v40)
+        case US4_7(v41, v42, v43, v44, v45, v46): # G_Turn
             del v1
-            return method66(v3, v47, v48, v49, v50, v51, v52, v53)
+            return method65(v3, v41, v42, v43, v44, v45, v46)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method76(v0 : cp.ndarray, v1 : i32) -> None:
-    v2 = v0[6264:].view(cp.int32)
+def method75(v0 : cp.ndarray, v1 : i32) -> None:
+    v2 = v0[6248:].view(cp.int32)
     del v0
     v2[0] = v1
     del v1, v2
     return 
-def method49(v0 : cp.ndarray, v1 : u64, v2 : static_array_list, v3 : US3, v4 : static_array, v5 : US6) -> None:
-    method50(v0, v1)
+def method48(v0 : cp.ndarray, v1 : u64, v2 : static_array_list, v3 : US3, v4 : static_array, v5 : US6) -> None:
+    method49(v0, v1)
     del v1
     v6 = v2.length
-    method51(v0, v6)
+    method50(v0, v6)
     del v6
     v7 = v2.length
     v8 = 0
@@ -12396,28 +12510,28 @@ def method49(v0 : cp.ndarray, v1 : u64, v2 : static_array_list, v3 : US3, v4 : s
             pass
         del v17, v18
         v20 = v2[v8]
-        method52(v13, v20)
+        method51(v13, v20)
         del v13, v20
         v8 += 1 
     del v2, v7, v8
     v21 = v3.tag
-    method64(v0, v21)
+    method63(v0, v21)
     del v21
     v22 = v0[6176:].view(cp.uint8)
     match v3:
         case US3_0(): # None
-            method45(v22)
+            method44(v22)
         case US3_1(v23): # Some
-            method65(v22, v23)
+            method64(v22, v23)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
     del v3, v22
     v24 = 0
-    while method47(v24):
+    while method46(v24):
         v26 = u64(v24)
         v27 = v26 * 4
         del v26
-        v28 = 6256 + v27
+        v28 = 6240 + v27
         del v27
         v29 = v0[v28:].view(cp.uint8)
         del v28
@@ -12437,58 +12551,58 @@ def method49(v0 : cp.ndarray, v1 : u64, v2 : static_array_list, v3 : US3, v4 : s
             pass
         del v32, v33
         v35 = v4[v24]
-        method48(v29, v35)
+        method47(v29, v35)
         del v29, v35
         v24 += 1 
     del v4, v24
     v36 = v5.tag
-    method76(v0, v36)
+    method75(v0, v36)
     del v36
-    v37 = v0[6272:].view(cp.uint8)
+    v37 = v0[6256:].view(cp.uint8)
     del v0
     match v5:
         case US6_0(): # GameNotStarted
             del v5
-            return method45(v37)
-        case US6_1(v38, v39, v40, v41, v42, v43, v44): # GameOver
+            return method44(v37)
+        case US6_1(v38, v39, v40, v41, v42, v43): # GameOver
             del v5
-            return method66(v37, v38, v39, v40, v41, v42, v43, v44)
-        case US6_2(v45, v46, v47, v48, v49, v50, v51): # WaitingForActionFromPlayerId
+            return method65(v37, v38, v39, v40, v41, v42, v43)
+        case US6_2(v44, v45, v46, v47, v48, v49): # WaitingForActionFromPlayerId
             del v5
-            return method66(v37, v45, v46, v47, v48, v49, v50, v51)
+            return method65(v37, v44, v45, v46, v47, v48, v49)
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method78(v0 : cp.ndarray) -> u64:
+def method77(v0 : cp.ndarray) -> u64:
     v1 = v0[0:].view(cp.uint64)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method79(v0 : cp.ndarray) -> i32:
+def method78(v0 : cp.ndarray) -> i32:
     v1 = v0[8:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method81(v0 : cp.ndarray) -> i32:
+def method80(v0 : cp.ndarray) -> i32:
     v1 = v0[0:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method84(v0 : cp.ndarray) -> u8:
+def method83(v0 : cp.ndarray) -> u8:
     v1 = v0[0:].view(cp.uint8)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method83(v0 : cp.ndarray) -> u8:
-    v1 = method84(v0)
+def method82(v0 : cp.ndarray) -> u8:
+    v1 = method83(v0)
     del v0
     return v1
-def method82(v0 : cp.ndarray) -> static_array_list:
+def method81(v0 : cp.ndarray) -> static_array_list:
     v1 = static_array_list(5)
-    v2 = method81(v0)
+    v2 = method80(v0)
     v1.length = v2
     del v2
     v3 = v1.length
@@ -12499,7 +12613,7 @@ def method82(v0 : cp.ndarray) -> static_array_list:
         del v6
         v8 = v0[v7:].view(cp.uint8)
         del v7
-        v9 = method83(v8)
+        v9 = method82(v8)
         del v8
         v10 = 0 <= v4
         if v10:
@@ -12523,7 +12637,7 @@ def method82(v0 : cp.ndarray) -> static_array_list:
         v4 += 1 
     del v0, v3, v4
     return v1
-def method85(v0 : cp.ndarray) -> Tuple[i32, i32]:
+def method84(v0 : cp.ndarray) -> Tuple[i32, i32]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
@@ -12532,48 +12646,48 @@ def method85(v0 : cp.ndarray) -> Tuple[i32, i32]:
     v4 = v3[0].item()
     del v3
     return v2, v4
-def method87(v0 : cp.ndarray) -> i32:
+def method86(v0 : cp.ndarray) -> i32:
     v1 = v0[4:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method88(v0 : cp.ndarray) -> None:
+def method87(v0 : cp.ndarray) -> None:
     del v0
     return 
-def method86(v0 : cp.ndarray) -> Tuple[i32, US1]:
+def method85(v0 : cp.ndarray) -> Tuple[i32, US1]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
-    v3 = method87(v0)
+    v3 = method86(v0)
     v4 = v0[8:].view(cp.uint8)
     del v0
     if v3 == 0:
-        method88(v4)
+        method87(v4)
         v10 = US1_0()
     elif v3 == 1:
-        method88(v4)
+        method87(v4)
         v10 = US1_1()
     elif v3 == 2:
-        v8 = method81(v4)
+        v8 = method80(v4)
         v10 = US1_2(v8)
     else:
         raise Exception("Invalid tag.")
     del v3, v4
     return v2, v10
-def method89(v0 : cp.ndarray) -> Tuple[i32, static_array]:
+def method88(v0 : cp.ndarray) -> Tuple[i32, static_array]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
     v3 = static_array(2)
     v4 = 0
-    while method47(v4):
+    while method46(v4):
         v6 = u64(v4)
         v7 = 4 + v6
         del v6
         v8 = v0[v7:].view(cp.uint8)
         del v7
-        v9 = method83(v8)
+        v9 = method82(v8)
         del v8
         v10 = 0 <= v4
         if v10:
@@ -12595,14 +12709,14 @@ def method89(v0 : cp.ndarray) -> Tuple[i32, static_array]:
         v4 += 1 
     del v0, v4
     return v2, v3
-def method92(v0 : cp.ndarray) -> Tuple[static_array, i8]:
+def method91(v0 : cp.ndarray) -> Tuple[static_array, i8]:
     v1 = static_array(5)
     v2 = 0
-    while method63(v2):
+    while method62(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
-        v6 = method83(v5)
+        v6 = method82(v5)
         del v5
         v7 = 0 <= v2
         if v7:
@@ -12628,17 +12742,17 @@ def method92(v0 : cp.ndarray) -> Tuple[static_array, i8]:
     v13 = v12[0].item()
     del v12
     return v1, v13
-def method91(v0 : cp.ndarray) -> Tuple[static_array, i8]:
-    v1, v2 = method92(v0)
+def method90(v0 : cp.ndarray) -> Tuple[static_array, i8]:
+    v1, v2 = method91(v0)
     del v0
     return v1, v2
-def method90(v0 : cp.ndarray) -> Tuple[i32, static_array, i32]:
+def method89(v0 : cp.ndarray) -> Tuple[i32, static_array, i32]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
     v3 = static_array(2)
     v4 = 0
-    while method47(v4):
+    while method46(v4):
         v6 = u64(v4)
         v7 = v6 * 8
         del v6
@@ -12646,7 +12760,7 @@ def method90(v0 : cp.ndarray) -> Tuple[i32, static_array, i32]:
         del v7
         v9 = v0[v8:].view(cp.uint8)
         del v8
-        v10, v11 = method91(v9)
+        v10, v11 = method90(v9)
         del v9
         v12 = 0 <= v4
         if v12:
@@ -12672,52 +12786,52 @@ def method90(v0 : cp.ndarray) -> Tuple[i32, static_array, i32]:
     v18 = v17[0].item()
     del v17
     return v2, v3, v18
-def method80(v0 : cp.ndarray) -> US7:
-    v1 = method81(v0)
+def method79(v0 : cp.ndarray) -> US7:
+    v1 = method80(v0)
     v2 = v0[16:].view(cp.uint8)
     del v0
     if v1 == 0:
         del v1
-        v4 = method82(v2)
+        v4 = method81(v2)
         del v2
         return US7_0(v4)
     elif v1 == 1:
         del v1
-        v6, v7 = method85(v2)
+        v6, v7 = method84(v2)
         del v2
         return US7_1(v6, v7)
     elif v1 == 2:
         del v1
-        v9, v10 = method86(v2)
+        v9, v10 = method85(v2)
         del v2
         return US7_2(v9, v10)
     elif v1 == 3:
         del v1
-        v12, v13 = method89(v2)
+        v12, v13 = method88(v2)
         del v2
         return US7_3(v12, v13)
     elif v1 == 4:
         del v1
-        v15, v16, v17 = method90(v2)
+        v15, v16, v17 = method89(v2)
         del v2
         return US7_4(v15, v16, v17)
     else:
         del v1, v2
         raise Exception("Invalid tag.")
-def method93(v0 : cp.ndarray) -> i32:
+def method92(v0 : cp.ndarray) -> i32:
     v1 = v0[6160:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method96(v0 : cp.ndarray) -> static_array:
+def method95(v0 : cp.ndarray) -> static_array:
     v1 = static_array(2)
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
-        v6 = method83(v5)
+        v6 = method82(v5)
         del v5
         v7 = 0 <= v2
         if v7:
@@ -12739,20 +12853,20 @@ def method96(v0 : cp.ndarray) -> static_array:
         v2 += 1 
     del v0, v2
     return v1
-def method97(v0 : cp.ndarray) -> i32:
-    v1 = v0[32:].view(cp.int32)
+def method96(v0 : cp.ndarray) -> i32:
+    v1 = v0[28:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method98(v0 : cp.ndarray) -> static_array:
+def method97(v0 : cp.ndarray) -> static_array:
     v1 = static_array(3)
     v2 = 0
-    while method70(v2):
+    while method69(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
-        v6 = method83(v5)
+        v6 = method82(v5)
         del v5
         v7 = 0 <= v2
         if v7:
@@ -12774,14 +12888,14 @@ def method98(v0 : cp.ndarray) -> static_array:
         v2 += 1 
     del v0, v2
     return v1
-def method99(v0 : cp.ndarray) -> static_array:
+def method98(v0 : cp.ndarray) -> static_array:
     v1 = static_array(5)
     v2 = 0
-    while method63(v2):
+    while method62(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
-        v6 = method83(v5)
+        v6 = method82(v5)
         del v5
         v7 = 0 <= v2
         if v7:
@@ -12803,14 +12917,14 @@ def method99(v0 : cp.ndarray) -> static_array:
         v2 += 1 
     del v0, v2
     return v1
-def method100(v0 : cp.ndarray) -> static_array:
+def method99(v0 : cp.ndarray) -> static_array:
     v1 = static_array(4)
     v2 = 0
-    while method73(v2):
+    while method72(v2):
         v4 = u64(v2)
         v5 = v0[v4:].view(cp.uint8)
         del v4
-        v6 = method83(v5)
+        v6 = method82(v5)
         del v5
         v7 = 0 <= v2
         if v7:
@@ -12832,344 +12946,338 @@ def method100(v0 : cp.ndarray) -> static_array:
         v2 += 1 
     del v0, v2
     return v1
-def method95(v0 : cp.ndarray) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5]:
+def method94(v0 : cp.ndarray) -> Tuple[i32, static_array, static_array, i32, static_array, US5]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
-    v3 = v0[4:].view(cp.bool_)
-    v4 = v3[0].item()
-    del v3
-    v5 = static_array(2)
-    v6 = 0
-    while method47(v6):
-        v8 = u64(v6)
-        v9 = v8 * 2
+    v3 = static_array(2)
+    v4 = 0
+    while method46(v4):
+        v6 = u64(v4)
+        v7 = v6 * 2
+        del v6
+        v8 = 4 + v7
+        del v7
+        v9 = v0[v8:].view(cp.uint8)
         del v8
-        v10 = 6 + v9
+        v10 = method95(v9)
         del v9
-        v11 = v0[v10:].view(cp.uint8)
-        del v10
-        v12 = method96(v11)
+        v11 = 0 <= v4
+        if v11:
+            v12 = v4 < 2
+            v13 = v12
+        else:
+            v13 = False
         del v11
-        v13 = 0 <= v6
-        if v13:
-            v14 = v6 < 2
-            v15 = v14
-        else:
-            v15 = False
-        del v13
-        v16 = v15 == False
-        if v16:
-            v17 = "The read index needs to be in range for the static array."
-            assert v15, v17
-            del v17
+        v14 = v13 == False
+        if v14:
+            v15 = "The read index needs to be in range for the static array."
+            assert v13, v15
+            del v15
         else:
             pass
-        del v15, v16
-        v5[v6] = v12
-        del v12
-        v6 += 1 
-    del v6
-    v18 = v0[12:].view(cp.int32)
-    v19 = v18[0].item()
-    del v18
-    v20 = static_array(2)
-    v21 = 0
-    while method47(v21):
-        v23 = u64(v21)
-        v24 = v23 * 4
-        del v23
-        v25 = 16 + v24
+        del v13, v14
+        v3[v4] = v10
+        del v10
+        v4 += 1 
+    del v4
+    v16 = static_array(2)
+    v17 = 0
+    while method46(v17):
+        v19 = u64(v17)
+        v20 = v19 * 4
+        del v19
+        v21 = 8 + v20
+        del v20
+        v22 = v0[v21:].view(cp.uint8)
+        del v21
+        v23 = method80(v22)
+        del v22
+        v24 = 0 <= v17
+        if v24:
+            v25 = v17 < 2
+            v26 = v25
+        else:
+            v26 = False
         del v24
-        v26 = v0[v25:].view(cp.uint8)
-        del v25
-        v27 = method81(v26)
-        del v26
-        v28 = 0 <= v21
-        if v28:
-            v29 = v21 < 2
-            v30 = v29
-        else:
-            v30 = False
-        del v28
-        v31 = v30 == False
-        if v31:
-            v32 = "The read index needs to be in range for the static array."
-            assert v30, v32
-            del v32
+        v27 = v26 == False
+        if v27:
+            v28 = "The read index needs to be in range for the static array."
+            assert v26, v28
+            del v28
         else:
             pass
-        del v30, v31
-        v20[v21] = v27
-        del v27
-        v21 += 1 
-    del v21
-    v33 = static_array(2)
-    v34 = 0
-    while method47(v34):
-        v36 = u64(v34)
-        v37 = v36 * 4
+        del v26, v27
+        v16[v17] = v23
+        del v23
+        v17 += 1 
+    del v17
+    v29 = v0[16:].view(cp.int32)
+    v30 = v29[0].item()
+    del v29
+    v31 = static_array(2)
+    v32 = 0
+    while method46(v32):
+        v34 = u64(v32)
+        v35 = v34 * 4
+        del v34
+        v36 = 20 + v35
+        del v35
+        v37 = v0[v36:].view(cp.uint8)
         del v36
-        v38 = 24 + v37
+        v38 = method80(v37)
         del v37
-        v39 = v0[v38:].view(cp.uint8)
-        del v38
-        v40 = method81(v39)
-        del v39
-        v41 = 0 <= v34
-        if v41:
-            v42 = v34 < 2
-            v43 = v42
+        v39 = 0 <= v32
+        if v39:
+            v40 = v32 < 2
+            v41 = v40
         else:
-            v43 = False
-        del v41
-        v44 = v43 == False
-        if v44:
-            v45 = "The read index needs to be in range for the static array."
-            assert v43, v45
-            del v45
+            v41 = False
+        del v39
+        v42 = v41 == False
+        if v42:
+            v43 = "The read index needs to be in range for the static array."
+            assert v41, v43
+            del v43
         else:
             pass
-        del v43, v44
-        v33[v34] = v40
-        del v40
-        v34 += 1 
-    del v34
-    v46 = method97(v0)
-    v47 = v0[40:].view(cp.uint8)
+        del v41, v42
+        v31[v32] = v38
+        del v38
+        v32 += 1 
+    del v32
+    v44 = method96(v0)
+    v45 = v0[32:].view(cp.uint8)
     del v0
-    if v46 == 0:
-        v49 = method98(v47)
-        v56 = US5_0(v49)
-    elif v46 == 1:
-        method88(v47)
-        v56 = US5_1()
-    elif v46 == 2:
-        v52 = method99(v47)
-        v56 = US5_2(v52)
-    elif v46 == 3:
-        v54 = method100(v47)
-        v56 = US5_3(v54)
+    if v44 == 0:
+        v47 = method97(v45)
+        v54 = US5_0(v47)
+    elif v44 == 1:
+        method87(v45)
+        v54 = US5_1()
+    elif v44 == 2:
+        v50 = method98(v45)
+        v54 = US5_2(v50)
+    elif v44 == 3:
+        v52 = method99(v45)
+        v54 = US5_3(v52)
     else:
         raise Exception("Invalid tag.")
-    del v46, v47
-    return v2, v4, v5, v19, v20, v33, v56
-def method102(v0 : cp.ndarray) -> i32:
-    v1 = v0[48:].view(cp.int32)
+    del v44, v45
+    return v2, v3, v16, v30, v31, v54
+def method101(v0 : cp.ndarray) -> i32:
+    v1 = v0[40:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method101(v0 : cp.ndarray) -> Tuple[i32, bool, static_array, i32, static_array, static_array, US5, US1]:
+def method100(v0 : cp.ndarray) -> Tuple[i32, static_array, static_array, i32, static_array, US5, US1]:
     v1 = v0[0:].view(cp.int32)
     v2 = v1[0].item()
     del v1
-    v3 = v0[4:].view(cp.bool_)
-    v4 = v3[0].item()
-    del v3
-    v5 = static_array(2)
-    v6 = 0
-    while method47(v6):
-        v8 = u64(v6)
-        v9 = v8 * 2
+    v3 = static_array(2)
+    v4 = 0
+    while method46(v4):
+        v6 = u64(v4)
+        v7 = v6 * 2
+        del v6
+        v8 = 4 + v7
+        del v7
+        v9 = v0[v8:].view(cp.uint8)
         del v8
-        v10 = 6 + v9
+        v10 = method95(v9)
         del v9
-        v11 = v0[v10:].view(cp.uint8)
-        del v10
-        v12 = method96(v11)
+        v11 = 0 <= v4
+        if v11:
+            v12 = v4 < 2
+            v13 = v12
+        else:
+            v13 = False
         del v11
-        v13 = 0 <= v6
-        if v13:
-            v14 = v6 < 2
-            v15 = v14
-        else:
-            v15 = False
-        del v13
-        v16 = v15 == False
-        if v16:
-            v17 = "The read index needs to be in range for the static array."
-            assert v15, v17
-            del v17
+        v14 = v13 == False
+        if v14:
+            v15 = "The read index needs to be in range for the static array."
+            assert v13, v15
+            del v15
         else:
             pass
-        del v15, v16
-        v5[v6] = v12
-        del v12
-        v6 += 1 
-    del v6
-    v18 = v0[12:].view(cp.int32)
-    v19 = v18[0].item()
-    del v18
-    v20 = static_array(2)
-    v21 = 0
-    while method47(v21):
-        v23 = u64(v21)
-        v24 = v23 * 4
-        del v23
-        v25 = 16 + v24
+        del v13, v14
+        v3[v4] = v10
+        del v10
+        v4 += 1 
+    del v4
+    v16 = static_array(2)
+    v17 = 0
+    while method46(v17):
+        v19 = u64(v17)
+        v20 = v19 * 4
+        del v19
+        v21 = 8 + v20
+        del v20
+        v22 = v0[v21:].view(cp.uint8)
+        del v21
+        v23 = method80(v22)
+        del v22
+        v24 = 0 <= v17
+        if v24:
+            v25 = v17 < 2
+            v26 = v25
+        else:
+            v26 = False
         del v24
-        v26 = v0[v25:].view(cp.uint8)
-        del v25
-        v27 = method81(v26)
-        del v26
-        v28 = 0 <= v21
-        if v28:
-            v29 = v21 < 2
-            v30 = v29
-        else:
-            v30 = False
-        del v28
-        v31 = v30 == False
-        if v31:
-            v32 = "The read index needs to be in range for the static array."
-            assert v30, v32
-            del v32
+        v27 = v26 == False
+        if v27:
+            v28 = "The read index needs to be in range for the static array."
+            assert v26, v28
+            del v28
         else:
             pass
-        del v30, v31
-        v20[v21] = v27
-        del v27
-        v21 += 1 
-    del v21
-    v33 = static_array(2)
-    v34 = 0
-    while method47(v34):
-        v36 = u64(v34)
-        v37 = v36 * 4
+        del v26, v27
+        v16[v17] = v23
+        del v23
+        v17 += 1 
+    del v17
+    v29 = v0[16:].view(cp.int32)
+    v30 = v29[0].item()
+    del v29
+    v31 = static_array(2)
+    v32 = 0
+    while method46(v32):
+        v34 = u64(v32)
+        v35 = v34 * 4
+        del v34
+        v36 = 20 + v35
+        del v35
+        v37 = v0[v36:].view(cp.uint8)
         del v36
-        v38 = 24 + v37
+        v38 = method80(v37)
         del v37
-        v39 = v0[v38:].view(cp.uint8)
-        del v38
-        v40 = method81(v39)
-        del v39
-        v41 = 0 <= v34
-        if v41:
-            v42 = v34 < 2
-            v43 = v42
+        v39 = 0 <= v32
+        if v39:
+            v40 = v32 < 2
+            v41 = v40
         else:
-            v43 = False
-        del v41
-        v44 = v43 == False
-        if v44:
-            v45 = "The read index needs to be in range for the static array."
-            assert v43, v45
-            del v45
+            v41 = False
+        del v39
+        v42 = v41 == False
+        if v42:
+            v43 = "The read index needs to be in range for the static array."
+            assert v41, v43
+            del v43
         else:
             pass
-        del v43, v44
-        v33[v34] = v40
-        del v40
-        v34 += 1 
-    del v34
-    v46 = method97(v0)
-    v47 = v0[40:].view(cp.uint8)
-    if v46 == 0:
-        v49 = method98(v47)
-        v56 = US5_0(v49)
-    elif v46 == 1:
-        method88(v47)
-        v56 = US5_1()
-    elif v46 == 2:
-        v52 = method99(v47)
-        v56 = US5_2(v52)
-    elif v46 == 3:
-        v54 = method100(v47)
-        v56 = US5_3(v54)
+        del v41, v42
+        v31[v32] = v38
+        del v38
+        v32 += 1 
+    del v32
+    v44 = method96(v0)
+    v45 = v0[32:].view(cp.uint8)
+    if v44 == 0:
+        v47 = method97(v45)
+        v54 = US5_0(v47)
+    elif v44 == 1:
+        method87(v45)
+        v54 = US5_1()
+    elif v44 == 2:
+        v50 = method98(v45)
+        v54 = US5_2(v50)
+    elif v44 == 3:
+        v52 = method99(v45)
+        v54 = US5_3(v52)
     else:
         raise Exception("Invalid tag.")
-    del v46, v47
-    v57 = method102(v0)
-    v58 = v0[52:].view(cp.uint8)
+    del v44, v45
+    v55 = method101(v0)
+    v56 = v0[44:].view(cp.uint8)
     del v0
-    if v57 == 0:
-        method88(v58)
-        v64 = US1_0()
-    elif v57 == 1:
-        method88(v58)
-        v64 = US1_1()
-    elif v57 == 2:
-        v62 = method81(v58)
-        v64 = US1_2(v62)
+    if v55 == 0:
+        method87(v56)
+        v62 = US1_0()
+    elif v55 == 1:
+        method87(v56)
+        v62 = US1_1()
+    elif v55 == 2:
+        v60 = method80(v56)
+        v62 = US1_2(v60)
     else:
         raise Exception("Invalid tag.")
-    del v57, v58
-    return v2, v4, v5, v19, v20, v33, v56, v64
-def method94(v0 : cp.ndarray) -> US4:
-    v1 = method81(v0)
+    del v55, v56
+    return v2, v3, v16, v30, v31, v54, v62
+def method93(v0 : cp.ndarray) -> US4:
+    v1 = method80(v0)
     v2 = v0[16:].view(cp.uint8)
     del v0
     if v1 == 0:
         del v1
-        v4, v5, v6, v7, v8, v9, v10 = method95(v2)
+        v4, v5, v6, v7, v8, v9 = method94(v2)
         del v2
-        return US4_0(v4, v5, v6, v7, v8, v9, v10)
+        return US4_0(v4, v5, v6, v7, v8, v9)
     elif v1 == 1:
         del v1
-        v12, v13, v14, v15, v16, v17, v18 = method95(v2)
+        v11, v12, v13, v14, v15, v16 = method94(v2)
         del v2
-        return US4_1(v12, v13, v14, v15, v16, v17, v18)
+        return US4_1(v11, v12, v13, v14, v15, v16)
     elif v1 == 2:
         del v1
-        method88(v2)
+        method87(v2)
         del v2
         return US4_2()
     elif v1 == 3:
         del v1
-        v21, v22, v23, v24, v25, v26, v27 = method95(v2)
+        v19, v20, v21, v22, v23, v24 = method94(v2)
         del v2
-        return US4_3(v21, v22, v23, v24, v25, v26, v27)
+        return US4_3(v19, v20, v21, v22, v23, v24)
     elif v1 == 4:
         del v1
-        v29, v30, v31, v32, v33, v34, v35 = method95(v2)
+        v26, v27, v28, v29, v30, v31 = method94(v2)
         del v2
-        return US4_4(v29, v30, v31, v32, v33, v34, v35)
+        return US4_4(v26, v27, v28, v29, v30, v31)
     elif v1 == 5:
         del v1
-        v37, v38, v39, v40, v41, v42, v43, v44 = method101(v2)
+        v33, v34, v35, v36, v37, v38, v39 = method100(v2)
         del v2
-        return US4_5(v37, v38, v39, v40, v41, v42, v43, v44)
+        return US4_5(v33, v34, v35, v36, v37, v38, v39)
     elif v1 == 6:
         del v1
-        v46, v47, v48, v49, v50, v51, v52 = method95(v2)
+        v41, v42, v43, v44, v45, v46 = method94(v2)
         del v2
-        return US4_6(v46, v47, v48, v49, v50, v51, v52)
+        return US4_6(v41, v42, v43, v44, v45, v46)
     elif v1 == 7:
         del v1
-        v54, v55, v56, v57, v58, v59, v60 = method95(v2)
+        v48, v49, v50, v51, v52, v53 = method94(v2)
         del v2
-        return US4_7(v54, v55, v56, v57, v58, v59, v60)
+        return US4_7(v48, v49, v50, v51, v52, v53)
     else:
         del v1, v2
         raise Exception("Invalid tag.")
-def method103(v0 : cp.ndarray) -> US2:
-    v1 = method81(v0)
+def method102(v0 : cp.ndarray) -> US2:
+    v1 = method80(v0)
     v2 = v0[4:].view(cp.uint8)
     del v0
     if v1 == 0:
         del v1
-        method88(v2)
+        method87(v2)
         del v2
         return US2_0()
     elif v1 == 1:
         del v1
-        method88(v2)
+        method87(v2)
         del v2
         return US2_1()
     else:
         del v1, v2
         raise Exception("Invalid tag.")
-def method104(v0 : cp.ndarray) -> i32:
-    v1 = v0[6264:].view(cp.int32)
+def method103(v0 : cp.ndarray) -> i32:
+    v1 = v0[6248:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method77(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array, US6]:
-    v1 = method78(v0)
+def method76(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array, US6]:
+    v1 = method77(v0)
     v2 = static_array_list(128)
-    v3 = method79(v0)
+    v3 = method78(v0)
     v2.length = v3
     del v3
     v4 = v2.length
@@ -13182,7 +13290,7 @@ def method77(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array
         del v8
         v10 = v0[v9:].view(cp.uint8)
         del v9
-        v11 = method80(v10)
+        v11 = method79(v10)
         del v10
         v12 = 0 <= v5
         if v12:
@@ -13205,28 +13313,28 @@ def method77(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array
         del v11
         v5 += 1 
     del v4, v5
-    v18 = method93(v0)
+    v18 = method92(v0)
     v19 = v0[6176:].view(cp.uint8)
     if v18 == 0:
-        method88(v19)
+        method87(v19)
         v24 = US3_0()
     elif v18 == 1:
-        v22 = method94(v19)
+        v22 = method93(v19)
         v24 = US3_1(v22)
     else:
         raise Exception("Invalid tag.")
     del v18, v19
     v25 = static_array(2)
     v26 = 0
-    while method47(v26):
+    while method46(v26):
         v28 = u64(v26)
         v29 = v28 * 4
         del v28
-        v30 = 6256 + v29
+        v30 = 6240 + v29
         del v29
         v31 = v0[v30:].view(cp.uint8)
         del v30
-        v32 = method103(v31)
+        v32 = method102(v31)
         del v31
         v33 = 0 <= v26
         if v33:
@@ -13247,31 +13355,31 @@ def method77(v0 : cp.ndarray) -> Tuple[u64, static_array_list, US3, static_array
         del v32
         v26 += 1 
     del v26
-    v38 = method104(v0)
-    v39 = v0[6272:].view(cp.uint8)
+    v38 = method103(v0)
+    v39 = v0[6256:].view(cp.uint8)
     del v0
     if v38 == 0:
-        method88(v39)
-        v58 = US6_0()
+        method87(v39)
+        v56 = US6_0()
     elif v38 == 1:
-        v42, v43, v44, v45, v46, v47, v48 = method95(v39)
-        v58 = US6_1(v42, v43, v44, v45, v46, v47, v48)
+        v42, v43, v44, v45, v46, v47 = method94(v39)
+        v56 = US6_1(v42, v43, v44, v45, v46, v47)
     elif v38 == 2:
-        v50, v51, v52, v53, v54, v55, v56 = method95(v39)
-        v58 = US6_2(v50, v51, v52, v53, v54, v55, v56)
+        v49, v50, v51, v52, v53, v54 = method94(v39)
+        v56 = US6_2(v49, v50, v51, v52, v53, v54)
     else:
         raise Exception("Invalid tag.")
     del v38, v39
-    return v1, v2, v24, v25, v58
-def method106(v0 : cp.ndarray) -> i32:
+    return v1, v2, v24, v25, v56
+def method105(v0 : cp.ndarray) -> i32:
     v1 = v0[6168:].view(cp.int32)
     del v0
     v2 = v1[0].item()
     del v1
     return v2
-def method105(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
+def method104(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
     v1 = static_array_list(128)
-    v2 = method81(v0)
+    v2 = method80(v0)
     v1.length = v2
     del v2
     v3 = v1.length
@@ -13284,7 +13392,7 @@ def method105(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
         del v7
         v9 = v0[v8:].view(cp.uint8)
         del v8
-        v10 = method80(v9)
+        v10 = method79(v9)
         del v9
         v11 = 0 <= v4
         if v11:
@@ -13309,7 +13417,7 @@ def method105(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
     del v3, v4
     v17 = static_array(2)
     v18 = 0
-    while method47(v18):
+    while method46(v18):
         v20 = u64(v18)
         v21 = v20 * 4
         del v20
@@ -13317,7 +13425,7 @@ def method105(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
         del v21
         v23 = v0[v22:].view(cp.uint8)
         del v22
-        v24 = method103(v23)
+        v24 = method102(v23)
         del v23
         v25 = 0 <= v18
         if v25:
@@ -13338,35 +13446,35 @@ def method105(v0 : cp.ndarray) -> Tuple[static_array_list, static_array, US6]:
         del v24
         v18 += 1 
     del v18
-    v30 = method106(v0)
+    v30 = method105(v0)
     v31 = v0[6176:].view(cp.uint8)
     del v0
     if v30 == 0:
-        method88(v31)
-        v50 = US6_0()
+        method87(v31)
+        v48 = US6_0()
     elif v30 == 1:
-        v34, v35, v36, v37, v38, v39, v40 = method95(v31)
-        v50 = US6_1(v34, v35, v36, v37, v38, v39, v40)
+        v34, v35, v36, v37, v38, v39 = method94(v31)
+        v48 = US6_1(v34, v35, v36, v37, v38, v39)
     elif v30 == 2:
-        v42, v43, v44, v45, v46, v47, v48 = method95(v31)
-        v50 = US6_2(v42, v43, v44, v45, v46, v47, v48)
+        v41, v42, v43, v44, v45, v46 = method94(v31)
+        v48 = US6_2(v41, v42, v43, v44, v45, v46)
     else:
         raise Exception("Invalid tag.")
     del v30, v31
-    return v1, v17, v50
-def method112(v0 : u64) -> object:
-    v1 = v0
-    del v0
-    return v1
+    return v1, v17, v48
 def method111(v0 : u64) -> object:
-    return method112(v0)
-def method117(v0 : u8) -> object:
     v1 = v0
     del v0
     return v1
+def method110(v0 : u64) -> object:
+    return method111(v0)
 def method116(v0 : u8) -> object:
-    return method117(v0)
-def method115(v0 : static_array_list) -> object:
+    v1 = v0
+    del v0
+    return v1
+def method115(v0 : u8) -> object:
+    return method116(v0)
+def method114(v0 : static_array_list) -> object:
     v1 = []
     v2 = v0.length
     v3 = 0
@@ -13389,47 +13497,47 @@ def method115(v0 : static_array_list) -> object:
             pass
         del v8, v9
         v11 = v0[v3]
-        v12 = method116(v11)
+        v12 = method115(v11)
         del v11
         v1.append(v12)
         del v12
         v3 += 1 
     del v0, v2, v3
     return v1
-def method119(v0 : i32) -> object:
+def method118(v0 : i32) -> object:
     v1 = v0
     del v0
     return v1
-def method118(v0 : i32, v1 : i32) -> object:
-    v2 = method119(v0)
+def method117(v0 : i32, v1 : i32) -> object:
+    v2 = method118(v0)
     del v0
-    v3 = method119(v1)
+    v3 = method118(v1)
     del v1
     v4 = {'chips_won': v2, 'winner_id': v3}
     del v2, v3
     return v4
-def method122() -> object:
+def method121() -> object:
     v0 = []
     return v0
-def method121(v0 : US1) -> object:
+def method120(v0 : US1) -> object:
     match v0:
         case US1_0(): # A_Call
             del v0
-            v1 = method122()
+            v1 = method121()
             v2 = "A_Call"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US1_1(): # A_Fold
             del v0
-            v4 = method122()
+            v4 = method121()
             v5 = "A_Fold"
             v6 = [v5,v4]
             del v4, v5
             return v6
         case US1_2(v7): # A_Raise
             del v0
-            v8 = method119(v7)
+            v8 = method118(v7)
             del v7
             v9 = "A_Raise"
             v10 = [v9,v8]
@@ -13437,23 +13545,23 @@ def method121(v0 : US1) -> object:
             return v10
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method120(v0 : i32, v1 : US1) -> object:
+def method119(v0 : i32, v1 : US1) -> object:
     v2 = []
-    v3 = method119(v0)
+    v3 = method118(v0)
     del v0
     v2.append(v3)
     del v3
-    v4 = method121(v1)
+    v4 = method120(v1)
     del v1
     v2.append(v4)
     del v4
     v5 = v2
     del v2
     return v5
-def method124(v0 : static_array) -> object:
+def method123(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -13470,30 +13578,30 @@ def method124(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method116(v9)
+        v10 = method115(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method123(v0 : i32, v1 : static_array) -> object:
+def method122(v0 : i32, v1 : static_array) -> object:
     v2 = []
-    v3 = method119(v0)
+    v3 = method118(v0)
     del v0
     v2.append(v3)
     del v3
-    v4 = method124(v1)
+    v4 = method123(v1)
     del v1
     v2.append(v4)
     del v4
     v5 = v2
     del v2
     return v5
-def method129(v0 : static_array) -> object:
+def method128(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method63(v2):
+    while method62(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 5
@@ -13510,31 +13618,31 @@ def method129(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method116(v9)
+        v10 = method115(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method130(v0 : i8) -> object:
+def method129(v0 : i8) -> object:
     v1 = v0
     del v0
     return v1
-def method128(v0 : static_array, v1 : i8) -> object:
-    v2 = method129(v0)
+def method127(v0 : static_array, v1 : i8) -> object:
+    v2 = method128(v0)
     del v0
-    v3 = method130(v1)
+    v3 = method129(v1)
     del v1
     v4 = {'hand': v2, 'score': v3}
     del v2, v3
     return v4
-def method127(v0 : static_array, v1 : i8) -> object:
-    return method128(v0, v1)
-def method126(v0 : static_array) -> object:
+def method126(v0 : static_array, v1 : i8) -> object:
+    return method127(v0, v1)
+def method125(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -13551,28 +13659,28 @@ def method126(v0 : static_array) -> object:
             pass
         del v6, v7
         v9, v10 = v0[v2]
-        v11 = method127(v9, v10)
+        v11 = method126(v9, v10)
         del v9, v10
         v1.append(v11)
         del v11
         v2 += 1 
     del v0, v2
     return v1
-def method125(v0 : i32, v1 : static_array, v2 : i32) -> object:
-    v3 = method119(v0)
+def method124(v0 : i32, v1 : static_array, v2 : i32) -> object:
+    v3 = method118(v0)
     del v0
-    v4 = method126(v1)
+    v4 = method125(v1)
     del v1
-    v5 = method119(v2)
+    v5 = method118(v2)
     del v2
     v6 = {'chips_won': v3, 'hands_shown': v4, 'winner_id': v5}
     del v3, v4, v5
     return v6
-def method114(v0 : US7) -> object:
+def method113(v0 : US7) -> object:
     match v0:
         case US7_0(v1): # CommunityCardsAre
             del v0
-            v2 = method115(v1)
+            v2 = method114(v1)
             del v1
             v3 = "CommunityCardsAre"
             v4 = [v3,v2]
@@ -13580,7 +13688,7 @@ def method114(v0 : US7) -> object:
             return v4
         case US7_1(v5, v6): # Fold
             del v0
-            v7 = method118(v5, v6)
+            v7 = method117(v5, v6)
             del v5, v6
             v8 = "Fold"
             v9 = [v8,v7]
@@ -13588,7 +13696,7 @@ def method114(v0 : US7) -> object:
             return v9
         case US7_2(v10, v11): # PlayerAction
             del v0
-            v12 = method120(v10, v11)
+            v12 = method119(v10, v11)
             del v10, v11
             v13 = "PlayerAction"
             v14 = [v13,v12]
@@ -13596,7 +13704,7 @@ def method114(v0 : US7) -> object:
             return v14
         case US7_3(v15, v16): # PlayerGotCards
             del v0
-            v17 = method123(v15, v16)
+            v17 = method122(v15, v16)
             del v15, v16
             v18 = "PlayerGotCards"
             v19 = [v18,v17]
@@ -13604,7 +13712,7 @@ def method114(v0 : US7) -> object:
             return v19
         case US7_4(v20, v21, v22): # Showdown
             del v0
-            v23 = method125(v20, v21, v22)
+            v23 = method124(v20, v21, v22)
             del v20, v21, v22
             v24 = "Showdown"
             v25 = [v24,v23]
@@ -13612,7 +13720,7 @@ def method114(v0 : US7) -> object:
             return v25
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method113(v0 : static_array_list) -> object:
+def method112(v0 : static_array_list) -> object:
     v1 = []
     v2 = v0.length
     v3 = 0
@@ -13635,35 +13743,31 @@ def method113(v0 : static_array_list) -> object:
             pass
         del v8, v9
         v11 = v0[v3]
-        v12 = method114(v11)
+        v12 = method113(v11)
         del v11
         v1.append(v12)
         del v12
         v3 += 1 
     del v0, v2, v3
     return v1
-def method110(v0 : u64, v1 : static_array_list) -> object:
-    v2 = method111(v0)
+def method109(v0 : u64, v1 : static_array_list) -> object:
+    v2 = method110(v0)
     del v0
-    v3 = method113(v1)
+    v3 = method112(v1)
     del v1
     v4 = {'deck': v2, 'messages': v3}
     del v2, v3
     return v4
-def method135(v0 : i32) -> object:
-    v1 = method119(v0)
+def method134(v0 : i32) -> object:
+    v1 = method118(v0)
     del v0
     v2 = {'min_raise': v1}
     del v1
     return v2
-def method136(v0 : bool) -> object:
-    v1 = v0
-    del v0
-    return v1
-def method137(v0 : static_array) -> object:
+def method135(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -13680,7 +13784,34 @@ def method137(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method124(v9)
+        v10 = method123(v9)
+        del v9
+        v1.append(v10)
+        del v10
+        v2 += 1 
+    del v0, v2
+    return v1
+def method136(v0 : static_array) -> object:
+    v1 = []
+    v2 = 0
+    while method46(v2):
+        v4 = 0 <= v2
+        if v4:
+            v5 = v2 < 2
+            v6 = v5
+        else:
+            v6 = False
+        del v4
+        v7 = v6 == False
+        if v7:
+            v8 = "The read index needs to be in range for the static array."
+            assert v6, v8
+            del v8
+        else:
+            pass
+        del v6, v7
+        v9 = v0[v2]
+        v10 = method118(v9)
         del v9
         v1.append(v10)
         del v10
@@ -13690,34 +13821,7 @@ def method137(v0 : static_array) -> object:
 def method138(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
-        v4 = 0 <= v2
-        if v4:
-            v5 = v2 < 2
-            v6 = v5
-        else:
-            v6 = False
-        del v4
-        v7 = v6 == False
-        if v7:
-            v8 = "The read index needs to be in range for the static array."
-            assert v6, v8
-            del v8
-        else:
-            pass
-        del v6, v7
-        v9 = v0[v2]
-        v10 = method119(v9)
-        del v9
-        v1.append(v10)
-        del v10
-        v2 += 1 
-    del v0, v2
-    return v1
-def method140(v0 : static_array) -> object:
-    v1 = []
-    v2 = 0
-    while method70(v2):
+    while method69(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 3
@@ -13734,17 +13838,17 @@ def method140(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method116(v9)
+        v10 = method115(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method141(v0 : static_array) -> object:
+def method139(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method73(v2):
+    while method72(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 4
@@ -13761,18 +13865,18 @@ def method141(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method116(v9)
+        v10 = method115(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method139(v0 : US5) -> object:
+def method137(v0 : US5) -> object:
     match v0:
         case US5_0(v1): # Flop
             del v0
-            v2 = method140(v1)
+            v2 = method138(v1)
             del v1
             v3 = "Flop"
             v4 = [v3,v2]
@@ -13780,14 +13884,14 @@ def method139(v0 : US5) -> object:
             return v4
         case US5_1(): # Preflop
             del v0
-            v5 = method122()
+            v5 = method121()
             v6 = "Preflop"
             v7 = [v6,v5]
             del v5, v6
             return v7
         case US5_2(v8): # River
             del v0
-            v9 = method129(v8)
+            v9 = method128(v8)
             del v8
             v10 = "River"
             v11 = [v10,v9]
@@ -13795,7 +13899,7 @@ def method139(v0 : US5) -> object:
             return v11
         case US5_3(v12): # Turn
             del v0
-            v13 = method141(v12)
+            v13 = method139(v12)
             del v12
             v14 = "Turn"
             v15 = [v14,v13]
@@ -13803,116 +13907,114 @@ def method139(v0 : US5) -> object:
             return v15
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method134(v0 : i32, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : static_array, v6 : US5) -> object:
-    v7 = method135(v0)
+def method133(v0 : i32, v1 : static_array, v2 : static_array, v3 : i32, v4 : static_array, v5 : US5) -> object:
+    v6 = method134(v0)
     del v0
-    v8 = method136(v1)
+    v7 = method135(v1)
     del v1
-    v9 = method137(v2)
+    v8 = method136(v2)
     del v2
-    v10 = method119(v3)
+    v9 = method118(v3)
     del v3
-    v11 = method138(v4)
+    v10 = method136(v4)
     del v4
-    v12 = method138(v5)
+    v11 = method137(v5)
     del v5
-    v13 = method139(v6)
-    del v6
-    v14 = {'config': v7, 'is_button_s_first_move': v8, 'pl_card': v9, 'player_turn': v10, 'pot': v11, 'stack': v12, 'street': v13}
-    del v7, v8, v9, v10, v11, v12, v13
-    return v14
-def method142(v0 : i32, v1 : bool, v2 : static_array, v3 : i32, v4 : static_array, v5 : static_array, v6 : US5, v7 : US1) -> object:
-    v8 = []
-    v9 = method134(v0, v1, v2, v3, v4, v5, v6)
-    del v0, v1, v2, v3, v4, v5, v6
-    v8.append(v9)
-    del v9
-    v10 = method121(v7)
-    del v7
-    v8.append(v10)
-    del v10
-    v11 = v8
+    v12 = {'config': v6, 'pl_card': v7, 'pot': v8, 'round_turn': v9, 'stack': v10, 'street': v11}
+    del v6, v7, v8, v9, v10, v11
+    return v12
+def method140(v0 : i32, v1 : static_array, v2 : static_array, v3 : i32, v4 : static_array, v5 : US5, v6 : US1) -> object:
+    v7 = []
+    v8 = method133(v0, v1, v2, v3, v4, v5)
+    del v0, v1, v2, v3, v4, v5
+    v7.append(v8)
     del v8
-    return v11
-def method133(v0 : US4) -> object:
+    v9 = method120(v6)
+    del v6
+    v7.append(v9)
+    del v9
+    v10 = v7
+    del v7
+    return v10
+def method132(v0 : US4) -> object:
     match v0:
-        case US4_0(v1, v2, v3, v4, v5, v6, v7): # G_Flop
+        case US4_0(v1, v2, v3, v4, v5, v6): # G_Flop
             del v0
-            v8 = method134(v1, v2, v3, v4, v5, v6, v7)
-            del v1, v2, v3, v4, v5, v6, v7
-            v9 = "G_Flop"
-            v10 = [v9,v8]
-            del v8, v9
-            return v10
-        case US4_1(v11, v12, v13, v14, v15, v16, v17): # G_Fold
+            v7 = method133(v1, v2, v3, v4, v5, v6)
+            del v1, v2, v3, v4, v5, v6
+            v8 = "G_Flop"
+            v9 = [v8,v7]
+            del v7, v8
+            return v9
+        case US4_1(v10, v11, v12, v13, v14, v15): # G_Fold
             del v0
-            v18 = method134(v11, v12, v13, v14, v15, v16, v17)
-            del v11, v12, v13, v14, v15, v16, v17
-            v19 = "G_Fold"
-            v20 = [v19,v18]
-            del v18, v19
-            return v20
+            v16 = method133(v10, v11, v12, v13, v14, v15)
+            del v10, v11, v12, v13, v14, v15
+            v17 = "G_Fold"
+            v18 = [v17,v16]
+            del v16, v17
+            return v18
         case US4_2(): # G_Preflop
             del v0
-            v21 = method122()
-            v22 = "G_Preflop"
-            v23 = [v22,v21]
-            del v21, v22
-            return v23
-        case US4_3(v24, v25, v26, v27, v28, v29, v30): # G_River
+            v19 = method121()
+            v20 = "G_Preflop"
+            v21 = [v20,v19]
+            del v19, v20
+            return v21
+        case US4_3(v22, v23, v24, v25, v26, v27): # G_River
             del v0
-            v31 = method134(v24, v25, v26, v27, v28, v29, v30)
-            del v24, v25, v26, v27, v28, v29, v30
-            v32 = "G_River"
-            v33 = [v32,v31]
-            del v31, v32
-            return v33
-        case US4_4(v34, v35, v36, v37, v38, v39, v40): # G_Round
+            v28 = method133(v22, v23, v24, v25, v26, v27)
+            del v22, v23, v24, v25, v26, v27
+            v29 = "G_River"
+            v30 = [v29,v28]
+            del v28, v29
+            return v30
+        case US4_4(v31, v32, v33, v34, v35, v36): # G_Round
             del v0
-            v41 = method134(v34, v35, v36, v37, v38, v39, v40)
-            del v34, v35, v36, v37, v38, v39, v40
-            v42 = "G_Round"
-            v43 = [v42,v41]
-            del v41, v42
-            return v43
-        case US4_5(v44, v45, v46, v47, v48, v49, v50, v51): # G_Round'
+            v37 = method133(v31, v32, v33, v34, v35, v36)
+            del v31, v32, v33, v34, v35, v36
+            v38 = "G_Round"
+            v39 = [v38,v37]
+            del v37, v38
+            return v39
+        case US4_5(v40, v41, v42, v43, v44, v45, v46): # G_Round'
             del v0
-            v52 = method142(v44, v45, v46, v47, v48, v49, v50, v51)
-            del v44, v45, v46, v47, v48, v49, v50, v51
-            v53 = "G_Round'"
-            v54 = [v53,v52]
-            del v52, v53
-            return v54
-        case US4_6(v55, v56, v57, v58, v59, v60, v61): # G_Showdown
+            v47 = method140(v40, v41, v42, v43, v44, v45, v46)
+            del v40, v41, v42, v43, v44, v45, v46
+            v48 = "G_Round'"
+            v49 = [v48,v47]
+            del v47, v48
+            return v49
+        case US4_6(v50, v51, v52, v53, v54, v55): # G_Showdown
             del v0
-            v62 = method134(v55, v56, v57, v58, v59, v60, v61)
-            del v55, v56, v57, v58, v59, v60, v61
-            v63 = "G_Showdown"
-            v64 = [v63,v62]
-            del v62, v63
-            return v64
-        case US4_7(v65, v66, v67, v68, v69, v70, v71): # G_Turn
+            v56 = method133(v50, v51, v52, v53, v54, v55)
+            del v50, v51, v52, v53, v54, v55
+            v57 = "G_Showdown"
+            v58 = [v57,v56]
+            del v56, v57
+            return v58
+        case US4_7(v59, v60, v61, v62, v63, v64): # G_Turn
             del v0
-            v72 = method134(v65, v66, v67, v68, v69, v70, v71)
-            del v65, v66, v67, v68, v69, v70, v71
-            v73 = "G_Turn"
-            v74 = [v73,v72]
-            del v72, v73
-            return v74
+            v65 = method133(v59, v60, v61, v62, v63, v64)
+            del v59, v60, v61, v62, v63, v64
+            v66 = "G_Turn"
+            v67 = [v66,v65]
+            del v65, v66
+            return v67
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method132(v0 : US3) -> object:
+def method131(v0 : US3) -> object:
     match v0:
         case US3_0(): # None
             del v0
-            v1 = method122()
+            v1 = method121()
             v2 = "None"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US3_1(v4): # Some
             del v0
-            v5 = method133(v4)
+            v5 = method132(v4)
             del v4
             v6 = "Some"
             v7 = [v6,v5]
@@ -13920,28 +14022,28 @@ def method132(v0 : US3) -> object:
             return v7
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method144(v0 : US2) -> object:
+def method142(v0 : US2) -> object:
     match v0:
         case US2_0(): # Computer
             del v0
-            v1 = method122()
+            v1 = method121()
             v2 = "Computer"
             v3 = [v2,v1]
             del v1, v2
             return v3
         case US2_1(): # Human
             del v0
-            v4 = method122()
+            v4 = method121()
             v5 = "Human"
             v6 = [v5,v4]
             del v4, v5
             return v6
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method143(v0 : static_array) -> object:
+def method141(v0 : static_array) -> object:
     v1 = []
     v2 = 0
-    while method47(v2):
+    while method46(v2):
         v4 = 0 <= v2
         if v4:
             v5 = v2 < 2
@@ -13958,90 +14060,90 @@ def method143(v0 : static_array) -> object:
             pass
         del v6, v7
         v9 = v0[v2]
-        v10 = method144(v9)
+        v10 = method142(v9)
         del v9
         v1.append(v10)
         del v10
         v2 += 1 
     del v0, v2
     return v1
-def method145(v0 : US6) -> object:
+def method143(v0 : US6) -> object:
     match v0:
         case US6_0(): # GameNotStarted
             del v0
-            v1 = method122()
+            v1 = method121()
             v2 = "GameNotStarted"
             v3 = [v2,v1]
             del v1, v2
             return v3
-        case US6_1(v4, v5, v6, v7, v8, v9, v10): # GameOver
+        case US6_1(v4, v5, v6, v7, v8, v9): # GameOver
             del v0
-            v11 = method134(v4, v5, v6, v7, v8, v9, v10)
-            del v4, v5, v6, v7, v8, v9, v10
-            v12 = "GameOver"
-            v13 = [v12,v11]
-            del v11, v12
-            return v13
-        case US6_2(v14, v15, v16, v17, v18, v19, v20): # WaitingForActionFromPlayerId
+            v10 = method133(v4, v5, v6, v7, v8, v9)
+            del v4, v5, v6, v7, v8, v9
+            v11 = "GameOver"
+            v12 = [v11,v10]
+            del v10, v11
+            return v12
+        case US6_2(v13, v14, v15, v16, v17, v18): # WaitingForActionFromPlayerId
             del v0
-            v21 = method134(v14, v15, v16, v17, v18, v19, v20)
-            del v14, v15, v16, v17, v18, v19, v20
-            v22 = "WaitingForActionFromPlayerId"
-            v23 = [v22,v21]
-            del v21, v22
-            return v23
+            v19 = method133(v13, v14, v15, v16, v17, v18)
+            del v13, v14, v15, v16, v17, v18
+            v20 = "WaitingForActionFromPlayerId"
+            v21 = [v20,v19]
+            del v19, v20
+            return v21
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
-def method131(v0 : US3, v1 : static_array, v2 : US6) -> object:
-    v3 = method132(v0)
+def method130(v0 : US3, v1 : static_array, v2 : US6) -> object:
+    v3 = method131(v0)
     del v0
-    v4 = method143(v1)
+    v4 = method141(v1)
     del v1
-    v5 = method145(v2)
+    v5 = method143(v2)
     del v2
     v6 = {'game': v3, 'pl_type': v4, 'ui_game_state': v5}
     del v3, v4, v5
     return v6
-def method109(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
-    v5 = method110(v0, v1)
+def method108(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
+    v5 = method109(v0, v1)
     del v0, v1
-    v6 = method131(v2, v3, v4)
+    v6 = method130(v2, v3, v4)
     del v2, v3, v4
     v7 = {'large': v5, 'small': v6}
     del v5, v6
     return v7
-def method146(v0 : static_array_list, v1 : static_array, v2 : US6) -> object:
-    v3 = method113(v0)
+def method144(v0 : static_array_list, v1 : static_array, v2 : US6) -> object:
+    v3 = method112(v0)
     del v0
-    v4 = method143(v1)
+    v4 = method141(v1)
     del v1
-    v5 = method145(v2)
+    v5 = method143(v2)
     del v2
     v6 = {'messages': v3, 'pl_type': v4, 'ui_game_state': v5}
     del v3, v4, v5
     return v6
-def method108(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
-    v8 = method109(v0, v1, v2, v3, v4)
+def method107(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
+    v8 = method108(v0, v1, v2, v3, v4)
     del v0, v1, v2, v3, v4
-    v9 = method146(v5, v6, v7)
+    v9 = method144(v5, v6, v7)
     del v5, v6, v7
     v10 = {'game_state': v8, 'ui_state': v9}
     del v8, v9
     return v10
-def method107(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
-    v8 = method108(v0, v1, v2, v3, v4, v5, v6, v7)
+def method106(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6, v5 : static_array_list, v6 : static_array, v7 : US6) -> object:
+    v8 = method107(v0, v1, v2, v3, v4, v5, v6, v7)
     del v0, v1, v2, v3, v4, v5, v6, v7
     return v8
-def method148(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
-    v5 = method109(v0, v1, v2, v3, v4)
+def method146(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
+    v5 = method108(v0, v1, v2, v3, v4)
     del v0, v2
-    v6 = method146(v1, v3, v4)
+    v6 = method144(v1, v3, v4)
     del v1, v3, v4
     v7 = {'game_state': v5, 'ui_state': v6}
     del v5, v6
     return v7
-def method147(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
-    v5 = method148(v0, v1, v2, v3, v4)
+def method145(v0 : u64, v1 : static_array_list, v2 : US3, v3 : static_array, v4 : US6) -> object:
+    v5 = method146(v0, v1, v2, v3, v4)
     del v0, v1, v2, v3, v4
     return v5
 def main():
