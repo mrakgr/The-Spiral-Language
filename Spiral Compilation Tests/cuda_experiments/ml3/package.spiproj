@@ -80,9 +80,6 @@ modules:
                 deckm
                 hand_rankerm
             main
-            main_slow
-            compilation_time_test1
-            compilation_time_test2
             
         rps/
             main
