@@ -1,5 +1,6 @@
 import { LitElement, PropertyValueMap, TemplateResult, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { map } from 'lit/directives/map.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { io } from 'socket.io-client'
@@ -55,7 +56,11 @@ const suit_of = (x : CardInt): Card_Suit => x % 4
 const rank_of = (x : CardInt): Card_Rank => Math.floor(x / 4)
 const card_of = (x : CardInt): Card => [rank_of(x),suit_of(x)]
 
-type Action = ["A_Raise",number] | ["A_Call",[]] | ["A_Fold",[]]
+type Action = 
+    | ["A_All_In",[]] 
+    | ["A_Raise",number] 
+    | ["A_Call",[]] 
+    | ["A_Fold",[]]
 type Players = ["Computer",[]] | ["Human",[]]
 const players : Players[] = [["Computer",[]], ["Human",[]]]
 
@@ -65,17 +70,13 @@ type Street =
     | ["Turn", CardInt[]]
     | ["River", CardInt[]]
 
-type Game_Config = {
-    min_raise : number
-}
-
 type Table = {
     pot: [number, number],
     stack: [number, number],
     street: Street,
     pl_card: [CardInt[], CardInt[]],
     round_turn: number,
-    config : Game_Config,
+    min_raise : number
 }
 
 type Game_Events =
@@ -275,6 +276,7 @@ class History extends GameElement {
     
     print_action = ([tag,arg] : Action) => {
         switch (tag) {
+            case 'A_All_In': return "goes all-in"
             case 'A_Raise': return `raises ${arg} chips`
             case 'A_Call': return "calls"
             case 'A_Fold': return "folds"
@@ -458,9 +460,7 @@ class Game extends GameElement {
         pot: [4,3],
         round_turn: 0,
         street: ["Flop",[5,6,7]],
-        config: {
-            min_raise: 2
-        }
+        min_raise: 2
     }]
 
     static styles = css`
@@ -512,9 +512,13 @@ class Game extends GameElement {
         sl-range {
             width: 100%;
         }
+
+        .hidden {
+            display: none;
+        }
         `
 
-    @property({type: Number}) raise_amount : number | undefined;
+    @property({type: Number}) slider_raise_amount : number | undefined;
 
     on_action = (action : Action) => () => {
         this.dispatch_game_event(["ActionSelected", action])
@@ -523,17 +527,26 @@ class Game extends GameElement {
     render_state(){
         const [tag,arg] = this.state
         const f = (is_current : boolean, card_visible : boolean, id : number, table : Table) => {
-            const max_raise = table.stack.reduce(min,Infinity)
-            const min_raise = table.stack.reduce(min,table.config.min_raise)
+            const bb = 2;
+            const player_turn = table.round_turn % 2
+            const min_raise = table.stack.reduce(min,table.min_raise)
+            const full_stack = table.pot.map((x,i) => table.stack[i] + x)
+            const amount_needed_to_call = table.pot.reduce(max,0)
+            const pot_after_call = table.pot.map((x,i) => {
+                return (i === player_turn) ? min(full_stack[i], amount_needed_to_call) : x
+            })
+            const pot_bet_size = pot_after_call.reduce((a,b) => a+b, 0)
+            const stack_after_call = pot_after_call.map((x,i) => full_stack[i] - x);
+            const max_raise = max(stack_after_call[player_turn], min_raise)
+            const slider_raise_amount = this.slider_raise_amount ?? min_raise
             const pot_btn = (raise_amount : number) => {
                 raise_amount = clamp(Math.floor(raise_amount),min_raise,max_raise)
+                const classes = { hidden: !(min_raise <= raise_amount && raise_amount < max_raise)}
                 return html`
-                    <sl-button size="small" ?disabled=${raise_amount === 0} @click=${this.on_action(["A_Raise",raise_amount])}>
-                        Raise ${raise_amount}
+                    <sl-button class=${classMap(classes)} size="small" @click=${this.on_action(["A_Raise",raise_amount])}>
+                        ${`Raise ${raise_amount}`}
                     </sl-button>`
                     }
-            const raise_amount = this.raise_amount ?? min_raise
-            const pot = table.pot.reduce((a,b) => a+b,0)
             return html`
                 <div class="row">
                     <div class="flex-card">
@@ -546,14 +559,15 @@ class Game extends GameElement {
                             <div class="flex-actions">
                                 <sl-button size="small" ?disabled=${table.pot[0] === table.pot[1]} @click=${this.on_action(["A_Fold",[]])}>Fold</sl-button>
                                 <sl-button size="small" @click=${this.on_action(["A_Call",[]])}>Call</sl-button>
-                                ${pot_btn(pot / 2)}
-                                ${pot_btn(pot)}
-                                ${pot_btn(raise_amount)}
+                                ${pot_btn(pot_bet_size / 2)}
+                                ${pot_btn(pot_bet_size)}
+                                <sl-button size="small" @click=${this.on_action(["A_All_In",[]])}>All-In</sl-button>
+                                ${pot_btn(slider_raise_amount)}
                                 <sl-range 
                                     ?disabled=${min_raise === 0 && max_raise === 0} 
-                                    .value=${raise_amount} 
-                                    .min=${min_raise} .max=${max_raise} .step=${table.config.min_raise}
-                                    @sl-input=${(x : any) => { this.raise_amount = x.target.value}}
+                                    .value=${slider_raise_amount} 
+                                    .min=${min_raise} .max=${max_raise} .step=${bb}
+                                    @sl-input=${(x : any) => { this.slider_raise_amount = x.target.value}}
                                     ></sl-range>
                             </div>
                             `
@@ -587,8 +601,9 @@ class Game extends GameElement {
                 const table = arg;
                 return html`
                     ${f(false, true, 0, table)}
-                    <div>
-                        <poker-cards .cards=${table.street[1]}></poker-cards>
+                    <div class="row">
+                        <poker-cards class="flex-1" .cards=${table.street[1]}></poker-cards>
+                        <div class="flex-1"></div>
                     </div>
                     ${f(false, true, 1, table)}
                 `

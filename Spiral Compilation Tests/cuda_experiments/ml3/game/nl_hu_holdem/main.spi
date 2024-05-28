@@ -3,6 +3,7 @@ open corebase
 type card = lib.cardm.card
 
 union action =
+    | A_All_In
     | A_Raise : int
     | A_Call
     | A_Fold
@@ -24,9 +25,7 @@ type table =
         street : street
         pl_card : sam.sa 2 (sam.sa 2 card)
         round_turn : int
-        config : {
-            min_raise : int
-        }
+        min_raise : int
     }
 
 union message =
@@ -45,9 +44,10 @@ union ui_game_state =
     | WaitingForActionFromPlayerId : table
     | GameOver : table
 
+inl bb() = 2 : int
+inl sb() = 1 : int
 inl init_table (pl_card : sam.sa 2 (sam.sa 2 card)) : table =
-    inl min_raise = 2
-    inl pot = arraym.fromList [min_raise; min_raise/2]
+    inl pot = arraym.fromList [bb(); sb()]
     inl stack_size = 100
     {
         pot
@@ -55,9 +55,7 @@ inl init_table (pl_card : sam.sa 2 (sam.sa 2 card)) : table =
         street = Preflop
         pl_card
         round_turn = 0
-        config = {
-            min_raise
-        }
+        min_raise = bb()
     }
 
 union game_node =
@@ -85,7 +83,8 @@ let try_round (table : table) =
         inl player_turn = player_turn table
         inl has_chips_left = index table.stack player_turn > 0
         inl needs_calling = index table.pot player_turn < arraym.reduce max table.pot
-        has_chips_left && (needs_calling || table.round_turn < 2) // If this condition is not true, then the player is in an all-in state.
+        inl num_players_with_chips_left = arraym.fold (fun s x => s + if 0 < x then 1 else 0) 0 table.stack : int
+        has_chips_left && (needs_calling || (table.round_turn < 2 && 0 < num_players_with_chips_left))
     listm.foldBack (fun table next () =>
         if player_can_act table then G_Round table else next()
         ) // Tries out these tables in order, testing whether the player on that turn act, and if so returns the table.
@@ -100,9 +99,8 @@ inl round (table : table) (action : action) =
     | A_Fold => G_Fold table
     | A_Call =>
         inl full_stack = arraym.map2 (+) table.stack table.pot
-        inl pot =
-            inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
+        inl pot_size_needed_to_call = arraym.reduce max table.pot
+        inl pot = arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
         inl stack = arraym.map2 (-) full_stack pot
         if player_turn < 2 then
             try_round {table with 
@@ -111,31 +109,53 @@ inl round (table : table) (action : action) =
                 }
         else go_next_street {table with pot stack}
     | A_Raise raise_amount =>
-        console.write_ln table.pot
-        console.write_ln table.stack
+        assert (table.min_raise <= raise_amount) "The raise amount must match the minimum."
         inl full_stack = arraym.map2 (+) table.stack table.pot
-        inl pot = 
-            inl pot_size_needed_to_call = arraym.reduce max table.pot
-            arraym.update' player_turn (min (pot_size_needed_to_call + raise_amount) (index full_stack player_turn)) table.pot
+        inl pot_size_needed_to_call = arraym.reduce max table.pot
+        
+        inl pot_after_calling = arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
+        inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
+        assert (raise_amount < index stack_after_calling player_turn) "The raise amount must be less than the stack size after calling."
+
+        inl pot = arraym.update' player_turn (min (pot_size_needed_to_call + raise_amount) (index full_stack player_turn)) table.pot
         inl stack = arraym.map2 (-) full_stack pot
-        console.write_ln pot
-        try_round {table with 
+        try_round {table with
             pot stack
-            round_turn#=next_turn
+            min_raise = raise_amount
+            round_turn #= next_turn
             }
+    | A_All_In =>
+        inl full_stack = arraym.map2 (+) table.stack table.pot
+        inl pot_size_needed_to_call = arraym.reduce max table.pot
+        inl pot_after_calling = arraym.update' player_turn (min (pot_size_needed_to_call) (index full_stack player_turn)) table.pot
+        inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
+        
+        inl raise_amount = index stack_after_calling player_turn
+        inl pot = arraym.update' player_turn (min (pot_size_needed_to_call + raise_amount) (index full_stack player_turn)) table.pot
+        inl stack = arraym.map2 (-) full_stack pot
+
+        try_round {table with
+            pot stack
+            min_raise #= max raise_amount
+            round_turn #= next_turn
+            }        
+
 inl flop (table : table) (cards : sam.sa 3 card) =
     try_round {table with 
         round_turn = 0
+        min_raise = bb()
         street #= function Preflop => Flop cards | _ => failwith "Invalid street in flop."
         }
 inl turn (table : table) (cards : sam.sa 1 card) =
     try_round {table with 
         round_turn = 0
+        min_raise = bb()
         street #= function Flop x => Turn (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in turn."
         }
 inl river (table : table) (cards : sam.sa 1 card) =
     try_round {table with 
         round_turn = 0
+        min_raise = bb()
         street #= function Turn x => River (sam.merge x cards |> nominal_recreate) | _ => failwith "Invalid street in river."
         }
 inl preflop (pl_card : sam.sa 2 (sam.sa 2 card)) = try_round (init_table pl_card)
@@ -214,17 +234,15 @@ inl random_action = fun rng (table : table) =>
     inl stack_after_calling = arraym.map2 (-) full_stack pot_after_calling
     inl pot_bet_size = arraym.reduce (+) pot_after_calling
     inl raise x = // Only do the raise if there are enough chips in the stack after calling.
-        inl prob = if x <= index stack_after_calling player_turn then 1 else 0
+        inl prob = if table.min_raise <= x && x < index stack_after_calling player_turn then 1 else 0
         A_Raise x, prob
-    inl actions : sam.sa 8 (action * f32) = arraym.fromList [
+    inl actions : sam.sa 6 (action * f32) = arraym.fromList [
         A_Fold, if index table.pot player_turn < pot_size_needed_to_call then 1 else 0
-        A_Call, 2
-        raise (pot_bet_size / 4)
+        A_Call, 4
         raise (pot_bet_size / 3)
         raise (pot_bet_size / 2)
         raise pot_bet_size
-        raise (pot_bet_size * 3 / 2)
-        raise (index stack_after_calling player_turn) // all-in bet
+        A_All_In, 1
         ]
     random.sample_discrete actions rng
     
