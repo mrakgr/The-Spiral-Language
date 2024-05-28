@@ -18,37 +18,36 @@ type run_config = {
     shared_mem : int
     }
 
+union compiler =
+    | NVCC
+    | NVRTC
+
 // Executes the lambda on the GPU device.
 inl run' ({shared_mem} : run_config) f =
     inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
     // Global statements only get executed once.
-    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include\", \"-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include/cublasdx/include\", \"-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/external/cutlass/include\"))"
     global "options = []"
-    // global "options.append('--define-macro=NDEBUG')"
-    global "options.append('--diag-suppress=550,20012')"
-    global "options.append('--dopt=on')"
-    global "options.append('--restrict')"
-    // global "options.append('--std=c++17')"
+    // global "options.append('--define-macro=NDEBUG')" // turns off the macros
+    global "options.append('--diag-suppress=550,20012')" // suppresses some warnings related to unused vars
+    global "options.append('--dopt=on')" // turns on the device optimizations
+    global "options.append('--restrict')" // assumes all the pointers are restriced
 
-    // > For example, if you want to add a variable named CUPY_CACHE_SAVE_CUDA_SOURCE with the value 1, you would use:
-    // $Env:CUPY_CACHE_SAVE_CUDA_SOURCE = "1"
-    // global "options.append('-src-in-ptx')"
-    // global "options.append('--generate-line-info')"
-    // global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
-
-    // global "options.append('--extra-device-vectorization')"
-    // global "options.append('--ptxas-options=-v')"
     match threads_per_block with
     | 1024 => global "options.append('--maxrregcount=64')"
     | 512 => global "options.append('--maxrregcount=128')"
     | 256 => global "options.append('--maxrregcount=255')"
     | _ => ()
-    // global "options.append('--device-debug')"
-    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
-    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))"
+
+    inl compiler = NVRTC
+    match compiler with
+    | NVRTC => global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    | NVCC => global "raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
-        // global "#include <assert.h>"
-        // global "#include <stdio.h>"
+        match compiler with
+        | NVRTC => ()
+        | NVCC =>
+            global "#include <assert.h>"
+            global "#include <stdio.h>"
         f () : ()
     inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
     $'!entry.max_dynamic_shared_size_bytes = !shared_mem '

@@ -24,8 +24,6 @@ class HU_NL_Holdem_Namespace(Namespace):
 
     def on_update(self, msg : Any):
         state = HU_NL_Holdem_Namespace.user_state[self.sid()]
-        print("Running game")
         state = spiral_game.event_loop_gpu(msg,state["game_state"])
-        print(f"Got state: {state}")
         HU_NL_Holdem_Namespace.user_state[self.sid()] = state
         self.emit_update(state["ui_state"])

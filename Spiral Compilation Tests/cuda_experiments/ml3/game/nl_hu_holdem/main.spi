@@ -378,24 +378,23 @@ inl main() =
                 ui_state = create_serializer
             }
             
-            console.write_ln "Deserializing the message and game_state from JSON."
             inl dup forall e. (jsonm.json x : jsonm.json e) : jsonm.json (e * e) = jsonm.json $"!x, !x"
             inl msg, game_state = jsonm.deserialize msg, jsonm.deserialize game_state
-            console.write_ln "Serializing the message and game_state to the GPU."
             serialize seri.msg msg
             serialize seri.game_state game_state
-            console.write_ln "Done serializing the gpu state"
 
+            console.write_ln "Going to run the kernel."
+            global "import time"
+            inl p : f64 = $"time.perf_counter()"
             run fun () =>
                 inl from = rangem.threads_in_grid().from
                 if from = 0 then
-                    console.write_ln "going to run the event loop"
                     inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
-                    // inl game_state = deserialize seri.game_state
-                    // console.write_ln game_state
                     serialize seri.game_state game_state
                     serialize seri.ui_state (game_to_ui game_state)
-
+            inl p2 : f64 = $"time.perf_counter()"
+            console.write "The time it took to run the kernel (in seconds) is: "
+            console.write_ln (p2 - p)
             jsonm.serialize {
                 game_state = deserialize seri.game_state
                 ui_state = deserialize seri.ui_state
