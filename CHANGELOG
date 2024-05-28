@@ -1,3 +1,7 @@
+2.10.8 (5/28/2024)
+
+* Speed up compilation of union types on the Cuda backend by 20% by replacing bit field with u8 types.
+
 2.10.7 (5/19/2024)
 
 * Inserted the printing of static array classes during codegen for both the Python and the Cuda backends.

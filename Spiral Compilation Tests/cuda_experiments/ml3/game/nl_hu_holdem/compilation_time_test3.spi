@@ -1,0 +1,21 @@
+open corebase
+open corecuda
+open corepython
+open main
+
+inl main() =
+    open serializer
+    
+    console.write_ln "Going to run the kernel."
+    global "import time"
+    inl p : f64 = $"time.perf_counter()"
+    run fun () =>
+        inl from = rangem.threads_in_grid().from
+        if from = 0 then
+            inl ~(msg, game_state) = StartGame, init()
+            inl game_state = event_loop (msg, game_state)
+            console.write_ln {game_state}
+    inl p2 : f64 = $"time.perf_counter()"
+    console.write "The time it took to run the kernel (in seconds) is: "
+    console.write_ln (p2 - p)
+    
