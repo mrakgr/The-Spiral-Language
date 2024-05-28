@@ -390,6 +390,7 @@ inl main() =
                 inl from = rangem.threads_in_grid().from
                 if from = 0 then
                     inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+                    // inl game_state = deserialize seri.game_state
                     serialize seri.game_state game_state
                     serialize seri.ui_state (game_to_ui game_state)
             inl p2 : f64 = $"time.perf_counter()"
