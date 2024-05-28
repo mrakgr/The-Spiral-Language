@@ -1,7 +1,7 @@
 open corebase
 open corecuda
 open corepython
-open main_slow
+open main
 
 inl main() =
     open serializer

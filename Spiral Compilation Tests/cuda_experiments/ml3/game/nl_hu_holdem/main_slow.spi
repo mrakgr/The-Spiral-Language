@@ -1,6 +1,97 @@
 open corebase
 
-type card = lib.cardm.card
+union card_rank = 
+    | Ace
+    | King
+    | Queen
+    | Jack
+    | Ten
+    | Nine
+    | Eight
+    | Seven
+    | Six
+    | Five
+    | Four
+    | Three
+    | Two
+
+let card_rank_tag = function
+    | Ace => 12
+    | King => 11
+    | Queen => 10
+    | Jack => 9
+    | Ten => 8
+    | Nine => 7
+    | Eight => 6
+    | Seven => 5
+    | Six => 4
+    | Five => 3
+    | Four => 2
+    | Three => 1
+    | Two => 0
+
+let card_rank_untag = function
+    | 12 => Ace
+    | 11 => King 
+    | 10 => Queen
+    | 9 => Jack 
+    | 8 => Ten 
+    | 7 => Nine 
+    | 6 => Eight 
+    | 5 => Seven 
+    | 4 => Six
+    | 3 => Five 
+    | 2 => Four
+    | 1 => Three
+    | 0 => Two
+    | _ => failwith "Invalid tag in card_rank_untag"
+
+union card_suit = 
+    | Hearts
+    | Spades
+    | Clubs
+    | Diamonds
+
+let card_suit_tag = function
+    | Hearts => 3
+    | Spades => 2
+    | Clubs => 1 
+    | Diamonds => 0 
+
+let card_suit_untag = function
+    | 3 => Hearts
+    | 2 => Spades
+    | 1 => Clubs
+    | 0 => Diamonds
+    | _ => failwith "Invalid tag in card_suit_untag"
+
+type card = card_rank * card_suit
+
+union hand =
+    | Straight_Flush : sam.sa 5 card
+    | Quads : sam.sa 5 card
+    | Full_House : sam.sa 5 card
+    | Flush : sam.sa 5 card
+    | Straight : sam.sa 5 card
+    | Triple : sam.sa 5 card
+    | Two_Pair : sam.sa 5 card
+    | Pair : sam.sa 5 card
+    | High_Card : sam.sa 5 card
+
+let card_from_lib_card (card : lib.cardm.card) = card_rank_untag (lib.cardm.rank card), card_suit_untag (lib.cardm.suit card)
+let hand_from_lib_hand_score (lib.hand_rankerm.hand_score {score hand}) =
+    inl hand = arraym.map card_from_lib_card hand
+    match score with
+    | 8 => Straight_Flush hand
+    | 7 => Quads hand
+    | 6 => Full_House hand
+    | 5 => Flush hand
+    | 4 => Straight hand
+    | 3 => Triple hand
+    | 2 => Two_Pair hand
+    | 1 => Pair hand
+    | 0 => High_Card hand
+    | _ => failwith "Invalid tag in hand_from_lib_hand_score"
 
 union action =
     | A_All_In
@@ -244,7 +335,7 @@ inl random_action = fun rng (table : table) =>
         A_All_In, 1
         ]
     random.sample_discrete actions rng
-    
+
 let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
     inl push_message = sa_listm.push (refm.to_local state.messages)
     inl deck = refm.to_local state.deck
@@ -266,7 +357,7 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
         push new_cards
         ar : sa_listm.sa_list 5 _
     inl go_street (table : table) flop =
-        inl new_cards = pop_deck()
+        inl new_cards = pop_deck()|> arraym.map card_from_lib_card
         inl msg = CommunityCardsAre (get_community_cards table.street new_cards)
         push_message msg
         continue (flop table new_cards)
@@ -312,12 +403,27 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
         | G_Turn table => go_street table turn
         | G_River table => go_street table river
         | G_Preflop => 
-            inl c0,c1 = pop_deck(), pop_deck()
+            inl c0,c1 = pop_deck() |> arraym.map card_from_lib_card, pop_deck() |> arraym.map card_from_lib_card
             push_message PlayerGotCards(0, c0)
             push_message PlayerGotCards(1, c1)
             continue (preflop (arraym.fromList [c0; c1]))
     
     loop.while fst (snd >> body) (continue node) |> snd
+    
+let play_loop (small : state_small) (large : state_large_ref) node : state_small =
+    match play_loop_inner large small.pl_type node with
+    | G_Round table as game =>
+        {small with
+            ui_game_state = WaitingForActionFromPlayerId(table)
+            game = Some game
+            }
+    | G_Showdown table | G_Fold table =>
+        {small with
+            ui_game_state = GameOver(table)
+            game = None
+            }
+    | game =>
+        failwith "Unexpected node received in play_loop."
 
 let play_loop (small : state_small) (large : state_large_ref) node : state_small =
     match play_loop_inner large small.pl_type node with
