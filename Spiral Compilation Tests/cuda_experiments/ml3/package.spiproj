@@ -82,8 +82,8 @@ modules:
             main
             compilation_time_test1
             compilation_time_test2
-            compilation_time_test3 
-
+            compilation_time_test3
+            
         rps/
             main
 
