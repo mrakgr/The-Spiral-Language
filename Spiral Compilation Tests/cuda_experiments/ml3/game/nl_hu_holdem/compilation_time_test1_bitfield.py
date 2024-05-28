@@ -1,4 +1,4 @@
-# Takes 19s for me.
+# Takes 24s for me.
 
 kernel = r"""
 template <typename el, int dim> struct static_array { el v[dim]; };
@@ -14,7 +14,7 @@ __device__ US2 f_5(unsigned char * v0);
 __device__ static_array<US2,2l> f_4(unsigned char * v0);
 __device__ US0 f_0(unsigned char * v0);
 struct Tuple0;
-struct US3;
+struct US3; 
 struct US6;
 struct US5;
 struct US4;
@@ -123,12 +123,12 @@ struct US1 {
             long v0;
         } case3; // A_Raise
     } v;
-    unsigned char tag;
+    unsigned long tag : 3;
 };
 struct US2 {
     union {
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct US0 {
     union {
@@ -139,7 +139,7 @@ struct US0 {
             static_array<US2,2l> v0;
         } case1; // PlayerChanged
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct Tuple0 {
     static_array<unsigned char,5l> v0;
@@ -170,7 +170,7 @@ struct US3 {
             long v2;
         } case4; // Showdown
     } v;
-    unsigned char tag;
+    unsigned long tag : 3;
 };
 struct US6 {
     union {
@@ -184,7 +184,7 @@ struct US6 {
             static_array<unsigned char,4l> v0;
         } case3; // Turn
     } v;
-    unsigned char tag;
+    unsigned long tag : 3;
 };
 struct US5 {
     union {
@@ -246,7 +246,7 @@ struct US5 {
             long v3;
         } case7; // G_Turn
     } v;
-    unsigned char tag;
+    unsigned long tag : 4;
 };
 struct US4 {
     union {
@@ -254,7 +254,7 @@ struct US4 {
             US5 v0;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct US7 {
     union {
@@ -275,7 +275,7 @@ struct US7 {
             long v3;
         } case2; // WaitingForActionFromPlayerId
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct Tuple1 {
     unsigned long long v0;
@@ -397,7 +397,7 @@ struct Tuple17 {
 struct US8 {
     union {
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct Tuple18 {
     long v0;
@@ -412,7 +412,7 @@ struct US9 {
             static_array<unsigned char,5l> v0;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct Tuple19 {
     US8 v1;
@@ -435,7 +435,7 @@ struct US10 {
             static_array<unsigned char,3l> v1;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct US11 {
     union {
@@ -444,7 +444,7 @@ struct US11 {
             static_array<unsigned char,4l> v1;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct US12 {
     union {
@@ -453,7 +453,7 @@ struct US12 {
             static_array<unsigned char,2l> v1;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct US13 {
     union {
@@ -462,7 +462,7 @@ struct US13 {
             static_array<unsigned char,5l> v1;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 struct US14 {
     union {
@@ -471,7 +471,7 @@ struct US14 {
             static_array<unsigned char,3l> v1;
         } case1; // Some
     } v;
-    unsigned char tag;
+    unsigned long tag : 2;
 };
 __device__ US1 US1_0() { // A_All_In
     US1 x;

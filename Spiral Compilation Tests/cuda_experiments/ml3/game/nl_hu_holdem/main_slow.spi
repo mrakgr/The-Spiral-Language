@@ -79,6 +79,7 @@ union hand =
     | High_Card : sam.sa 5 card
 
 let card_from_lib_card (card : lib.cardm.card) = card_rank_untag (lib.cardm.rank card), card_suit_untag (lib.cardm.suit card)
+let lib_card_from_card (rank,suit : card) : lib.cardm.card = lib.cardm.card (card_rank_tag rank * 4 + card_suit_tag suit)
 let hand_from_lib_hand_score (lib.hand_rankerm.hand_score {score hand}) =
     inl hand = arraym.map card_from_lib_card hand
     match score with
@@ -373,8 +374,8 @@ let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
         | G_Showdown table => 
             inl msg =
                 inl community_cards = match table.street with River cards => cards | _ => failwith "Invalid street in showdown."
-                inl h i : sam.sa 7 lib.cardm.card = sam.merge (index table.pl_card i) community_cards |> nominal_recreate
-                inl s0, s1 = lib.hand_rankerm.score (h 0), lib.hand_rankerm.score (h 1)
+                inl h i : sam.sa 7 card = sam.merge (index table.pl_card i) community_cards |> nominal_recreate
+                inl s0, s1 = lib.hand_rankerm.score (h 0 |> arraym.map lib_card_from_card), lib.hand_rankerm.score (h 1 |> arraym.map lib_card_from_card)
                 inl chips_won, winner_id =
                     inl chips_won = index table.pot (player_turn table)
                     match comp s0 s1 with

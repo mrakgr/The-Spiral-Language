@@ -1,151 +1,153 @@
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-            record_type_fold (fun (m,state) key => forall value. => 
-            ^
-Error trace on line: 28, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-                inl value, state = f `value state
+Error trace on line: 495, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl from = rangem.threads_in_grid().from
                 ^
-Error trace on line: 28, column: 36 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-                inl value, state = f `value state
-                                   ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
-            ^
-Error trace on line: 34, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl dim_offset, s = f `int s
+Error trace on line: 496, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                if from = 0 then
                 ^
-Error trace on line: 34, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl dim_offset, s = f `int s
+Error trace on line: 497, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                    inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
                     ^
-Error trace on line: 35, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl el_offsets, el_size = f `el' (conv `size 0)
+Error trace on line: 497, column: 38 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                    inl game_state = event_loop (deserialize seri.msg, deserialize seri.game_state)
+                                     ^
+Error trace on line: 448, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+inl event_loop (msg, {small large} & state : event * state) : state =
                 ^
-Error trace on line: 35, column: 43 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl el_offsets, el_size = f `el' (conv `size 0)
-                                          ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        typecase el with
+Error trace on line: 448, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+inl event_loop (msg, {small large} & state : event * state) : state =
+                     ^
+Error trace on line: 448, column: 38 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+inl event_loop (msg, {small large} & state : event * state) : state =
+                                     ^
+Error trace on line: 449, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl large_refs = large_to_refs large
+    ^
+Error trace on line: 450, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl small =
+    ^
+Error trace on line: 451, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+        match msg with
         ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
+Error trace on line: 452, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+        | StartGame =>
+          ^
+Error trace on line: 454, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            inl ({small large} as state) = init()
             ^
-Error trace on line: 40, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                if singleton_type_is `el then (exists [el] s), s
+Error trace on line: 454, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            inl ({small large} as state) = init()
+                 ^
+Error trace on line: 454, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            inl ({small large} as state) = init()
+                                  ^
+Error trace on line: 455, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            large_refs.deck <-# large.deck
+            ^
+Error trace on line: 456, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            large_refs.messages <-# large.messages
+            ^
+Error trace on line: 457, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            play_loop small large_refs start()
+            ^
+Error trace on line: 428, column: 63 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+let play_loop (small : state_small) (large : state_large_ref) node : state_small =
+                                                              ^
+Error trace on line: 429, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    match play_loop_inner large small.pl_type node with
+    ^
+Error trace on line: 429, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    match play_loop_inner large small.pl_type node with
+          ^
+Error trace on line: 339, column: 72 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+let play_loop_inner (state : state_large_ref) (pl_type : player_types) node =
+                                                                       ^
+Error trace on line: 340, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl push_message = sa_listm.push (refm.to_local state.messages)
+    ^
+Error trace on line: 341, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl deck = refm.to_local state.deck
+    ^
+Error trace on line: 342, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl pop_deck () = 
+    ^
+Error trace on line: 347, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl done x = false, x
+    ^
+Error trace on line: 348, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl continue x = true, x
+    ^
+Error trace on line: 349, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    let get_community_cards street new_cards = 
+    ^
+Error trace on line: 359, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl go_street (table : table) flop =
+    ^
+Error trace on line: 365, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    inl body node =
+    ^
+Error trace on line: 411, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+    loop.while fst (snd >> body) (continue node) |> snd
+    ^
+Error trace on line: 18, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    inl state = _dup state
+    ^
+Error trace on line: 19, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+    ^
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+                                                                                 ^
+Error trace on line: 19, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+                                      ^
+Error trace on line: 19, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+                                            ^
+Error trace on line: 19, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\loop.spi.
+    while' (fun () => cond state) fun () => _set state (body state)
+                                                        ^
+Error trace on line: 61, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 366, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+        match node with
+        ^
+Error trace on line: 367, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+        | G_Fold table =>
+          ^
+Error trace on line: 373, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+        | G_Showdown table => 
+          ^
+Error trace on line: 373, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+        | G_Showdown table => 
+                     ^
+Error trace on line: 374, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+            inl msg =
+            ^
+Error trace on line: 375, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl community_cards = match table.street with River cards => cards | _ => failwith "Invalid street in showdown."
                 ^
-Error trace on line: 41, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif union_type_is `el then
+Error trace on line: 376, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl h i : sam.sa 7 lib.cardm.card = sam.merge (index table.pl_card i) community_cards |> nominal_recreate
                 ^
-Error trace on line: 42, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl tag_offset, s = f `tag s
-                    ^
-Error trace on line: 42, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl tag_offset, s = f `tag s
-                        ^
-Error trace on line: 43, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl union_fields, union_size =
-                    ^
-Error trace on line: 44, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                        union_to_record `el forall r. =>
-                        ^
-Error trace on line: 45, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                        record_type_fold (fun (m,max_offset) key => forall value. =>
-                        ^
-Error trace on line: 46, column: 29 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                            inl value, new_offset = f `value (conv `size 0)
-                            ^
-Error trace on line: 46, column: 53 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                            inl value, new_offset = f `value (conv `size 0)
+Error trace on line: 377, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl s0, s1 = lib.hand_rankerm.score (h 0), lib.hand_rankerm.score (h 1)
+                ^
+Error trace on line: 377, column: 30 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl s0, s1 = lib.hand_rankerm.score (h 0), lib.hand_rankerm.score (h 1)
+                             ^
+Error trace on line: 377, column: 54 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl s0, s1 = lib.hand_rankerm.score (h 0), lib.hand_rankerm.score (h 1)
+                                                     ^
+Error trace on line: 376, column: 53 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\game\nl_hu_holdem\main_slow.spi.
+                inl h i : sam.sa 7 lib.cardm.card = sam.merge (index table.pl_card i) community_cards |> nominal_recreate
                                                     ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | _ => g `el s
+Error trace on line: 57, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\core.spi.
+inl (|>) a b = b a
                ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
-            ^
-Error trace on line: 34, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl dim_offset, s = f `int s
-                ^
-Error trace on line: 34, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl dim_offset, s = f `int s
-                    ^
-Error trace on line: 35, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl el_offsets, el_size = f `el' (conv `size 0)
-                ^
-Error trace on line: 35, column: 43 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                inl el_offsets, el_size = f `el' (conv `size 0)
-                                          ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
-            ^
-Error trace on line: 40, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                if singleton_type_is `el then (exists [el] s), s
-                ^
-Error trace on line: 41, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif union_type_is `el then
-                ^
-Error trace on line: 51, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif prim_type_is `el then
-                ^
-Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif nominal_type_is `el then
-                ^
-Error trace on line: 55, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl (exists el'. _) = nominal_type_apply `el
-                    ^
-Error trace on line: 55, column: 26 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl (exists el'. _) = nominal_type_apply `el
-                         ^
-Error trace on line: 56, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl offset, s = f `el' s
-                    ^
-Error trace on line: 56, column: 37 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    inl offset, s = f `el' s
-                                    ^
-Error trace on line: 21, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        typecase el with
-        ^
-Error trace on line: 31, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\struct.spir.
-        | _ => g `el s
-               ^
-Error trace on line: 27, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-            typecase el with
-            ^
-Error trace on line: 40, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                if singleton_type_is `el then (exists [el] s), s
-                ^
-Error trace on line: 41, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif union_type_is `el then
-                ^
-Error trace on line: 51, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif prim_type_is `el then
-                ^
-Error trace on line: 54, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                elif nominal_type_is `el then
-                ^
-Error trace on line: 59, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    !!!!PrintStatic(`el) // TODO: Put in string interpolation into the language.
-                        ^
-Error trace on line: 60, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\serializer\utils.spir.
-                    error_type "Unsupported type encountered during serialization. Check out the Spiral terminal for more info."
-                    ^
-Unsupported type encountered during serialization. Check out the Spiral terminal for more info.
+Error trace on line: 145, column: 52 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml3\corebase\core.spi.
+inl nominal_recreate forall a b. (x : a): b = real nominal_recreate `b x
+                                                   ^
+Type error in nominal constructor.
+Got: backend_switch {Cuda : static_array<card_rank * card_suit,7i32>; Python : static_array}
+Expected: backend_switch {Cuda : static_array<card,7i32>; Python : static_array}
