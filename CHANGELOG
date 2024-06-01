@@ -1,3 +1,7 @@
+2.10.9 (6/1/2024)
+
+* Added compile time hash maps to the language.
+
 2.10.8 (5/28/2024)
 
 * Speed up compilation of union types on the Cuda backend by 20% by replacing the union tag bitfield with an u8 type.

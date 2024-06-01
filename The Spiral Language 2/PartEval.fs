@@ -69,6 +69,7 @@ and Data =
     | DNominal of Data * Ty
     | DV of TyV
     | DHashSet of HashSet<Data>
+    | DHashMap of Dictionary<Data,Data>
 and TyV = L<Tag,Ty>
 // Unions always go through a join point which enables them to be compared via ref eqaulity.
 // tags and tag_cases are straightforward mapping from cases for the sake of efficiency.
@@ -174,7 +175,7 @@ let data_to_rdata (d: LangEnv) (hc : HashConsTable) call_data =
             | DUnion(a,b) -> ReUnion(hc(f a,b))
             | DNominal(a,b) -> ReNominal(hc(f a,b))
             | DB -> ReB
-            | DHashSet _ -> raise_type_error d "Mutable compile time data structures like the HashSets cannot be passed through join points."
+            | DHashMap _ | DHashSet _ -> raise_type_error d "Mutable compile time data structures like the HashSets and HashMaps cannot be passed through join points."
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
@@ -195,7 +196,7 @@ let rename_global_term (s : LangEnv) =
             | DUnion(a,b) -> DUnion(f a,b)
             | DNominal(a,b) -> DNominal(f a,b)
             | DSymbol _ | DLit _ | DTLit _ | DB as x -> x
-            | DHashSet _ -> raise_type_error s "Mutable compile time data structures like the HashSets cannot be renamed."
+            | DHashMap _ | DHashSet _ -> raise_type_error s "Mutable compile time data structures like the HashSets and HashMaps cannot be renamed."
             ) x
     {s with env_global_term = Array.map f s.env_global_term}
 
@@ -212,6 +213,7 @@ let data_free_vars call_data =
             | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
             | DSymbol _ | DLit _ | DTLit _ | DB -> ()
             | DHashSet x -> Seq.iter f x
+            | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     free_vars.ToArray()
 
@@ -240,6 +242,7 @@ let data_term_vars' call_data =
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DTLit _ | DB -> ()
         | DHashSet x -> Seq.iter f x
+        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     term_vars.ToArray()
     
@@ -253,6 +256,7 @@ let data_nominals call_data =
         | DExists _ | DUnion _ | DNominal _ as x -> term_vars.Add(x)
         | DSymbol _ | DTLit _ | DB -> ()
         | DHashSet x -> Seq.iter f x
+        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     term_vars.ToArray()
 
@@ -267,6 +271,7 @@ let data_term_vars call_data =
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DTLit _ | DB -> ()
         | DHashSet x -> Seq.iter f x
+        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     term_vars.ToArray()
 
@@ -355,6 +360,8 @@ let show_data x =
         | DUnion(a,_) -> f prec a
         | DNominal(a,b) -> p 0 (sprintf "%s : %s" (f 0 a) (show_ty b))
         | DHashSet _ -> p 0 "<HashSet>"
+        | DHashMap _ -> p 0 "<HashMap>"
+
     f -1 x
 
 let is_lit = function
@@ -568,6 +575,7 @@ let peval (env : TopEnv) (x : E) =
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
                 | DHashSet _ -> raise_type_error s "Cannot convert a compile time HashSet into a type."
+                | DHashMap _ -> raise_type_error s "Cannot convert a compile time HashMap into a type."
                 ) x
         f x
     and dyn do_lit s x =
@@ -588,6 +596,7 @@ let peval (env : TopEnv) (x : E) =
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
                 | DHashSet _ -> raise_type_error s "Cannot convert a compile time HashSet into a type."
+                | DHashMap _ -> raise_type_error s "Cannot convert a compile time HashMap into a type."
                 ) x
         let v = f x
         if dirty then v else x
@@ -2260,20 +2269,44 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,HashSetCreate,[]) -> DHashSet(HashSet(HashIdentity.Reference))
         | EOp(_,HashSetAdd,[h;k]) ->
             match term s h, term s k with
-            | DHashSet h, b -> DLit(LitBool(h.Add b))
+            | DHashSet h, k -> DLit(LitBool(h.Add k))
             | h, _ -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
         | EOp(_,HashSetContains,[h;k]) ->
             match term s h, term s k with
-            | DHashSet h, b -> DLit(LitBool(h.Contains b))
+            | DHashSet h, k -> DLit(LitBool(h.Contains k))
             | h, _ -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
         | EOp(_,HashSetRemove,[h;k]) ->
             match term s h, term s k with
-            | DHashSet h, b -> DLit(LitBool(h.Remove b))
+            | DHashSet h, k -> DLit(LitBool(h.Remove k))
             | h, _ -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
         | EOp(_,HashSetCount,[h]) ->
             match term s h with
             | DHashSet h -> DLit(LitInt32(h.Count))
             | h -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
+        | EOp(_,HashMapCreate,[]) -> DHashMap(Dictionary(HashIdentity.Reference))
+        | EOp(_,HashMapAdd,[h;k;v]) ->
+            match term s h, term s k, term s v with
+            | DHashMap h, k, v -> h.Add(k,v); DB
+            | h, _, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,HashMapContains,[h;k]) ->
+            match term s h, term s k with
+            | DHashMap h, k -> DLit(LitBool(h.ContainsKey k))
+            | h, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,HashMapRemove,[h;k]) ->
+            match term s h, term s k with
+            | DHashMap h, k -> DLit(LitBool(h.Remove k))
+            | h, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,HashMapCount,[h]) ->
+            match term s h with
+            | DHashMap h -> DLit(LitInt32(h.Count))
+            | h -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,HashMapTryGet,[h;k]) ->
+            match term s h, term s k with
+            | DHashMap h, k ->
+                match h.TryGetValue(k) with
+                | true, v -> v
+                | false, _ -> DSymbol "null"
+            | h, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

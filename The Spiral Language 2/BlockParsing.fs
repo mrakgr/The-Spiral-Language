@@ -19,7 +19,15 @@ type Op =
     | HashSetAdd
     | HashSetContains
     | HashSetRemove
-    | HashSetCount
+    | HashSetCount    
+
+    // Compile time hash map
+    | HashMapCreate
+    | HashMapAdd
+    | HashMapContains
+    | HashMapRemove
+    | HashMapCount
+    | HashMapTryGet
 
     // Pragma
     | PragmaUnrollPush

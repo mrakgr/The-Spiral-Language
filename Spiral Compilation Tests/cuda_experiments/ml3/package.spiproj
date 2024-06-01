@@ -8,7 +8,9 @@ modules:
         real_core*
         type_arith*
         core-
-        hashsetm 
+        compile_time/
+            hashset
+            hashmap
         struct* 
         listm
         loop

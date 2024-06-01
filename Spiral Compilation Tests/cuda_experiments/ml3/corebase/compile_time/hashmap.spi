@@ -1,0 +1,14 @@
+// Creates a compile time HashMap. These data structures cannot be turned to types or passed through join
+// points. Their primary purpose is for type extensions.
+// The symbol .hashmap here is a standin for its nonexistent type.
+inl create () : .hashmap = !!!!HashMapCreate()
+// Adds a key to the HashMap. Returns true if the key was added to the set, and false if the key was already present.
+inl add forall key value. (h : .hashmap) (k : key) (v : value) : () = !!!!HashMapAdd(h,k,v)
+// Returns true if the key is present in the set.
+inl contains forall key. (h : .hashmap) (k : key) : bool = !!!!HashMapContains(h,k)
+// Removes a key from the HashMap. Returns true if the key was found and removed from the set, and false if the key wasn't present.
+inl remove forall key. (h : .hashmap) (k : key) : bool = !!!!HashMapRemove(h,k)
+// Returns the number of elements in the set.
+inl count (h : .hashmap) : int = conv (!!!!HashMapCount(h) : i32)
+// Returns the element if it is in the dictionary, or the symbol .null otherwise.
+inl try_get forall key value. (h : .hashmap) (k : key) : value = !!!!HashMapTryGet(h,k)
