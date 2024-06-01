@@ -10,7 +10,8 @@
             "name": "ESBuild + Launch Extension",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",
-                "${workspaceFolder}/../Spiral Compilation Tests"
+                // "${workspaceFolder}/../Spiral Compilation Tests"
+                "C:/Spiral's ML Library"
             ],
             "outFiles": [
                 "${workspaceFolder}/out/*.js"
