@@ -47,6 +47,7 @@ let varc_data call_data =
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DLit _ | DTLit _ | DSymbol _ | DB -> ()
         | DHashSet x -> Seq.iter f x
+        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     v
 let varc_set x i = Set.fold (fun s v -> Map.add v i s) Map.empty x

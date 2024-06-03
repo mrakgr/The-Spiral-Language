@@ -78,6 +78,7 @@ type TypeError =
     | ExpectedRecord of T
     | ExpectedExistentialInTerm of T
     | ExpectedExistentialInPattern of T
+    | UnexpectedNumberOfArgumentsInExistsPattern of got: int * expected: int
     | ExistsShouldntHaveMetavars of T list
     | ExpectedRecordInsideALayout of T
     | UnionsCannotBeApplied
@@ -534,6 +535,7 @@ let show_type_error (env : TopEnv) x =
     | BackendSwitchIsMissingAnnotation -> "The backend switch is missing an annotation."
     | ExistsShouldntHaveMetavars a -> sprintf "The variables of the exists body shouldn't have metavariables left over in them.\nGot: [%s]"  (List.map f a |> String.concat ", ")
     | ExpectedExistentialInPattern a -> sprintf "The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
+    | UnexpectedNumberOfArgumentsInExistsPattern(got,exp) -> sprintf "The number of arguments in the existential pattern doesn't match the one in the type.\nGot: %i\nExpected: %i" got exp
     | ExpectedExistentialInTerm a -> sprintf "The body of `expects` need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | UnionsCannotBeApplied -> "Unions cannot be applied."
     | ExpectedNominalInApply a -> sprintf "Expected a nominal.\nGot: %s" (f a)
@@ -1476,10 +1478,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 l |> List.iter (fun (r,name) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedExists))
                 match visit_t s with
                 | TyExists(type_vars,type_body) ->
-                    let scope = scope + 1
-                    let vars, s = exists_subst_pattern scope l (type_vars, type_body)
-                    let env = {env with ty = List.fold2 (fun s (_,x) v -> Map.add x v s) env.ty l vars}
-                    pattern scope env s p
+                    if l.Length = type_vars.Length then
+                        let scope = scope + 1
+                        let vars, s = exists_subst_pattern scope l (type_vars, type_body)
+                        let env = {env with ty = List.fold2 (fun s (_,x) v -> Map.add x v s) env.ty l vars}
+                        pattern scope env s p
+                    else
+                       errors.Add(r, UnexpectedNumberOfArgumentsInExistsPattern(l.Length,type_vars.Length)); scope, env 
                 | s -> errors.Add(r, ExpectedExistentialInPattern s); scope, env
             | PatUnbox(r,name,a) ->
                 let assume i =
