@@ -9,6 +9,7 @@ open Spiral.Startup
 open Spiral.BlockParsing
 open Spiral.PartEval.Prepass
 open Spiral.HashConsing
+open SoftCircuits.Collections
 
 type Tag = int
 type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: comparison> = 
@@ -69,7 +70,7 @@ and Data =
     | DNominal of Data * Ty
     | DV of TyV
     | DHashSet of HashSet<Data>
-    | DHashMap of Dictionary<Data,Data>
+    | DHashMap of OrderedDictionary<Data,Data> * bool ref
 and TyV = L<Tag,Ty>
 // Unions always go through a join point which enables them to be compared via ref eqaulity.
 // tags and tag_cases are straightforward mapping from cases for the sake of efficiency.
@@ -92,6 +93,7 @@ type RData =
     | ReUnion of ConsedNode<RData * Union>
     | ReNominal of ConsedNode<RData * Ty>
     | ReV of ConsedNode<Tag * Ty>
+    | ReHashMap of ConsedNode<(RData * RData)[]>
 
 type Trace = Range list
 type JoinPointKey = 
@@ -175,7 +177,9 @@ let data_to_rdata (d: LangEnv) (hc : HashConsTable) call_data =
             | DUnion(a,b) -> ReUnion(hc(f a,b))
             | DNominal(a,b) -> ReNominal(hc(f a,b))
             | DB -> ReB
-            | DHashMap _ | DHashSet _ -> raise_type_error d "Mutable compile time data structures like the HashSets and HashMaps cannot be passed through join points."
+            | DHashMap(x,is_writable) when is_writable.Value = false -> x |> Seq.map (fun kv -> f kv.Key, f kv.Value) |> Seq.toArray |> hc |> ReHashMap
+            | DHashMap _ -> raise_type_error d "The mutable compile time HashMap needs to be made immutable before it can be passed through a join point."
+            | DHashSet _ -> raise_type_error d "The mutable compile-time HashSet cannot be passed through join points."
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
@@ -196,7 +200,16 @@ let rename_global_term (s : LangEnv) =
             | DUnion(a,b) -> DUnion(f a,b)
             | DNominal(a,b) -> DNominal(f a,b)
             | DSymbol _ | DLit _ | DTLit _ | DB as x -> x
-            | DHashMap _ | DHashSet _ -> raise_type_error s "Mutable compile time data structures like the HashSets and HashMaps cannot be renamed."
+            | DHashMap(x,is_writable) when is_writable.Value = false -> 
+                let q = OrderedDictionary()
+                try 
+                    x |> Seq.iter (fun kv -> q.Add(f kv.Key, f kv.Value))
+                with _ ->
+                    printfn "%A" x
+                    reraise()
+                DHashMap(q,is_writable)
+            | DHashMap _ -> raise_type_error s "The mutable compile time HashMap needs to be made immutable before it can be renamed."
+            | DHashSet _ -> raise_type_error s "The mutable compile-time HashSets cannot be renamed."
             ) x
     {s with env_global_term = Array.map f s.env_global_term}
 
@@ -213,7 +226,7 @@ let data_free_vars call_data =
             | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
             | DSymbol _ | DLit _ | DTLit _ | DB -> ()
             | DHashSet x -> Seq.iter f x
-            | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
+            | DHashMap(x,_) -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     free_vars.ToArray()
 
@@ -228,6 +241,7 @@ let rdata_free_vars call_data =
         | ReRecord(C'(l,tag)) -> if m.Add tag then Map.iter (fun _ -> g) l
         | ReV(C'((a,b),tag)) -> if m.Add tag then free_vars.Add(L(a,b))
         | ReExists(C'((_,a),tag)) | ReUnion(C'((a,_),tag)) | ReNominal(C'((a,_),tag)) -> if m.Add tag then g a
+        | ReHashMap(C'(x,tag)) -> if m.Add tag then Array.iter (fun (k,v) -> g k; g v) x
         | ReSymbol _ | ReLit _ | ReTLit _ | ReB -> ()
     Array.iter g call_data
     free_vars.ToArray()
@@ -242,7 +256,7 @@ let data_term_vars' call_data =
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DTLit _ | DB -> ()
         | DHashSet x -> Seq.iter f x
-        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
+        | DHashMap(x,_) -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     term_vars.ToArray()
     
@@ -256,7 +270,7 @@ let data_nominals call_data =
         | DExists _ | DUnion _ | DNominal _ as x -> term_vars.Add(x)
         | DSymbol _ | DTLit _ | DB -> ()
         | DHashSet x -> Seq.iter f x
-        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
+        | DHashMap(x,_) -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     term_vars.ToArray()
 
@@ -271,7 +285,7 @@ let data_term_vars call_data =
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DTLit _ | DB -> ()
         | DHashSet x -> Seq.iter f x
-        | DHashMap x -> x |> Seq.iter (fun kv -> f kv.Value)
+        | DHashMap(x,_) -> x |> Seq.iter (fun kv -> f kv.Value)
     f call_data
     term_vars.ToArray()
 
@@ -2283,26 +2297,35 @@ let peval (env : TopEnv) (x : E) =
             match term s h with
             | DHashSet h -> DLit(LitInt32(h.Count))
             | h -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
-        | EOp(_,HashMapCreate,[]) -> DHashMap(Dictionary(HashIdentity.Reference))
+        | EOp(_,HashMapCreate,[]) -> DHashMap(OrderedDictionary(HashIdentity.Reference), ref true)
+        | EOp(_,HashMapSetImmutable,[h]) -> 
+            match term s h with
+            | DHashMap(_, is_writable) -> is_writable := false; DB
+            | h -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,HashMapAdd,[h;k;v]) ->
             match term s h, term s k, term s v with
-            | DHashMap h, k, v -> h.Add(k,v); DB
+            | DHashMap(h, is_writable), k, v when is_writable.Value -> if h.TryAdd(k,v) then DB else raise_type_error s "The entry with the same key already exists in the dictionary."
+            | DHashMap(h, _), _, _ -> raise_type_error s "The hash map has been made read-only and cannot be added to."
+            | h, _, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,HashMapTryAdd,[h;k;v]) ->
+            match term s h, term s k, term s v with
+            | DHashMap(h, is_writable), k, v -> if is_writable.Value then DLit(LitBool(h.TryAdd(k,v))) else raise_type_error s "The hash map has been made read-only and cannot be added to."
             | h, _, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,HashMapContains,[h;k]) ->
             match term s h, term s k with
-            | DHashMap h, k -> DLit(LitBool(h.ContainsKey k))
+            | DHashMap(h, _), k -> DLit(LitBool(h.ContainsKey k))
             | h, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,HashMapRemove,[h;k]) ->
             match term s h, term s k with
-            | DHashMap h, k -> DLit(LitBool(h.Remove k))
+            | DHashMap(h, is_writable), k -> if is_writable.Value then DLit(LitBool(h.Remove k)) else raise_type_error s "The hash map has been made read-only and cannot be removed from."
             | h, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,HashMapCount,[h]) ->
             match term s h with
-            | DHashMap h -> DLit(LitInt32(h.Count))
+            | DHashMap(h, _) -> DLit(LitInt32(h.Count))
             | h -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,HashMapTryGet,[h;k]) ->
             match term s h, term s k with
-            | DHashMap h, k ->
+            | DHashMap(h, _), k ->
                 match h.TryGetValue(k) with
                 | true, v -> v
                 | false, _ -> DSymbol "null"

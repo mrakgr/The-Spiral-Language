@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <None Include="Script1.fsx" />
+    <None Include="Script2.fsx" />
     <Compile Include="PersistentVectorExtensions.fs" />
     <Compile Include="HopacExtensions.fs" />
     <Compile Include="HashConsing.fs" />
@@ -58,6 +59,7 @@
     <PackageReference Include="FSharp.Json" Version="0.4.0" />
     <PackageReference Include="FSharpx.Collections" Version="2.1.3" />
     <PackageReference Include="Hopac" Version="0.5.1" />
+    <PackageReference Include="SoftCircuits.OrderedDictionary" Version="3.2.0" />
   </ItemGroup>
 
   <ItemGroup>
