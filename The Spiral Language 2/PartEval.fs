@@ -194,19 +194,15 @@ let rename_global_term (s : LangEnv) =
             | DPair(a,b) -> DPair(f a, f b)
             | DForall(body,a,b,c,d) -> DForall(body,Array.map f a,b,c,d)
             | DFunction(body,annot,a,b,c,d) -> DFunction(body,annot,Array.map f a,b,c,d)
-            | DExists(body,annot) -> DExists(body,annot)
+            | DExists(annot,a) -> DExists(annot, f a)
             | DRecord l -> DRecord(Map.map (fun _ -> f) l)
             | DV(L(_,ty)) -> let x = DV(L(!s.i,ty)) in incr s.i; x
             | DUnion(a,b) -> DUnion(f a,b)
             | DNominal(a,b) -> DNominal(f a,b)
             | DSymbol _ | DLit _ | DTLit _ | DB as x -> x
             | DHashMap(x,is_writable) when is_writable.Value = false -> 
-                let q = OrderedDictionary()
-                try 
-                    x |> Seq.iter (fun kv -> q.Add(f kv.Key, f kv.Value))
-                with _ ->
-                    printfn "%A" x
-                    reraise()
+                let q = OrderedDictionary(HashIdentity.Reference)
+                x |> Seq.iter (fun kv -> q.Add(f kv.Key, f kv.Value))
                 DHashMap(q,is_writable)
             | DHashMap _ -> raise_type_error s "The mutable compile time HashMap needs to be made immutable before it can be renamed."
             | DHashSet _ -> raise_type_error s "The mutable compile-time HashSets cannot be renamed."
