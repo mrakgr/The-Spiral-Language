@@ -40,7 +40,8 @@
 					"enum": [
 						"Fsharp",
 						"C",
-						"Python + Cuda"
+						"Python + Cuda",
+						"Python + Cuda RC"
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."
