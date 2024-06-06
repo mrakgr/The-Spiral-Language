@@ -1,4 +1,4 @@
-﻿module Spiral.Codegen.Cuda.CppDevice
+﻿module Spiral.Codegen.CudaRC
 
 open Spiral
 open Spiral.Utils

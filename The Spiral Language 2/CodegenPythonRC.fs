@@ -1,4 +1,4 @@
-﻿module Spiral.Codegen.PythonRC
+﻿module Spiral.Codegen.Python
 
 open Spiral
 open Spiral.Tokenize
@@ -10,8 +10,6 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
-
-type PythonBackendType = Cuda
 
 let private backend_name = "Python"
 
@@ -101,7 +99,7 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
+let codegen' cuda_codegen (env : PartEvalResult) (x : TypedBind []) =
     let globals = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
@@ -241,7 +239,19 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             line s "else:"
             binds g_decr (indent s) ret fl
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend(a,b,c) -> return' (backend_handler (a,b,c))
+        | TyBackend(jp_body,key,r') -> 
+            let backend_name = (fst jp_body).node
+            match backend_name with
+            | "Cuda" -> 
+                Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
+                    let args = rdata_free_vars args
+                    match (fst env.join_point_method.[jp_body]).[key] with
+                    | Some a, Some _, _ -> cuda_codegen args a
+                    | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                    string g.Count
+                    ) (jp_body,key)
+            | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
+            |> return'
         | TyWhile(a,b) ->
             line s (sprintf "while %s:" (jp a))
             binds g_decr (indent s) (BindsLocal [||]) b
@@ -441,38 +451,21 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()
 
-let codegen' backend_type env x = 
-    match backend_type with
-    | Cuda ->
-        let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
-        let g = Dictionary(HashIdentity.Structural)
-        let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
+let codegen env x = 
+    let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
+    let g = Dictionary(HashIdentity.Structural) ...
+    let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
+    let python_code = codegen' (Cuda.codegen ars env) env x
 
-        let codegen = Cuda.codegen ars env
-        let python_code =
-            codegen'' (fun (jp_body,key,r') ->
-                let backend_name = (fst jp_body).node
-                match backend_name with
-                | "Cuda" -> 
-                    Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
-                        let args = rdata_free_vars args
-                        match (fst env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _, _ -> codegen args a
-                        | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                        string g.Count
-                        ) (jp_body,key)
-                | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
-                ) env x
+    globals |> Seq.iter (fun x -> cuda_kernels.AppendLine(x) |> ignore)
+    fwd_dcls |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    types |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    functions |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    main_defs |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
 
-        globals |> Seq.iter (fun x -> cuda_kernels.AppendLine(x) |> ignore)
-        fwd_dcls |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-        types |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-        functions |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-        main_defs |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-
-        cuda_kernels
-            .AppendLine("\"\"\"")
-            .AppendLine("""
+    cuda_kernels
+        .AppendLine("\"\"\"")
+        .AppendLine("""
 class static_array(list):
     def __init__(self, length):
         for _ in range(length):
@@ -482,7 +475,6 @@ class static_array_list(static_array):
     def __init__(self, length):
         super().__init__(length)
         self.length = 0
-        """.Trim())
-            .Append(python_code).ToString()
+    """.Trim())
+        .Append(python_code).ToString()
 
-let codegen_cuda env x = codegen' Cuda env x
