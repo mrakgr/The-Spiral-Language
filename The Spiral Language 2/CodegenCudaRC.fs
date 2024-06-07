@@ -77,7 +77,7 @@ let lit_string x =
 let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ ResizeArray, functions : _ ResizeArray, main_defs : _ ResizeArray) (env : PartEvalResult) =
     let malloc, free = "malloc", "free"
     let print_decref s_fun name_fun type_arg name_decref =
-        line s_fun (sprintf "void %s(%s * x){" name_fun type_arg)
+        line s_fun (sprintf "__device__ void %s(%s * x){" name_fun type_arg)
         let _ =
             let s_fun = indent s_fun
             line s_fun $"if (x != NULL && --(x->refc) == 0) {{ %s{name_decref}(x); %s{free}(x); }}"
@@ -296,8 +296,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match a.Item.layout with
             | UStack -> sprintf "US%i" (ustack a).tag
             | UHeap -> sprintf "UH%i *" (uheap a).tag
-        | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
-        | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
+        | YLayout(a,Heap) -> sprintf "Heap%i *" (heap a).tag
+        | YLayout(a,HeapMutable) -> sprintf "Mut%i *" (mut a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind backend_name r with
             | Some x -> tup_ty x
@@ -560,7 +560,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             )
     and method : _ -> MethodRec = method_template false
     and method_while : _ -> MethodRec = method_template true
-    and closure_args domain =
+    and closure_args domain = // TODO: Figure out how to fit the new way of compiling closures into the backend.
         let rec loop = function
             | YPair(a,b) -> a :: loop b
             | a -> [a]
@@ -589,7 +589,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 print_ordered_args s_typ x.free_vars
             line s_typ "};"
 
-            line s_fun (sprintf "static inline void ClosureDecrefBody%i(Closure%i * x){" i i)
+            line s_fun (sprintf "__device__ static inline void ClosureDecrefBody%i(Closure%i * x){" i i)
             let _ =
                 let s_fun = indent s_fun
                 x.free_vars |> refc_change (fun i -> $"x->v{i}") -1 |> line' s_fun
@@ -598,8 +598,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             print_decref s_fun $"ClosureDecref{i}" $"Closure{i}" $"ClosureDecrefBody{i}"
             
             match x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", " with
-            | "" -> sprintf "%s ClosureMethod%i(Closure%i * x){" range i i
-            | domain_args -> sprintf "%s ClosureMethod%i(Closure%i * x, %s){" range i i domain_args
+            | "" -> sprintf "__device__ %s ClosureMethod%i(Closure%i * x){" range i i
+            | domain_args -> sprintf "__device__ %s ClosureMethod%i(Closure%i * x, %s){" range i i domain_args
             |> line s_fun
             let _ =
                 let s_fun = indent s_fun
@@ -610,7 +610,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
             let fun_tag = (cfun (x.domain,x.range)).tag
             let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}")
-            line s_fun (sprintf "Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
+            line s_fun (sprintf "__device__ Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"Closure{i} * x = {malloc}(sizeof(Closure{i}));"
@@ -644,7 +644,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line s_typ (sprintf "} %s;" name)
 
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
-            line s_fun (sprintf "static inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
+            line s_fun (sprintf "__device__ static inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"{name} x;"
@@ -656,7 +656,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         tuple (fun _ s_typ s_fun x ->
             let tyvs = Array.mapi (fun i t -> L(i,t)) x.tys
             let args = Array.mapi (fun i t -> let t = tyv t in $"{t} * a{i}, {t} b{i}") x.tys |> String.concat ", "
-            line s_fun (sprintf "static inline void AssignMut%i(%s){" x.tag args)
+            line s_fun (sprintf "__device__ static inline void AssignMut%i(%s){" x.tag args)
             let _ =
                 let s_fun = indent s_fun
                 refc_change (fun i -> $"b{i}") 1 tyvs |> line' s_fun
@@ -667,7 +667,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     and assign_array : _ -> TupleRec = 
         tuple (fun _ s_typ s_fun x ->
             let tyvs, T = Array.mapi (fun i t -> L(i,t)) x.tys, tup_ty_tys x.tys
-            line s_fun (sprintf "static inline void AssignArray%i(%s * a, %s b){" x.tag T T)
+            line s_fun (sprintf "__device__ static inline void AssignArray%i(%s * a, %s b){" x.tag T T)
             let _ =
                 let s_fun = indent s_fun
                 match tyvs with
@@ -694,7 +694,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 print_ordered_args s_typ x.free_vars
             line s_typ (sprintf "} %s;" name')
 
-            line s_fun (sprintf "static inline void %sDecrefBody%i(%s * x){" name i name')
+            line s_fun (sprintf "__device__ static inline void %sDecrefBody%i(%s * x){" name i name')
             let _ =
                 let s_fun = indent s_fun
                 x.free_vars |> refc_change (fun i -> $"x->v{i}") -1 |> line' s_fun
@@ -703,7 +703,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             print_decref s_fun $"{name}Decref{i}" name' $"{name}DecrefBody{i}"
 
             let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
-            line s_fun (sprintf "%s * %sCreate%i(%s){" name' name i (String.concat ", " args))
+            line s_fun (sprintf "__device__ %s * %sCreate%i(%s){" name' name i (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"{name'} * x = {malloc}(sizeof({name'}));"
@@ -744,7 +744,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | false -> line s_typ "};"
 
             let print_refc name typ q =
-                line s_fun (sprintf "static inline void %s(%s * x){" name typ)
+                line s_fun (sprintf "__device__ static inline void %s(%s * x){" name typ)
                 let _ =
                     let s_fun = indent s_fun
                     line s_fun "switch (x->tag) {"
@@ -770,16 +770,16 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
             match is_stack with
             | true  -> 
-                line s_fun (sprintf "void USIncref%i(US%i * x){ USIncrefBody%i(x); }" i i i)
-                line s_fun (sprintf "void USDecref%i(US%i * x){ USDecrefBody%i(x); }" i i i)
+                line s_fun (sprintf "__device__ void USIncref%i(US%i * x){ USIncrefBody%i(x); }" i i i)
+                line s_fun (sprintf "__device__ void USDecref%i(US%i * x){ USDecrefBody%i(x); }" i i i)
             | false -> 
-                line s_fwd (sprintf "void UHDecref%i(UH%i * x);" i i)
+                line s_fwd (sprintf "__device__ void UHDecref%i(UH%i * x);" i i)
                 print_decref s_fun $"UHDecref{i}" $"UH{i}" $"UHDecrefBody{i}"
             
             map_iteri (fun tag k v -> 
                 let args = v |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
                 if is_stack then
-                    line s_fun (sprintf "US%i US%i_%i(%s) { // %s" i i tag args k)
+                    line s_fun (sprintf "__device__ US%i US%i_%i(%s) { // %s" i i tag args k)
                     let _ =
                         let s_fun = indent s_fun
                         line s_fun $"US{i} x;"
@@ -789,7 +789,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         line s_fun "return x;"
                     line s_fun "}"
                 else
-                    line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
+                    line s_fun (sprintf "__device__ UH%i * UH%i_%i(%s) { // %s" i i tag args k)
                     let _ =
                         let s_fun = indent s_fun
                         line s_fun $"UH{i} * x = {malloc}(sizeof(UH{i}));"
@@ -826,7 +826,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         refcs |> line' s_fun
                     line s_fun "}"
 
-            line s_fun (sprintf "static inline void ArrayDecrefBody%i(Array%i * x){" i i)
+            line s_fun (sprintf "__device__ static inline void ArrayDecrefBody%i(Array%i * x){" i i)
             let _ =
                 let s_fun = indent s_fun
                 print_body (fun () ->
@@ -837,7 +837,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
             print_decref s_fun $"ArrayDecref{i}" $"Array{i}" $"ArrayDecrefBody{i}"
             
-            line s_fun (sprintf "Array%i * ArrayCreate%i(%s len, bool init_at_zero){" i i len_t)
+            line s_fun (sprintf "__device__ Array%i * ArrayCreate%i(%s len, bool init_at_zero){" i i len_t)
             let _ =
                 let s_fun = indent s_fun
                 match ptr_t with
@@ -850,7 +850,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_fun "return x;"
             line s_fun "}"
 
-            line s_fun (sprintf "Array%i * ArrayLit%i(%s len, %s * ptr){" i i len_t ptr_t)
+            line s_fun (sprintf "__device__ Array%i * ArrayLit%i(%s len, %s * ptr){" i i len_t ptr_t)
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"Array{i} * x = ArrayCreate{i}(len, false);"
@@ -866,11 +866,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let size_t, ptr_t, tag = prim size_t, tyv char, (carray char).tag
             line s_typ $"typedef Array{tag} String;"
 
-            line s_fun "static inline void StringDecref(String * x){"
+            line s_fun "__device__ static inline void StringDecref(String * x){"
             line (indent s_fun) $"return ArrayDecref{tag}(x);"
             line s_fun "}"
 
-            line s_fun (sprintf "static inline String * StringLit(%s len, %s * ptr){" size_t ptr_t)
+            line s_fun (sprintf "__device__ static inline String * StringLit(%s len, %s * ptr){" size_t ptr_t)
             line (indent s_fun) $"return ArrayLit{tag}(len, ptr);"
             line s_fun "}"
             )
