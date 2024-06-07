@@ -1,4 +1,4 @@
-﻿module Spiral.Codegen.PythonRC
+﻿module Spiral.Codegen.Python
 
 open Spiral
 open Spiral.Tokenize

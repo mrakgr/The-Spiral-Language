@@ -21,11 +21,11 @@ let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ 
 let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 |> uint) |> max 1
 
 let sizeof_tyv = function
-    | YPrim (Int64T | UInt64T | Float64T) -> 64
-    | YPrim (Int32T | UInt32T | Float32T) -> 32
-    | YPrim (Int16T | UInt16T) -> 16
-    | YPrim (Int8T | UInt8T | CharT | BoolT) -> 8
-    | _ -> 64
+    | YPrim (Int64T | UInt64T | Float64T) -> 8
+    | YPrim (Int32T | UInt32T | Float32T) -> 4
+    | YPrim (Int16T | UInt16T) -> 2
+    | YPrim (Int8T | UInt8T | CharT | BoolT) -> 1
+    | _ -> 8
 let order_args v = v |> Array.sortWith (fun (L(_,t)) (L(_,t')) -> compare (sizeof_tyv t') (sizeof_tyv t))
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 let line' x s = line x (String.concat " " s)
@@ -315,7 +315,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend(_,_,r) -> raise_codegen_error_backend r "The Cuda backend does not support nesting of other backends."
+        | TyBackend(_,_,r) -> raise_codegen_error_backend r "The Cuda backend does not support the nesting of other backends."
         | TyWhile(a,b) ->
             let cond =
                 match a with
