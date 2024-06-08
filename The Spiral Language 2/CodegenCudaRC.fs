@@ -14,7 +14,8 @@ open Spiral.RefCounting
 
 let private backend_name = "Cuda"
 
-let rec is_heap f x = 
+// Used to decide whether to zero initialize arrays.
+let rec is_heap f x =
     Array.exists (fun (L(i,t)) -> 
         match t with
         | YUnion a when a.Item.layout = UStack -> Array.exists (snd >> f >> is_heap f) a.Item.tag_cases
@@ -47,7 +48,10 @@ type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBi
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
 type ArrayRec = {tag : int; ty : Ty; tyvs : TyV[]}
-type CFunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
+type FunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
+type FunPtrRec = {tag : int; domain : Ty; range : Ty}
+type FunPtrMethodRec = {tag : int; domain : Ty; range : Ty; body : TypedBind[]; domain_args : TyV[]}
+
 
 // TODO: Figure out how to merge this with the default int.
 let size_t = UInt32T
@@ -158,6 +162,15 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
         let f (a : Ty, b : Ty) = {tag=dict.Count; domain_args_ty=a |> env.ty_to_data |> data_free_vars |> Array.map (fun (L(_,t)) -> t); range=b}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print show r
+            r
+
+    let cfunptr' show =
+        let dict = Dictionary(HashIdentity.Structural)
+        let f (a : Ty, b : Ty) = {tag=dict.Count; domain=a; range=b}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -304,8 +317,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> sprintf "%s *" (tup_ty a)
-        | YFun(a,b) -> sprintf "Fun%i" (cfun (a,b)).tag
+        | YArray a -> sprintf "Array%i *" (carray a).tag
+        | YFun(a,b) -> sprintf "Fun%i *" (fun_type (a,b)).tag
+        | YFunPtr(a,b) -> sprintf "FunPtr%i" (funptr_type (a,b)).tag
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
@@ -321,7 +335,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | Float64T -> "double"
         | BoolT -> "bool" // part of c++ standard
         | CharT -> "char"
-        | StringT -> "const char *"
+        | StringT -> cstring(); "String *"
     and lit = function
         | LitInt8 x -> sprintf "%i" x
         | LitInt16 x -> sprintf "%i" x
@@ -341,7 +355,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             elif x = -infinity then "-1.0 / 0.0"
             elif Double.IsNaN x then "0.0 / 0.0"
             else x.ToString("R") |> add_dec_point
-        | LitString x -> lit_string x
+        | LitString x ->
+            cstring()
+            lit_string x |> sprintf "StringLit(%i, %s)" (x.Length + 1)
         | LitChar x -> 
             match x with
             | '\b' -> @"\b"
@@ -372,8 +388,10 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match a with
             | JPMethod(a,b) -> 
                 let x = method (a,b)
-                sprintf "%s%i(%s)" (Option.defaultValue "method_" x.name) x.tag args
-            | JPClosure(a,b) -> sprintf "ClosureMethod%i" (closure (a,b)).tag
+                sprintf "%s%i(%s)" (Option.defaultValue "method" x.name) x.tag args
+            | JPClosure(a,C(_,_,YFun _) & b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
+            | JPClosure(a,C(_,_,YFunPtr _) & b) -> sprintf "FunPtrMethod%i" (funptr_method (a,b)).tag
+            | JPClosure(a,C(_,_,_)) -> raise_codegen_error "Compiler error: Malformed join point."
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -476,12 +494,18 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line s $"printf(\"{fmt}\", {string_in_op b});"
             line s "asm(\"exit;\");" // TODO: Print out the error traces as well.
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
-        | TyApply(L(i,_),b) -> 
+        | TyApply(L(i,YFunPtr _),b) -> 
             let rec loop = function
                 | DPair(a,b) -> tup_data a :: loop b
                 | a -> [tup_data a]
             let args = loop b |> String.concat ", "
             $"v{i}({args})" |> return'
+        | TyApply(L(i,YFun _),b) -> 
+            match args' b with
+            | "" -> $"v{i}->fptr(v{i})"
+            | b -> $"v{i}->fptr(v{i}, {b})"
+            |> return'
+        | TyApply _ -> raise_codegen_error "Compiler error: Unexpected type in apply. Should have been taken care of in the peval stage."
         | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
         | TySizeOf t -> return' $"sizeof({tup_ty t})"
@@ -497,12 +521,12 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | ArrayIndex, [DV(L(_,YArray t)) & a;b] -> 
                 match tup_ty t with
                 | "void" -> "/* void array index */"
-                | _ -> sprintf "%s[%s]" (tup_data a) (tup_data b)
+                | _ -> sprintf "%s->ptr[%s]" (tup_data a) (tup_data b)
             | ArrayIndexSet, [DV(L(_,YArray t)) as a;b;c] -> 
                 let a',b',c' = tup_data a, tup_data b, tup_data c
                 match c' with
                 | "" -> "/* void array set */"
-                | _ -> $"{a'}[{b'}] = {c'}"
+                | _ -> $"AssignArray{(assign_array (tyvs_to_tys (carray t).tyvs)).tag}(&({a'}->ptr[{b'}]), {c'})"
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup_data a) (tup_data b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup_data a) (tup_data b)
@@ -560,19 +584,15 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             )
     and method : _ -> MethodRec = method_template false
     and method_while : _ -> MethodRec = method_template true
-    and closure_args domain = // TODO: Figure out how to fit the new way of compiling closures into the backend.
-        let rec loop = function
-            | YPair(a,b) -> a :: loop b
-            | a -> [a]
-        let mutable count = 0
-        let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
-        let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
-        loop domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
     and closure : _ -> ClosureRec =
-        jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
-            match (fst env.join_point_closure.[jp_body]).[key] with
-            | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
-            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+        jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
+            match fun_ty with
+            | YFun(domain,range) ->
+                match (fst env.join_point_closure.[jp_body]).[key] with
+                | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
+                | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            | YFunPtr _ -> raise_codegen_error "Compiler error: Function pointers are should be evaluated elsewhere."
+            | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
             ) (fun _ s_typ s_fun x ->
             
             let i, range = x.tag, tup_ty x.range
@@ -608,12 +628,12 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 binds_start x.domain_args s_fun x.body
             line s_fun "}"
 
-            let fun_tag = (cfun (x.domain,x.range)).tag
+            let fun_tag = (fun_type (x.domain,x.range)).tag
             let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}")
             line s_fun (sprintf "__device__ Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"Closure{i} * x = {malloc}(sizeof(Closure{i}));"
+                line s_fun $"Closure{i} * x = (Closure{i} *) {malloc}(sizeof(Closure{i}));"
                 line s_fun "x->refc = 1;"
                 line s_fun $"x->decref_fptr = ClosureDecref{i};"
                 line s_fun $"x->fptr = ClosureMethod{i};"
@@ -621,7 +641,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_fun $"return (Fun{fun_tag} *) x;"
             line s_fun "}"
             )
-    and cfun : _ -> CFunRec =
+    and fun_type : _ -> FunRec =
         cfun' (fun _ s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
             line s_typ $"typedef struct Fun{i} Fun{i};"
@@ -635,6 +655,48 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
                 |> line s_typ
             line s_typ "};"
+            )
+    and funptr_args domain = // Instead of flattening all the runtime vars as is usual, only the outermost pair is flattened.
+        let rec loop = function
+            | YPair(a,b) -> a :: loop b
+            | a -> [a]
+        let mutable count = 0
+        let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
+        let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
+        loop domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
+    and funptr_type : _ -> FunPtrRec =
+        cfunptr' (fun s_fwd s_typ s_fun x ->
+            let i, range = x.tag, tup_ty x.range
+            let domain_args_ty = funptr_args x.domain |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
+            line s_fwd $"typedef %s{range} (* FunPtr%i{i})(%s{domain_args_ty});"
+            )
+    and funptr_method : _ -> FunPtrMethodRec =
+        jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
+            match fun_ty with
+            | YFunPtr(domain,range) ->
+                match (fst env.join_point_closure.[jp_body]).[key] with
+                | Some(domain_args, body) -> 
+                    if Array.isEmpty (rdata_free_vars args) = false then raise_codegen_error "The Cuda C++ backend doesn't support closures due to them needing to be heap allocated, only function pointers. For them to be converted to pointers, the closures must not have any free variables in them."
+                    {tag=i; domain=domain; range=range; body=body; domain_args=data_free_vars domain_args}
+                | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            | YFun _ -> raise_codegen_error "Closure are supposed to be handled elsewhere..."
+            | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
+            ) (fun _ s_typ s_fun x ->
+            let i, range = x.tag, tup_ty x.range
+            let funptr_args = funptr_args x.domain
+            let args = funptr_args |> List.map (fun (i,ty,_) -> $"{ty} tup{i}") |> String.concat ", "
+            $"__device__ {range} FunPtrMethod{i}({args}){{" |> line s_fun
+            let _ =
+                let s_fun = indent s_fun
+                funptr_args |> List.map (fun (i'',_,vars) ->
+                    Array.mapi (fun i' (L(i,t)) -> 
+                        if vars.Length <> 1 then $"{tyv t} v{i} = tup{i''}.v{i'};"
+                        else $"{tyv t} v{i} = tup{i''};"
+                        ) vars
+                    |> String.concat " "
+                    ) |> String.concat " " |> line s_fun
+                binds_start x.domain_args s_fun x.body
+            line s_fun "}"
             )
     and tup : _ -> TupleRec =
         tuple (fun _ s_typ s_fun x ->
@@ -706,7 +768,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line s_fun (sprintf "__device__ %s * %sCreate%i(%s){" name' name i (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"{name'} * x = {malloc}(sizeof({name'}));"
+                line s_fun $"{name'} * x = ({name'} *) {malloc}(sizeof({name'}));"
                 line s_fun "x->refc = 1;"
                 Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' s_fun
                 line s_fun $"return x;"
@@ -792,7 +854,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     line s_fun (sprintf "__device__ UH%i * UH%i_%i(%s) { // %s" i i tag args k)
                     let _ =
                         let s_fun = indent s_fun
-                        line s_fun $"UH{i} * x = {malloc}(sizeof(UH{i}));"
+                        line s_fun $"UH{i} * x = (UH{i} *) {malloc}(sizeof(UH{i}));"
                         line s_fun $"x->tag = {tag};"
                         line s_fun "x->refc = 1;"
                         if v.Length <> 0 then
@@ -843,7 +905,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 match ptr_t with
                 | "void" -> line s_fun $"{len_t} size = sizeof(Array{i});"
                 | _ -> line s_fun $"{len_t} size = sizeof(Array{i}) + sizeof({ptr_t}) * len;"
-                line s_fun $"Array{i} * x = {malloc}(size);"
+                line s_fun $"Array{i} * x = (Array{i} *) {malloc}(size);"
                 line s_fun "if (init_at_zero) { memset(x,0,size); }"
                 line s_fun "x->refc = 1;"
                 line s_fun "x->len = len;"

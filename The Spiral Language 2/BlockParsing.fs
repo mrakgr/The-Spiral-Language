@@ -14,12 +14,15 @@ type NominalString = string
 type Layout = Heap | HeapMutable
 
 type Op =
+    // Converts the function to a function pointer
+    | ToFunPtr
+
     // Compile time hash set
     | HashSetCreate
     | HashSetAdd
     | HashSetContains
     | HashSetRemove
-    | HashSetCount    
+    | HashSetCount
 
     // Compile time hash map
     | HashMapCreate

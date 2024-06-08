@@ -92,6 +92,7 @@ and [<ReferenceEquality>] T =
     | TV of Id
     | TPair of Range * T * T
     | TFun of Range * T * T
+    | TFunPtr of Range * T * T
     | TRecord of Range * Map<string,T>
     | TModule of Map<string,T>
     | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
@@ -189,6 +190,7 @@ module Printable =
         | TMetaV of Id
         | TPair of PT * PT
         | TFun of PT * PT
+        | TFunPtr of PT * PT
         | TRecord of Map<string,PT>
         | TModule of Map<string,PT>
         | TUnion of Map<string,PT> * BlockParsing.UnionLayout
@@ -302,6 +304,7 @@ module Printable =
             | T.TMetaV a -> TMetaV a
             | T.TPair(_,a,b) -> TPair(ty a,ty b)
             | T.TFun(_,a,b) -> TFun(ty a,ty b)
+            | T.TFunPtr(_,a,b) -> TFunPtr(ty a,ty b)
             | T.TRecord(_,a) -> TRecord(Map.map (fun _ -> ty) a)
             | T.TModule a -> TModule(Map.map (fun _ -> ty) a)
             | T.TUnion(_,(a,b)) -> TUnion(Map.map (fun _ -> ty) a,b)
@@ -454,7 +457,7 @@ let propagate x =
         | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
         | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
-        | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
+        | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) | TFunPtr(_,a,b) -> ty a + ty b
         | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
@@ -551,7 +554,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | TExists | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
         | TPatternRef a -> f !a
         | TArrow(_,a) -> subst env x; f a
-        | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
+        | TApply(_,a,b) | TFun(_,a,b) | TFunPtr(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMLitType a | TMType a -> f a)
@@ -762,6 +765,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TV i -> TV(env.ty.var.[i])
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)
+        | TFunPtr(r,a,b) -> TFunPtr(r,f a,f b)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
         | TModule a -> TModule(Map.map (fun _ -> f) a)
         | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ -> f) a,b))

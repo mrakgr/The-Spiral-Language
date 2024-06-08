@@ -535,10 +535,14 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and method_while : _ -> MethodRec = method_templ true "method_while"
     and method : _ -> MethodRec = method_templ false "method"
     and closure : _ -> ClosureRec =
-        jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
-            match (fst env.join_point_closure.[jp_body]).[key] with
-            | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
-            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+        jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
+            match fun_ty with
+            | YFun(domain,range) ->
+                match (fst env.join_point_closure.[jp_body]).[key] with
+                | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
+                | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            | YFunPtr _ -> raise_codegen_error "Function pointers are not supported in the C backend."
+            | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
             ) (fun _ s_typ s_fun x ->
             
             let i, range = x.tag, tup_ty x.range

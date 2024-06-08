@@ -50,6 +50,7 @@ and Ty =
     | YPrim of PrimitiveType
     | YArray of Ty
     | YFun of Ty * Ty
+    | YFunPtr of Ty * Ty
     | YMacro of Macro list
     | YNominal of Nominal
     | YApply of Ty * Ty
@@ -98,7 +99,7 @@ type RData =
 type Trace = Range list
 type JoinPointKey = 
     | JPMethod of (string ConsedNode * E) * ConsedNode<RData [] * Ty []>
-    | JPClosure of (string ConsedNode * E) * ConsedNode<RData [] * Ty [] * Ty * Ty>
+    | JPClosure of (string ConsedNode * E) * ConsedNode<RData [] * Ty [] * Ty>
     
 type JoinPointCall = JoinPointKey * TyV []
 
@@ -344,6 +345,7 @@ let show_ty x =
         | YPrim x -> show_primt x
         | YArray a -> p 30 (sprintf "array_base %s" (f 30 a))
         | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | YFunPtr(a,b) -> p 20 (sprintf "fptr (%s -> %s)" (f 20 a) (f 19 b))
         | YMacro a -> p 30 (List.map (function TypeLit a | Type a -> f -1 a | Text a -> a) a |> String.concat "")
         | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
@@ -485,7 +487,7 @@ let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <
 
 type PartEvalResult = {
     join_point_method : Dictionary<string ConsedNode * E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option * string option> * HashConsTable>
-    join_point_closure : Dictionary<string ConsedNode * E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
+    join_point_closure : Dictionary<string ConsedNode * E,Dictionary<ConsedNode<RData [] * Ty [] * Ty>,(Data * TypedBind []) option> * HashConsTable>
     ty_to_data : Ty -> Data
     nominal_apply : Ty -> Ty
     }
@@ -503,7 +505,7 @@ let peval (env : TopEnv) (x : E) =
         | YPair(a,b) -> DPair(f a, f b) 
         | YSymbol a -> DSymbol a
         | YRecord l -> DRecord(Map.map (fun _ -> f) l)
-        | YExists | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
+        | YExists | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YFunPtr _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
         | YNominal _ | YApply _ as a -> DNominal(nominal_type_apply s a |> ty_to_data s, a)
         | YLit x -> DTLit x
         | YTypeFunction _ -> raise_type_error s "Cannot turn a type function into a runtime variable."
@@ -546,15 +548,19 @@ let peval (env : TopEnv) (x : E) =
         backend = s.backend
         }
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty as args) =
-        let join_point_key, call_args, ret_ty =
+        let join_point_key, call_args, fun_ty =
             let s : LangEnv = closure_env s args
-            let domain, range, ret_ty = 
+            let domain, range, fun_ty = 
                 match ty s annot with
-                | YFun(a,b) as x -> a,b,x
+                | (YFun(a,b) | YFunPtr(a,b)) as x -> a,b,x
                 | annot -> raise_type_error s <| sprintf "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
             let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) (s.backend, body)
             let call_args, env_global_value = data_to_rdata s hc_table gl_term
-            let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
+            let join_point_key = hc_table.Add(env_global_value, s.env_global_type, fun_ty)
+
+            match fun_ty with
+            | YFunPtr _ when call_args.Length <> 0 -> raise_type_error s "Function pointers shouldn't have any runtime free variables in their environment."
+            | _ -> ()
 
             match dict.TryGetValue(join_point_key) with
             | true, _ -> ()
@@ -566,8 +572,8 @@ let peval (env : TopEnv) (x : E) =
                 let seq,ty = term_scope'' s body
                 dict.[join_point_key] <- Some(domain_data, seq)
                 if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.\nGot: %s\nExpected: %s" (show_ty ty) (show_ty range)
-            join_point_key, call_args, ret_ty
-        push_typedop s (TyJoinPoint(JPClosure((s.backend,body),join_point_key),call_args)) ret_ty, ret_ty
+            join_point_key, call_args, fun_ty
+        push_typedop s (TyJoinPoint(JPClosure((s.backend,body),join_point_key),call_args)) fun_ty, fun_ty
     and data_to_ty s x =
         let m = Dictionary(HashIdentity.Reference)
         let rec f x =
@@ -675,6 +681,7 @@ let peval (env : TopEnv) (x : E) =
         | TV i -> vt s i
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(_,a,b) -> YFun(ty s a, ty s b)
+        | TFunPtr(_,a,b) -> YFunPtr(ty s a, ty s b)
         | TModule a | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
         | TUnion(_,(a,b)) -> 
             let tags = Dictionary()
@@ -757,7 +764,7 @@ let peval (env : TopEnv) (x : E) =
                 s.env_stack_term.[0] <- b
                 term s body
             | DForall _, _ -> raise_type_error s "Cannot apply a forall with a term."
-            | DV(L(_,YFun(domain,range) & a_ty) & a), b ->
+            | DV(L(_,(YFun(domain,range) | YFunPtr(domain,range)) & a_ty) & a), b ->
                 let b = dyn false s b
                 let b_ty = data_to_ty s b
                 if domain = b_ty then push_typedop_no_rewrite s (TyApply(a,b)) range
@@ -1340,6 +1347,10 @@ let peval (env : TopEnv) (x : E) =
             let mutable r = Unchecked.defaultof<_>
             if List.exists (fun (a',b) -> is_unify (a,ty s a') && (r <- term s b; true)) b 
             then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
+        | EOp(_,ToFunPtr,[a]) ->
+            match term s a with
+            | DFunction(body,Some(TFun(r,domain,range)),a,b,c,d) -> DFunction(body,Some(TFunPtr(r,domain,range)),a,b,c,d)
+            | a -> raise_type_error s <| sprintf "Expected a function.\nGot: %s" (show_data a)
         | EOp(_,PragmaUnrollPush,[a]) ->
             match term s a with
             | DLit (LitInt32 _) as x -> push_op_no_rewrite s PragmaUnrollPush x YB
