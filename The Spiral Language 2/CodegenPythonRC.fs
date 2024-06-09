@@ -68,27 +68,6 @@ let type_lit = function
 let show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
 let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
 let prim x = Infer.show_primt x
-let cupy_ty x =
-    let er () = raise_codegen_error "Only stack allocated primitive types (i8,i16,i32,i64 and u8,u16,u32,u64 and f32,f64 and bool) are allowed in CuPy arrays."
-    match x with
-    | [|L(_,x)|] ->
-        match x with
-        | YPrim x ->
-            match x with
-            | Int8T -> "cp.int8"
-            | Int16T -> "cp.int16"
-            | Int32T -> "cp.int32"
-            | Int64T -> "cp.int64"
-            | UInt8T -> "cp.uint8"
-            | UInt16T -> "cp.uint16"
-            | UInt32T -> "cp.uint32"
-            | UInt64T -> "cp.uint64"
-            | Float32T -> "cp.float32"
-            | Float64T -> "cp.float64"
-            | BoolT -> "cp.bool_"
-            | _ -> er()
-        | _ -> er()
-    | _ -> er()
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
@@ -156,7 +135,6 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             if dirty then print is_type show r
             r
 
-    let cupy_ty x = env.ty_to_data x |> data_free_vars |> cupy_ty
     let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (RefCounting.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
     and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
@@ -206,7 +184,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> "cp.ndarray"
+        | YArray a -> $"list[{tup_ty a}]"
         | YFun(a,b) -> 
             let a = env.ty_to_data a |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", "
             $"Callable[[{a}], {tup_ty b}]"
@@ -294,11 +272,11 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}.v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)
-        | TyArrayLiteral(a,b) -> return' <| sprintf "cp.array([%s],dtype=%s)" (List.map tup_data' b |> String.concat ", ") (cupy_ty a)
-        | TyArrayCreate(a,b) -> return' $"cp.empty({tup_data b},dtype={cupy_ty a})" 
+        | TyArrayLiteral(a,b) -> return' <| sprintf "[%s]" (List.map tup_data' b |> String.concat ", ")
+        | TyArrayCreate(a,b) -> return' $"[None] * {tup_data b} # type: ignore" 
         | TyFailwith(a,b) -> line s $"raise Exception({tup_data' b})"
         | TyConv(a,b) -> return' $"{tyv a}({tup_data b})"
-        | TyApply(L(i,_),b) -> return' $"v{i}({tup_data' b})"
+        | TyApply(L(i,_),b) -> return' $"v{i}({tup_data' b})" // TODO: It migth be a good idea to apply and compile closures as in the Cuda backend in order to improve interop.
         | TyArrayLength(a,b) -> return' $"{tup_data b}.size"
         | TyStringLength(a,b) -> return' $"len({tup_data b})"
         | TyOp(Global,[DLit (LitString x)]) -> global' x
@@ -314,7 +292,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup_data a) (tup_data b)
             | StringSlice, [a;b;c] -> sprintf "%s[%s:%s]" (tup_data a) (tup_data b) (tup_data c)
-            | ArrayIndex, [a;b] -> sprintf "%s[%s].item()" (tup_data a) (tup_data b)
+            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup_data a) (tup_data b)
             | ArrayIndexSet, [a;b;c] -> 
                 match tup_data' c with
                 | "" -> "pass # void array set"
@@ -424,7 +402,6 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             line s "return inner"
             )
 
-    import "cupy as cp"
     from "dataclasses import dataclass"
     from "typing import NamedTuple, Union, Callable, Tuple"
     globals.Add "i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str"
