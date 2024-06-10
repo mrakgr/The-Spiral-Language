@@ -1,0 +1,6 @@
+inl main() =
+    inl rec f (s : int) : int = // infinite loop
+        print_static s
+        1 + f (s + 1)
+
+    f 0 |> ignore
