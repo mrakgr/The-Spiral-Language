@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -43,6 +55,8 @@ def method3(v0 : i32, v1 : string, v2 : UH2, v3 : UH3) -> UH3:
         case UH2_1(): # Nil
             del v0, v1, v2
             return v3
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def method4(v0 : UH3, v1 : UH3) -> UH3:
     match v0:
         case UH3_0(v2, v3, v4, v5): # Cons
@@ -53,6 +67,8 @@ def method4(v0 : UH3, v1 : UH3) -> UH3:
         case UH3_1(): # Nil
             del v0
             return v1
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def method2(v0 : UH2, v1 : i32, v2 : UH1, v3 : UH3) -> UH3:
     match v2:
         case UH1_0(v4, v5): # Cons
@@ -66,6 +82,8 @@ def method2(v0 : UH2, v1 : i32, v2 : UH1, v3 : UH3) -> UH3:
         case UH1_1(): # Nil
             del v0, v1, v2
             return v3
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def method1(v0 : UH1, v1 : UH2, v2 : UH0, v3 : UH3) -> UH3:
     match v2:
         case UH0_0(v4, v5): # Cons
@@ -79,6 +97,8 @@ def method1(v0 : UH1, v1 : UH2, v2 : UH0, v3 : UH3) -> UH3:
         case UH0_1(): # Nil
             del v0, v1, v2
             return v3
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def method0(v0 : UH0, v1 : UH1, v2 : UH2) -> UH3:
     v3 = UH3_1()
     return method1(v1, v2, v0, v3)
@@ -92,6 +112,8 @@ def method5(v0 : UH3) -> None:
         case UH3_1(): # Nil
             del v0
             return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def main():
     v0 = 1
     v1 = 2

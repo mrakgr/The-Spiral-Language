@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -32,7 +44,7 @@ def method0(v0 : UH0, v1 : UH0) -> bool:
         case UH0_1(), UH0_1(): # Nil
             del v0, v1
             return True
-        case _:
+        case t:
             del v0, v1
             return False
 def main():
@@ -46,7 +58,7 @@ def main():
             v8 = v7 == 3.0
             del v7
             v9 = v8
-        case _:
+        case t:
             v9 = False
     del v5, v9
     v10 = 3.0
@@ -57,7 +69,7 @@ def main():
             v15 = 1 == v14
             del v14
             v16 = v15
-        case _:
+        case t:
             v16 = False
     del v11, v16
     v17 = 1
@@ -75,7 +87,7 @@ def main():
             v26 = v24 == v25
             del v24, v25
             v27 = v26
-        case _:
+        case t:
             v27 = False
     del v18, v20, v27
     v28 = 3
@@ -99,7 +111,7 @@ def main():
             else:
                 del v43, v44
                 v47 = False
-        case _:
+        case t:
             v47 = False
     del v30, v35, v47
     return 0

@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -53,9 +65,11 @@ def method4(v0 : UH0, v1 : UH0) -> UH0:
         case UH0_1(): # Nil
             del v0
             return v1
-def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0:
-    v4 = len(v3)
-    v5 = np.empty(v4,dtype=object)
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method2(v0 : list[list[bool]], v1 : list[list[US0]], v2 : Mut1, v3 : list[Tuple[u64, u64, UH0]]) -> UH0:
+    v4 = v3.size
+    v5 = [None] * v4 # type: ignore
     v6 = Mut0(0)
     while method0(v4, v6):
         v8 = v6.v0
@@ -63,7 +77,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
         v12 = v9 - 1
         v13 = 0 <= v12
         if v13:
-            v14 = len(v1)
+            v14 = v1.size
             v15 = v12 < v14
             del v14
             if v15:
@@ -72,7 +86,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
                 v17 = 0 <= v10
                 if v17:
                     del v17
-                    v18 = len(v16)
+                    v18 = v16.size
                     del v16
                     v19 = v10 < v18
                     del v18
@@ -103,7 +117,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             match v28:
                 case US0_1(): # Princess
                     v29 = True
-                case _:
+                case t:
                     v29 = False
             del v28
             if v29:
@@ -127,7 +141,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
         v35 = v9 + 1
         v36 = 0 <= v35
         if v36:
-            v37 = len(v1)
+            v37 = v1.size
             v38 = v35 < v37
             del v37
             if v38:
@@ -136,7 +150,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
                 v40 = 0 <= v10
                 if v40:
                     del v40
-                    v41 = len(v39)
+                    v41 = v39.size
                     del v39
                     v42 = v10 < v41
                     del v41
@@ -167,7 +181,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             match v51:
                 case US0_1(): # Princess
                     v52 = True
-                case _:
+                case t:
                     v52 = False
             del v51
             if v52:
@@ -191,7 +205,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
         v58 = v10 - 1
         v59 = 0 <= v9
         if v59:
-            v60 = len(v1)
+            v60 = v1.size
             v61 = v9 < v60
             del v60
             if v61:
@@ -200,7 +214,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
                 v63 = 0 <= v58
                 if v63:
                     del v63
-                    v64 = len(v62)
+                    v64 = v62.size
                     del v62
                     v65 = v58 < v64
                     del v64
@@ -230,7 +244,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             match v74:
                 case US0_1(): # Princess
                     v75 = True
-                case _:
+                case t:
                     v75 = False
             del v74
             if v75:
@@ -253,7 +267,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
         del v72
         v81 = v10 + 1
         if v59:
-            v82 = len(v1)
+            v82 = v1.size
             v83 = v9 < v82
             del v82
             if v83:
@@ -262,7 +276,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
                 v85 = 0 <= v81
                 if v85:
                     del v85
-                    v86 = len(v84)
+                    v86 = v84.size
                     del v84
                     v87 = v81 < v86
                     del v86
@@ -293,7 +307,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             match v96:
                 case US0_1(): # Princess
                     v97 = True
-                case _:
+                case t:
                     v97 = False
             del v96
             if v97:
@@ -336,7 +350,7 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             v108 = 0
         v109 = v107 + v108
         del v107, v108
-        v110 = np.empty(v109,dtype=object)
+        v110 = [None] * v109 # type: ignore
         del v109
         if v34:
             v111 = "UP"
@@ -389,13 +403,13 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
         del v126
     del v3, v4
     del v6
-    v127 = len(v5)
+    v127 = v5.size
     v128 = Mut2(0, 0)
     while method3(v127, v128):
         v130 = v128.v0
         v131 = v128.v1
         v132 = v5[v130]
-        v133 = len(v132)
+        v133 = v132.size
         del v132
         v134 = v131 + v133
         del v131, v133
@@ -406,14 +420,14 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
         del v134, v135
     v136 = v128.v1
     del v128
-    v137 = np.empty(v136,dtype=object)
+    v137 = [None] * v136 # type: ignore
     del v136
     v138 = Mut2(0, 0)
     while method3(v127, v138):
         v140 = v138.v0
         v141 = v138.v1
         v142 = v5[v140]
-        v143 = len(v142)
+        v143 = v142.size
         v144 = Mut2(0, v141)
         del v141
         while method3(v143, v144):
@@ -449,16 +463,18 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             del v0, v1, v2, v137, v156
             v159 = UH0_1()
             return method4(v158, v159)
-def method1(v0 : np.ndarray, v1 : u64, v2 : u64) -> UH0:
-    v3 = len(v0)
-    v4 = np.empty(v3,dtype=object)
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method1(v0 : list[list[US0]], v1 : u64, v2 : u64) -> UH0:
+    v3 = v0.size
+    v4 = [None] * v3 # type: ignore
     v5 = Mut0(0)
     while method0(v3, v5):
         v7 = v5.v0
         v8 = v0[v7]
-        v9 = len(v8)
+        v9 = v8.size
         del v8
-        v10 = np.empty(v9,dtype=np.int8)
+        v10 = [None] * v9 # type: ignore
         v11 = Mut0(0)
         while method0(v9, v11):
             v13 = v11.v0
@@ -480,7 +496,7 @@ def method1(v0 : np.ndarray, v1 : u64, v2 : u64) -> UH0:
     v16 = US1_0()
     v17 = Mut1(v16)
     del v16
-    v18 = np.empty(1,dtype=object)
+    v18 = [None] * 1 # type: ignore
     v19 = UH0_1()
     v18[0] = v1, v2, v19
     del v1, v2, v19
@@ -489,22 +505,24 @@ def method5(v0 : UH0) -> None:
     match v0:
         case UH0_0(v1, v2): # Cons
             del v0
-            print(v1)
+            printf("%s\n",v1->ptr)
             del v1
             return method5(v2)
         case UH0_1(): # Nil
             del v0
             return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def main():
     v0 = 4
     v1 = 2
     v2 = 3
-    print("Initing")
-    v3 = np.empty(v0,dtype=object)
+    printf("%s\n","Initing")
+    v3 = [None] * v0 # type: ignore
     v4 = Mut0(0)
     while method0(v0, v4):
         v6 = v4.v0
-        v7 = np.empty(v0,dtype=object)
+        v7 = [None] * v0 # type: ignore
         v8 = Mut0(0)
         while method0(v0, v8):
             v10 = v8.v0
@@ -535,12 +553,12 @@ def main():
         del v18
     del v0, v1, v2
     del v4
-    print("Starting")
+    printf("%s\n","Starting")
     v19 = 0
     v20 = 0
     v21 = method1(v3, v19, v20)
     del v3, v19, v20
-    print("Printing")
+    printf("%s\n","Printing")
     method5(v21)
     del v21
     return 0

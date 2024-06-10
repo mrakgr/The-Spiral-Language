@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -26,14 +38,12 @@ def main():
     del v9
     v10 = 1
     del v10
-    v11 = "5.5"
+    v11 = "unknown"
     del v11
     v12 = 5.5
     del v12
-    v13 = "unknown"
+    v13 = 5.0
     del v13
-    v14 = 5.0
-    del v14
     return 0
 
 if __name__ == '__main__': print(main())

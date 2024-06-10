@@ -15,7 +15,30 @@ from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
+class US0_0(NamedTuple): # None
+    tag = 0
+class US0_1(NamedTuple): # Some
+    v0 : i32
+    tag = 1
+US0 = Union[US0_0, US0_1]
+def Closure0(env_v0 : i32):
+    def inner(v1 : US0) -> i32:
+        nonlocal env_v0
+        v0 = env_v0
+        match v1:
+            case US0_0(): # None
+                return v0
+            case US0_1(v2): # Some
+                del v0
+                return v2
+            case t:
+                raise Exception(f'Pattern matching miss. Got: {t}')
+    return inner
 def main():
-    return 3
+    v0 = 0
+    v1 = Closure0(v0)
+    del v0
+    v2 = US0_0()
+    return v1(v2)
 
 if __name__ == '__main__': print(main())

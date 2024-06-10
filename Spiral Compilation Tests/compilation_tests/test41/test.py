@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -55,15 +67,21 @@ def main():
                             del v17, v20
                             v22 = "Two elements."
                             v42, v43 = v22, v21
+                        case t:
+                            raise Exception(f'Pattern matching miss. Got: {t}')
                 case UH0_1(): # Nil
                     del v13
                     v14 = v11 + v12
                     del v11, v12
                     v15 = "One element."
                     v42, v43 = v15, v14
+                case t:
+                    raise Exception(f'Pattern matching miss. Got: {t}')
         case UH0_1(): # Nil
             v10 = "No elements"
             v42, v43 = v10, 0
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
     del v9
     printf("%s\n%i\n",v42->ptr,v43)
     del v42, v43

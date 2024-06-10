@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -54,6 +66,8 @@ def method0(v0 : UH0) -> u64:
             v14 = 9223372036854765835 * v13
             del v13
             return v14
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def method1(v0 : UH1) -> u64:
     match v0:
         case UH1_0(v1, v2): # Cons
@@ -84,6 +98,8 @@ def method1(v0 : UH1) -> u64:
             v14 = 9223372036854765835 * v13
             del v13
             return v14
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def main():
     v1 = hash(1)
     v2 = 9223372036854775807 + v1
@@ -135,6 +151,8 @@ def main():
             v29 = v26 * v28
             del v26, v28
             v30 = v29
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
     del v15, v30
     v31 = 3.0
     v32 = US0_1(v31)
@@ -166,6 +184,8 @@ def main():
             v46 = v43 * v45
             del v43, v45
             v47 = v46
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
     del v32, v47
     v48 = 3
     v49 = UH0_1()

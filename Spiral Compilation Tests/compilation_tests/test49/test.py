@@ -1,4 +1,16 @@
-import numpy as np
+kernel = r"""
+template <typename el, int dim> struct static_array { el v[dim]; };
+template <typename el, int dim, typename default_int> struct static_array_list { el v[dim]; default_int length; };
+"""
+class static_array(list):
+    def __init__(self, length):
+        for _ in range(length):
+            self.append(None)
+
+class static_array_list(static_array):
+    def __init__(self, length):
+        super().__init__(length)
+        self.length = 0
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -43,7 +55,7 @@ def method0(v0 : UH0, v1 : UH0) -> i32:
         case UH0_1(), UH0_1(): # Nil
             del v0, v1
             return 0
-        case _:
+        case t:
             v13 = v1.tag
             del v1
             v14 = v0.tag
@@ -87,7 +99,7 @@ def main():
                 else:
                     del v9
                     v17 = 0
-        case _:
+        case t:
             v12 = v5.tag
             v13 = v12 < 1
             if v13:
@@ -124,7 +136,7 @@ def main():
                 else:
                     del v24
                     v32 = 0
-        case _:
+        case t:
             v27 = v19.tag
             v28 = 0 < v27
             if v28:
@@ -179,7 +191,7 @@ def main():
                 else:
                     del v46
                     v55 = 0
-        case _:
+        case t:
             v49 = v34.tag
             v50 = v36.tag
             v51 = v49 < v50
@@ -230,7 +242,7 @@ def main():
             else:
                 del v71, v76
                 v84 = v75
-        case _:
+        case t:
             v79 = v63.tag
             v80 = 0 < v79
             if v80:
