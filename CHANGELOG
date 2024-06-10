@@ -1,8 +1,8 @@
 2.11.0 (WIP/2024)
 
-Cuda backend with reference counting.
+Created the Cuda backend with reference counting.
 
-...
+* Increased the stack space available to the partial evaluator and the code generator by over 200 fold. Now they are on their own thread.
 
 2.10.11 (6/5/2024)
 
