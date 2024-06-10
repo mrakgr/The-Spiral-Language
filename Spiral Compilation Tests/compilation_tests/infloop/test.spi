@@ -1,5 +1,5 @@
 inl main() =
-    inl rec f (s : int) : int = // infinite loop
+    inl rec f (s : int) : int = // infinite loop, useful for figuring out the stack size of Spiral's partial evaluator
         print_static s
         1 + f (s + 1)
 
