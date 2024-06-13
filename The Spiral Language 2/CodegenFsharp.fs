@@ -9,6 +9,7 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
+open Spiral.PartEval
 
 let lit = function
     | LitInt8 x -> sprintf "%iy" x
@@ -138,7 +139,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "(%s [])" (tup_ty a)
-        | YFun(a,b) -> sprintf "(%s -> %s)" (tup_ty a) (tup_ty b)
+        | YFun(a,b,Prepass.FT_Vanilla) -> sprintf "(%s -> %s)" (tup_ty a) (tup_ty b)
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error $"Type not supported in the codegen.\nGot: %A{a}"
     and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tup_ty t)) |> String.concat ", "
@@ -395,11 +396,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
-            | YFun(domain,range) ->
+            | YFun(domain,range,Prepass.FT_Vanilla) ->
                 match (fst env.join_point_closure.[jp_body]).[key] with
                 | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain_args=data_free_vars domain_args; range=range; body=body}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            | YFunPtr _ -> raise_codegen_error "Function pointers are not supported in the F# backend."
+            | YFun(_,_,_) -> raise_codegen_error "Non-standard functions are not supported in the F# backend."
             | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
             ) (fun s x ->
             let domain = 

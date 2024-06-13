@@ -14,8 +14,9 @@ type NominalString = string
 type Layout = Heap | HeapMutable
 
 type Op =
-    // Converts the function to a function pointer
+    // Converts the function to a specialized type specific to the C++ backend.
     | ToFunPtr
+    | ToFunClosure
 
     // Compile time hash set
     | HashSetCreate
