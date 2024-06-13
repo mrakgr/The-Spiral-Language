@@ -10,6 +10,7 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
+open Spiral.PartEval
 
 let private backend_name = "Cuda"
 
@@ -38,10 +39,10 @@ let term_vars_to_tys x = x |> Array.map (function WV(L(_,t)) -> t | WLit x -> YP
 let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
-type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]; name : string option}
-type ClosureRec = {tag : int; domain : Ty; range : Ty; body : TypedBind[]}
+type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option}
+type ClosureRec = {tag : int; domain_args : TyV[]; domain : Ty; range : Ty; funtype : Prepass.FunType; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
-type CFunRec = {tag : int; domain : Ty; range : Ty}
+type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : Prepass.FunType}
 
 //let size_t = UInt32T
 
@@ -111,7 +112,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f (a : Ty, b : Ty) = {tag=dict.Count; domain=a; range=b}
+        let f (a : Ty, b : Ty, t : Prepass.FunType) = {tag=dict.Count; domain=a; range=b; funtype=t}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -242,7 +243,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "%s *" (tup_ty a)
-        | YFun(a,b) -> sprintf "Fun%i" (cfun (a,b)).tag
+        | YFun(a,b,t) -> $"Fun%i{(cfun (a,b,t)).tag}"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
@@ -494,20 +495,16 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
-            | YFun(domain,range) ->
+            | YFun(domain,range,t) ->
                 match (fst env.join_point_closure.[jp_body]).[key] with
-                | Some(domain_args, body) -> 
-                    if Array.isEmpty (rdata_free_vars args) = false then raise_codegen_error "The Cuda C++ backend doesn't support closures due to them needing to be heap allocated, only function pointers. For them to be converted to pointers, the closures must not have any free variables in them."
-                    {tag=i; domain=domain; range=range; body=body}
+                | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; domain_args=rdata_free_vars args; funtype=t}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            | YFunPtr _ -> raise_codegen_error "Function pointers are not supported in the Cuda backend."
             | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
             ) (fun _ s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
             let closure_args = closure_args x.domain
             let args = closure_args |> List.map (fun (i,ty,_) -> $"{ty} tup{i}") |> String.concat ", "
-            $"__device__ {range} ClosureMethod{i}({args}){{" |> line s_fun
-            let _ =
+            let print_body() =
                 let s_fun = indent s_fun
                 closure_args |> List.map (fun (i'',_,vars) ->
                     Array.mapi (fun i' (L(i,t)) -> 
@@ -517,13 +514,28 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     |> String.concat " "
                     ) |> String.concat " " |> line s_fun
                 binds_start s_fun x.body
-            line s_fun "}"
+            match x.funtype with
+            | Prepass.FT_Pointer ->
+                $"__device__ {range} ClosureMethod{i}({args}){{" |> line s_fun
+                line s_fun "}"
+            | Prepass.FT_Vanilla ->
+//struct Closure : public Fun {
+//    int operator()(int a, int b) override {
+//        return a+b;
+//    }
+//};
+                let t
             )
     and cfun : _ -> CFunRec =
         cfun' (fun s_fwd s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
             let domain_args_ty = closure_args x.domain |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
-            line s_fwd $"typedef %s{range} (* Fun%i{i})(%s{domain_args_ty});"
+            match x.funtype with
+            | Prepass.FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
+            | Prepass.FT_Pointer -> line s_fwd $"typedef %s{range} (* Fun%i{i})(%s{domain_args_ty});"
+            | Prepass.FT_Closure ->
+                line s_fwd $"struct Fun%i{i}Base {{ virtual %s{range} operator()(%s{domain_args_ty}) = 0; }};"
+                line s_fwd $"typedef sptr<Fun%i{i}Base> Fun%i{i};"
             )
     and tup : _ -> TupleRec = 
         tuple (fun s_fwd s_typ s_fun x ->
