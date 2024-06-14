@@ -1774,8 +1774,8 @@ let base_types (default_env : Startup.DefaultEnv) =
     "array_base", inl (fun x -> TyArray(TyVar x))
     "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
     "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
-    "fptr", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Pointer))
-    "closure", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Closure))
+    //"fptr", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Pointer))
+    //"closure", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Closure))
     "int", TyPrim default_env.default_int
     "uint", TyPrim default_env.default_uint
     "float", TyPrim default_env.default_float

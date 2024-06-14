@@ -91,7 +91,7 @@ and [<ReferenceEquality>] T =
     | TLit of Range * Tokenize.Literal
     | TV of Id
     | TPair of Range * T * T
-    | TFun of Range * T * T * BlockParsing.FunType
+    | TFun of Range option * T * T * BlockParsing.FunType
     | TRecord of Range * Map<string,T>
     | TModule of Map<string,T>
     | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
@@ -958,7 +958,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTLit (r, x) -> TLit(p r,x)
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(p r,f a,f b)
-        | RawTFun(r,a,b,t) -> TFun(p r,f a,f b,t)
+        | RawTFun(r,a,b,t) -> TFun(Some(p r),f a,f b,t)
         | RawTExists(r,l,b) -> TExists
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
         | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
@@ -1085,14 +1085,14 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 let body =
                     match body with
                     | RawTB _ -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t)
-                    | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(r,bodyt,t,FT_Vanilla)))
+                    | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(Some r,bodyt,t,FT_Vanilla)))
                 Map.add name (wrap_foralls i body) term
                 ) term l
         | _ ->
             let body =
                 match body with
                 | RawTB _ -> ENominal(r,EB r,t)
-                | _ -> EFun(r,0,ENominal(r,EV 0,t),Some(TFun(r,bodyt,t,FT_Vanilla)))
+                | _ -> EFun(r,0,ENominal(r,EV 0,t),Some(TFun(Some r,bodyt,t,FT_Vanilla)))
             Map.add name (wrap_foralls i body) term
 
     {|
@@ -1148,15 +1148,19 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
     |}
 
 let top_env_default default_env =
-    let rec f (m : PersistentHashMap<string,int>) = function
-        | TyVar x -> TV m.[x.name] 
-        | TyPrim x -> TPrim x
-        | TyArray x -> TArray (f m x)
-        | TyLayout(a,b) -> TLayout(f m a,b)
-        | TyInl(a,b) -> TArrow(m.Count,f (m.Add(a.name,m.Count)) b)
-        | _ -> failwith "Compiler error: The base type in Infer is not supported in the prepass yet."
+    let convert_infer_to_prepass x = 
+        let m = Dictionary(HashIdentity.Reference)
+        let rec f = function
+            | TyVar x -> TV m.[x.name] 
+            | TyPrim x -> TPrim x
+            | TyArray x -> TArray (f x)
+            | TyLayout(a,b) -> TLayout(f a,b)
+            | TyInl(a,b) -> m.Add(a.name,m.Count); TArrow(m.Count,f b)
+            | TyFun(a,b,t) -> TFun(None,f a, f b, t)
+            | _ -> failwith "Compiler error: The base type in Infer is not supported in the prepass yet."
+        f x
 
     List.fold (fun (top_env : PrepassTopEnv) (k, x) ->
-        {top_env with ty = Map.add k ((prepass -1 0 "<base_types>" top_env).base_type (f PersistentHashMap.empty x)) top_env.ty}
+        {top_env with ty = Map.add k ((prepass -1 0 "<base_types>" top_env).base_type (convert_infer_to_prepass x)) top_env.ty}
         ) top_env_empty (Infer.base_types default_env)
     
