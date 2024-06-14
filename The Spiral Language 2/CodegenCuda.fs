@@ -40,7 +40,7 @@ let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyL
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option}
-type ClosureRec = {tag : int; domain_args : TyV[]; domain : Ty; range : Ty; funtype : Prepass.FunType; body : TypedBind[]}
+type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : Prepass.FunType; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
 type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : Prepass.FunType}
 
@@ -143,9 +143,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let tmp_i = tmp()
             line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
             Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
-    and binds (unroll : Stack<int>) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+    and binds (unroll : Stack<int>) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) =
         let tup_destruct (a,b) =
-            Array.map2 (fun (L(i,_)) b -> 
+            Array.map2 (fun (L(i,_)) b ->
                 match b with
                 | WLit b -> $"v{i} = {lit b};"
                 | WV (L(i',_)) -> $"v{i} = v{i'};"
@@ -154,7 +154,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
-                    let decl_vars = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
+                    let decl_vars () = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
                     match a with
                     | TyMacro a ->
                         let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
@@ -170,7 +170,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         else
                             let q = m.Split("\\v")
                             if q.Length = 1 then 
-                                decl_vars |> line' s
+                                decl_vars() |> line' s
                                 return_local s d m 
                                 true
                             else
@@ -193,15 +193,28 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     | TyArrayCreate(a,b) ->  
                         match d with
                         | [|L(i,YArray t)|] -> 
-                            let size =
-                                match b with
-                                | DLit x -> lit x
-                                | _ -> raise_codegen_error "Array sizes need to be statically known in the Cuda C++ backend."
-                            line s $"%s{tup_ty t} v{i}[{size}];"
+                            line s $"{tup_ty t} v{i}[{tup_data b}];"
                             true
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
+                    | TyJoinPoint(JPClosure(a,b),b') ->
+                        match d with
+                        | [|L(i,_)|] -> 
+                            let x = closure (a,b)
+                            match x.funtype with
+                            | Prepass.FT_Pointer ->
+                                let y = cfun (x.domain,x.range,x.funtype)
+                                line s $"Fun{y.tag} v{i} = FunPointerMethod{x.tag};"
+                            | Prepass.FT_Vanilla ->
+                                let args = args b'
+                                line s $"Closure{x.tag} v{i}{{{args}}};"
+                            | Prepass.FT_Closure -> 
+                                let y = cfun (x.domain,x.range,x.funtype)
+                                let args = args b'
+                                line s $"Fun{y.tag} v{i}{{new Closure{x.tag}{{{args}}}}};"
+                            true
+                        | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of a closure join point."
                     | _ ->
-                        decl_vars |> line' s
+                        decl_vars() |> line' s
                         op unroll s (BindsLocal d) a
                         true
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
@@ -305,8 +318,14 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match a with
             | JPMethod(a,b) -> 
                 let x = method (a,b)
-                sprintf "%s%i(%s)" (Option.defaultValue "method_" x.name) x.tag args
-            | JPClosure(a,b) -> sprintf "ClosureMethod%i" (closure (a,b)).tag
+                let method_name = Option.defaultValue "method_" x.name
+                $"{method_name}{x.tag}({args})"
+            | JPClosure(a,b) ->
+                let x = closure (a,b)
+                match x.funtype with
+                | Prepass.FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
+                | Prepass.FT_Pointer -> $"FunPointerMethod{x.tag}"
+                | Prepass.FT_Closure -> $"sptr{{new Closure{x.tag}{{{args}}}}}" 
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -484,11 +503,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             )
     and method : _ -> MethodRec = method_template false
     and method_while : _ -> MethodRec = method_template true
-    and closure_args domain =
+    and closure_args domain count_start =
         let rec loop = function
             | YPair(a,b) -> a :: loop b
             | a -> [a]
-        let mutable count = 0
+        let mutable count = count_start
         let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
         let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
         loop domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
@@ -497,15 +516,18 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match fun_ty with
             | YFun(domain,range,t) ->
                 match (fst env.join_point_closure.[jp_body]).[key] with
-                | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; domain_args=rdata_free_vars args; funtype=t}
+                | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; free_vars=rdata_free_vars args; funtype=t}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
             ) (fun _ s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
-            let closure_args = closure_args x.domain
+            let closure_args = closure_args x.domain x.free_vars.Length
             let args = closure_args |> List.map (fun (i,ty,_) -> $"{ty} tup{i}") |> String.concat ", "
-            let print_body() =
+            let print_body s_fun =
                 let s_fun = indent s_fun
+                x.free_vars |> Array.map (fun (L(i,t)) ->
+                    $"{tyv t} & v{i} = this->v{i};"
+                    ) |> String.concat " " |> line s_fun
                 closure_args |> List.map (fun (i'',_,vars) ->
                     Array.mapi (fun i' (L(i,t)) -> 
                         if vars.Length <> 1 then $"{tyv t} v{i} = tup{i''}.v{i'};"
@@ -516,26 +538,54 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 binds_start s_fun x.body
             match x.funtype with
             | Prepass.FT_Pointer ->
-                $"__device__ {range} ClosureMethod{i}({args}){{" |> line s_fun
+                $"__device__ {range} FunPointerMethod{i}({args}){{" |> line s_fun
+                print_body s_fun
                 line s_fun "}"
-            | Prepass.FT_Vanilla ->
-//struct Closure : public Fun {
-//    int operator()(int a, int b) override {
-//        return a+b;
-//    }
-//};
-                let t
+            | Prepass.FT_Vanilla | Prepass.FT_Closure ->
+                match x.funtype with
+                | Prepass.FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (1)."
+                | Prepass.FT_Closure ->
+                    let i' = (cfun (x.domain,x.range,x.funtype)).tag
+                    line s_typ $"struct Closure{i} : public ClosureBase{i'} {{"
+                | Prepass.FT_Vanilla ->
+                    line s_typ $"struct Closure{i} {{"
+                let () =
+                    let s_typ = indent s_typ
+                    let () = // env
+                        print_ordered_args s_typ x.free_vars
+                    let () = // ()
+                        match x.funtype with
+                        | Prepass.FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (2)."
+                        | Prepass.FT_Closure -> line s_typ $"__device__ {range} operator() override ({args}){{"
+                        | Prepass.FT_Vanilla -> line s_typ $"__device__ {range} operator() ({args}){{"
+                        print_body s_typ
+                        line s_typ "}"
+                    let () = // constructor
+                        match x.free_vars with
+                        | [||] -> ()
+                        | _ ->
+                            let constructor_args = 
+                                x.free_vars 
+                                |> Array.map (fun (L(i,t)) -> $"{tyv t} _v{i}")
+                                |> String.concat ", "
+                            let initializer_args = 
+                                x.free_vars 
+                                |> Array.map (fun (L(i,t)) -> $"v{i}(_v{i})")
+                                |> String.concat ", "
+                            line s_typ $"Closure{i}({constructor_args}) : {initializer_args} {{ }}"
+                    ()
+                line s_typ "}"
             )
     and cfun : _ -> CFunRec =
         cfun' (fun s_fwd s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
-            let domain_args_ty = closure_args x.domain |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
+            let domain_args_ty = closure_args x.domain 0 |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
             match x.funtype with
             | Prepass.FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
-            | Prepass.FT_Pointer -> line s_fwd $"typedef %s{range} (* Fun%i{i})(%s{domain_args_ty});"
+            | Prepass.FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | Prepass.FT_Closure ->
-                line s_fwd $"struct Fun%i{i}Base {{ virtual %s{range} operator()(%s{domain_args_ty}) = 0; }};"
-                line s_fwd $"typedef sptr<Fun%i{i}Base> Fun%i{i};"
+                line s_fwd $"struct ClosureBase{i} {{ virtual {range} operator()({domain_args_ty}) = 0; }};"
+                line s_fwd $"typedef sptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
         tuple (fun s_fwd s_typ s_fun x ->
@@ -597,8 +647,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
         | [||] ->
-            main_defs.Add """
-template <typename T> void call_destructor(T & x) { x.~T(); }
+            globals.Add """template <typename T> void call_destructor(T & x) { x.~T(); }
 template <typename el, int dim> struct static_array { el v[dim]; };
 template <typename el, int dim, typename default_int> struct static_array_list { default_int length; el v[dim]; };
 

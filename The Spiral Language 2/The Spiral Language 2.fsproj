@@ -46,8 +46,6 @@
     <Compile Include="CodegenC.fs" />
     <Compile Include="CodegenCuda.fs" />
     <Compile Include="CodegenPython.fs" />
-    <Compile Include="CodegenCudaRC.fs" />
-    <Compile Include="CodegenPythonRC.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />
     <Compile Include="SpiProj.fs" />
