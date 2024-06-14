@@ -1349,10 +1349,12 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,ToFunPtr,[a]) ->
             match term s a with
             | DFunction(body,Some(TFun(domain,range,_)),a,b,c,d) -> DFunction(body,Some(TFun(domain,range,FT_Pointer)),a,b,c,d)
+            | DV(L(_,YFun _)) -> raise_type_error s <| sprintf "Cannot convert a runtime function to a closure. The closure conversion should be done on a compile time funciton."
             | a -> raise_type_error s <| sprintf "Expected a function.\nGot: %s" (show_data a)
         | EOp(_,ToFunClosure,[a]) ->
             match term s a with
             | DFunction(body,Some(TFun(domain,range,_)),a,b,c,d) -> DFunction(body,Some(TFun(domain,range,FT_Closure)),a,b,c,d)
+            | DV(L(_,YFun _)) -> raise_type_error s <| sprintf "Cannot convert a runtime function to a function pointer. The pointer conversion should be done on a compile time funciton."
             | a -> raise_type_error s <| sprintf "Expected a function.\nGot: %s" (show_data a)
         | EOp(_,PragmaUnrollPush,[a]) ->
             match term s a with
