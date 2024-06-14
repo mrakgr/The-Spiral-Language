@@ -50,7 +50,7 @@ and T =
     | TyRecord of Map<string, T>
     | TyModule of Map<string, T>
     | TyComment of Comments * T
-    | TyFun of T * T
+    | TyFun of T * T * FunType
     | TyArray of T
     | TyNominal of GlobalId
     | TyUnion of Map<string,T> * BlockParsing.UnionLayout
@@ -155,7 +155,7 @@ let rec metavars = function
     | RawTExists _ | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTArray(_,a) | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
-    | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
+    | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b,_) -> metavars a + metavars b
     | RawTUnion(_,l,_) | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
 type TopEnv = {
@@ -332,7 +332,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check_ty ty (a,b)
         | RawTArray(_,a) | RawTLayout(_,a,_) -> ctype constraints term ty a
-        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype constraints term ty a; ctype constraints term ty b
+        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b,_) -> ctype constraints term ty a; ctype constraints term ty b
         | RawTUnion(_,l,_) | RawTRecord(_,l) -> Map.iter (fun _ -> ctype constraints term ty) l
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; ctype constraints term (Set.add a ty) b
         | RawTExists(_,a,b) -> 
@@ -389,7 +389,7 @@ let rec subst (m : (Var * T) list) x =
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
     | TyModule a -> TyModule(Map.map (fun _ -> f) a)
     | TyUnion(a,b) -> TyUnion(Map.map (fun _ -> f) a,b)
-    | TyFun(a,b) -> TyFun(f a, f b)
+    | TyFun(a,b,t) -> TyFun(f a, f b, t)
     | TyArray a -> TyArray(f a)
     | TyApply(a,b,c) -> TyApply(f a, f b, c)
     | TyVar a -> List.tryPick (fun (v,x) -> if a = v then Some x else None) m |> Option.defaultValue x
@@ -421,7 +421,7 @@ let rec term_subst x =
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
     | TyModule a -> TyModule(Map.map (fun _ -> f) a)
     | TyUnion(a,b) -> TyUnion(Map.map (fun _ -> f) a,b)
-    | TyFun(a,b) -> TyFun(f a, f b)
+    | TyFun(a,b,t) -> TyFun(f a, f b, t)
     | TyForall(a,b) -> TyForall(a,f b)
     | TyExists(a,b) -> TyExists(a,f b)
     | TyArray a -> TyArray(f a)
@@ -450,7 +450,7 @@ let rec has_metavars x =
     | TyMetavar _ -> true
     | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ | TyModule _ -> false
     | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-    | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
+    | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a || f b
     | TyUnion(l,_) | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
 
@@ -511,7 +511,9 @@ let show_t (env : TopEnv) x =
         | TyArray a -> p 30 (sprintf "array_base %s" (f 30 a))
         | TyApply(a,b,_) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | TyPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
-        | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | TyFun(a,b,FT_Vanilla) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | TyFun(a,b,FT_Pointer) -> p 20 (sprintf "fptr (%s -> %s)" (f 20 a) (f 19 b))
+        | TyFun(a,b,FT_Closure) -> p 20 (sprintf "closure (%s -> %s)" (f 20 a) (f 19 b))
         | TyModule l -> 
             if prec = -2 then 
                 l |> Map.toList |> List.map (fun (k,v) -> 
@@ -675,7 +677,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TySymbol x -> RawTSymbol(r,x)
                 | TyPair(a,b) -> RawTPair(r,f a,f b)
                 | TyRecord l -> RawTRecord(r,Map.map (fun _ -> f) l)
-                | TyFun(a,b) -> RawTFun(r,f a,f b)
+                | TyFun(a,b,t) -> RawTFun(r,f a,f b,t)
                 | TyExists(a,b) -> RawTExists(r,a |> List.map (fun n -> (r,(n.name,RawKindWildcard)),[]), f b)
                 | TyArray a -> RawTArray(r,f a)
                 | TyNominal i -> RawTFilledNominal(r,i)
@@ -821,7 +823,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
                 else Set.remove v.name a
             | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
-            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a + f b
+            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a + f b
             | TyUnion(a,_) | TyRecord a -> Map.fold (fun s _ x -> Set.union s (f x)) Set.empty a
             | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
             | TyMacro a -> 
@@ -850,7 +852,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             // This scheme with the HashSet is so generalize works for mutually recursive statements.
             | TyVar v -> if scope = v.scope && h.Add(v) then generalized_metavars.Add(v)
             | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
-            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
+            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
             | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
@@ -918,7 +920,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
             | TyExists(_,a) | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-            | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
+            | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a; f b
             | TyUnion(l,_) | TyRecord l -> Map.iter (fun _ -> f) l
             | TyVar b -> if i.scope < b.scope then raise (TypeErrorException [r,TypeVarScopeError(b.name,got,expected)])
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
@@ -944,7 +946,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
-            | TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') -> loop (a,b); loop (a',b')
+            | TyFun(a,a',ta), TyFun(b,b',tb) when ta = tb -> loop (a,b); loop (a',b')
+            | TyPair(a,a'), TyPair(b,b') -> loop (a,b); loop (a',b')
             | TyApply(a,a',_), TyApply(b,b',_) -> loop (a',b'); loop (a,b)
             | TyUnion(l,q), TyUnion(l',q') -> if q = q' then record l l' else raise (TypeErrorException [r,UnionTypesMustHaveTheSameLayout])
             | TyRecord a, TyRecord a' -> record a a'
@@ -1099,7 +1102,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             unify r s a
                         | None -> errors.Add(r,ModuleIndexFailed n)
                     | b -> errors.Add(r,ExpectedSymbolAsModuleKey b)
-                | a -> let v = fresh_var scope in unify (range_of_expr a') a (TyFun(v,s)); f v b
+                | TyFun(domain,range,_) -> unify (range_of_expr a') range s; f domain b
+                | a -> let v = fresh_var scope in unify (range_of_expr a') a (TyFun(v,s,FT_Vanilla)); f v b
             loop (f'' a')
         | RawAnnot(_,a,b) -> ty scope env s b; f s a
         | RawOpen(_,(r,a),l,on_succ) ->
@@ -1123,7 +1127,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let withs,_ =
                 List.foldBack (fun x (l,s as state) ->
                     let with_symbol ((r,a),b) = {|range=r; symbol = a; is_blocked=Set.contains a s; is_modify=false; var=fresh_var scope; body=b|} :: l, Set.add a s
-                    let with_symbol_modify ((r,a),b) = {|range=r; symbol = a; is_blocked=Set.contains a s; is_modify=true; var=TyFun(fresh_var scope,fresh_var scope); body=b|} :: l, Set.add a s
+                    let with_symbol_modify ((r,a),b) = {|range=r; symbol = a; is_blocked=Set.contains a s; is_modify=true; var=TyFun(fresh_var scope,fresh_var scope,FT_Vanilla); body=b|} :: l, Set.add a s
                     let inline with_inject next ((r,a),b) =
                         match v_term env a with
                         | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); next ((r,a),b)
@@ -1141,7 +1145,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     if x.is_modify then
                         let q = match Map.tryFind x.symbol m with Some q -> q | None -> errors.Add(x.range,RecordIndexFailed x.symbol); fresh_var scope
                         let w = fresh_var scope
-                        unify x.range (TyFun(q,w)) x.var
+                        unify x.range (TyFun(q,w,FT_Vanilla)) x.var
                         f x.var x.body
                         Map.add x.symbol w m
                     else
@@ -1152,7 +1156,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
             let bind s = withs |> List.iter (fun x ->
                 if x.is_blocked = false then
-                    if x.is_modify then Map.tryFind x.symbol s |> Option.iter (fun s -> unify x.range x.var (TyFun(fresh_var scope,s)))
+                    if x.is_modify then Map.tryFind x.symbol s |> Option.iter (fun s -> unify x.range x.var (TyFun(fresh_var scope,s,FT_Vanilla)))
                     else Map.tryFind x.symbol s |> Option.iter (unify x.range x.var)
                 )
 
@@ -1214,7 +1218,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawFun(r,l) ->
             annotations.Add(x,(r,s))
             let q,w = fresh_var scope, fresh_var scope
-            unify r s (TyFun(q,w))
+            unify r s (TyFun(q,w,FT_Vanilla))
             List.iter (fun (a,b) -> 
                 let scope, env = pattern scope env q a
                 term scope env w b
@@ -1317,9 +1321,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             if i = errors.Count && has_metavars v then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
             v
         match x with
-        | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations scope env body)
-        | RawFun(_,[pat,body]) -> errors.Add(range_of_pattern pat, ExpectedAnnotation); TyFun(fresh_var scope, term_annotations scope env body)
-        | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var scope, fresh_var scope)
+        | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations scope env body,FT_Vanilla)
+        | RawFun(_,[pat,body]) -> errors.Add(range_of_pattern pat, ExpectedAnnotation); TyFun(fresh_var scope, term_annotations scope env body,FT_Vanilla)
+        | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var scope, fresh_var scope, FT_Vanilla)
         | RawJoinPoint(_,_,RawAnnot(_,_,t),_) | RawAnnot(_,_,t) -> f t
         | x -> errors.Add(range_of_expr x,ExpectedAnnotation); fresh_var scope
     and ty scope env s x = ty' scope false env s x
@@ -1344,9 +1348,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyPair(q,w))
             f q a; f w b
-        | RawTFun(r,a,b) ->
+        | RawTFun(r,a,b,t) ->
             let q,w = fresh_var scope, fresh_var scope
-            unify r s (TyFun(q,w))
+            unify r s (TyFun(q,w,t))
             f q a; f w b
         | RawTRecord(r,l) ->
             let l' = Map.map (fun _ _ -> fresh_var scope) l
@@ -1420,7 +1424,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyNominal i -> ValueSome i
             | _ -> ValueNone
         let rec ho_fun = function
-            | TyFun(_,a) | TyForall(_,a) -> ho_fun a
+            | TyFun(_,a,_) | TyForall(_,a) -> ho_fun a
             | a -> ho_index a
         let rec loop (scope : Scope, env : Env) s x =
             let f = loop (scope, env)
@@ -1538,7 +1542,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let nominal_term r i tt name vars v =
         let constructor body =
             let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,TyVar b,k),k) (TyNominal i,tt) vars
-            let x = match body with TyB -> t | _ -> TyFun(body,t)
+            let x = match body with TyB -> t | _ -> TyFun(body,t,FT_Vanilla)
             List.foldBack (fun var ty -> TyForall(var,ty)) vars x
         match v with
         | TyUnion(l,_) -> Map.fold (fun s name v -> Map.add name (constructor v) s) Map.empty l
@@ -1750,7 +1754,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         }
 
 let base_types (default_env : Startup.DefaultEnv) =
-    let inline inl f = let v = {scope=0; kind=KindType; constraints=Set.empty; name="x"} in TyInl(v,f v)
+    let var name = {scope=0; kind=KindType; constraints=Set.empty; name=name} 
+    let inline inl f = let x = var "x" in TyInl(x,f x)
+    let inline inl2 f = let x,y = var "x", var "y" in TyInl(x,TyInl(y,f x y))
     [
     "i8", TyPrim Int8T
     "i16", TyPrim Int16T
@@ -1768,6 +1774,8 @@ let base_types (default_env : Startup.DefaultEnv) =
     "array_base", inl (fun x -> TyArray(TyVar x))
     "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
     "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
+    "fptr", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Pointer))
+    "closure", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Closure))
     "int", TyPrim default_env.default_int
     "uint", TyPrim default_env.default_uint
     "float", TyPrim default_env.default_float

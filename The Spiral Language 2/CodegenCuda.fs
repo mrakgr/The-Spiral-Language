@@ -10,7 +10,6 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
-open Spiral.PartEval
 
 let private backend_name = "Cuda"
 
@@ -40,9 +39,9 @@ let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyL
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option}
-type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : Prepass.FunType; body : TypedBind[]}
+type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : FunType; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
-type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : Prepass.FunType}
+type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : FunType}
 
 //let size_t = UInt32T
 
@@ -112,7 +111,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f (a : Ty, b : Ty, t : Prepass.FunType) = {tag=dict.Count; domain=a; range=b; funtype=t}
+        let f (a : Ty, b : Ty, t : FunType) = {tag=dict.Count; domain=a; range=b; funtype=t}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -201,13 +200,13 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         | [|L(i,_)|] -> 
                             let x = closure (a,b)
                             match x.funtype with
-                            | Prepass.FT_Pointer ->
+                            | FT_Pointer ->
                                 let y = cfun (x.domain,x.range,x.funtype)
                                 line s $"Fun{y.tag} v{i} = FunPointerMethod{x.tag};"
-                            | Prepass.FT_Vanilla ->
+                            | FT_Vanilla ->
                                 let args = args b'
                                 line s $"Closure{x.tag} v{i}{{{args}}};"
-                            | Prepass.FT_Closure -> 
+                            | FT_Closure -> 
                                 let y = cfun (x.domain,x.range,x.funtype)
                                 let args = args b'
                                 line s $"Fun{y.tag} v{i}{{new Closure{x.tag}{{{args}}}}};"
@@ -323,9 +322,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | JPClosure(a,b) ->
                 let x = closure (a,b)
                 match x.funtype with
-                | Prepass.FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
-                | Prepass.FT_Pointer -> $"FunPointerMethod{x.tag}"
-                | Prepass.FT_Closure -> $"sptr{{new Closure{x.tag}{{{args}}}}}" 
+                | FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
+                | FT_Pointer -> $"FunPointerMethod{x.tag}"
+                | FT_Closure -> $"sptr{{new Closure{x.tag}{{{args}}}}}" 
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -537,17 +536,17 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     ) |> String.concat " " |> line s_fun
                 binds_start s_fun x.body
             match x.funtype with
-            | Prepass.FT_Pointer ->
+            | FT_Pointer ->
                 $"__device__ {range} FunPointerMethod{i}({args}){{" |> line s_fun
                 print_body s_fun
                 line s_fun "}"
-            | Prepass.FT_Vanilla | Prepass.FT_Closure ->
+            | FT_Vanilla | FT_Closure ->
                 match x.funtype with
-                | Prepass.FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (1)."
-                | Prepass.FT_Closure ->
+                | FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (1)."
+                | FT_Closure ->
                     let i' = (cfun (x.domain,x.range,x.funtype)).tag
                     line s_typ $"struct Closure{i} : public ClosureBase{i'} {{"
-                | Prepass.FT_Vanilla ->
+                | FT_Vanilla ->
                     line s_typ $"struct Closure{i} {{"
                 let () =
                     let s_typ = indent s_typ
@@ -555,9 +554,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         print_ordered_args s_typ x.free_vars
                     let () = // ()
                         match x.funtype with
-                        | Prepass.FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (2)."
-                        | Prepass.FT_Closure -> line s_typ $"__device__ {range} operator() override ({args}){{"
-                        | Prepass.FT_Vanilla -> line s_typ $"__device__ {range} operator() ({args}){{"
+                        | FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (2)."
+                        | FT_Closure -> line s_typ $"__device__ {range} operator() override ({args}){{"
+                        | FT_Vanilla -> line s_typ $"__device__ {range} operator() ({args}){{"
                         print_body s_typ
                         line s_typ "}"
                     let () = // constructor
@@ -581,9 +580,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let i, range = x.tag, tup_ty x.range
             let domain_args_ty = closure_args x.domain 0 |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
             match x.funtype with
-            | Prepass.FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
-            | Prepass.FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
-            | Prepass.FT_Closure ->
+            | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
+            | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
+            | FT_Closure ->
                 line s_fwd $"struct ClosureBase{i} {{ virtual {range} operator()({domain_args_ty}) = 0; }};"
                 line s_fwd $"typedef sptr<ClosureBase{i}> Fun{i};"
             )

@@ -47,7 +47,7 @@ let rec fold_offset_ty offset x =
     | RawTVar(r,a) -> RawTVar(g r,a)
     | RawTArray(r,a) -> RawTArray(g r,f a)
     | RawTPair(r,a,b) -> RawTPair(g r,f a,f b)
-    | RawTFun(r,a,b) -> RawTFun(g r,f a,f b)
+    | RawTFun(r,a,b,t) -> RawTFun(g r,f a,f b,t)
     | RawTRecord(r,a) -> RawTRecord(g r,Map.map (fun _ -> f) a)
     | RawTUnion(r,a,b) -> RawTUnion(g r,Map.map (fun _ -> f) a,b)
     | RawTSymbol(r,a) -> RawTSymbol(g r,a)

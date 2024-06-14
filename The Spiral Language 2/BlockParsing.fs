@@ -12,6 +12,7 @@ type VarString = string
 type NominalString = string
 
 type Layout = Heap | HeapMutable
+type FunType = FT_Vanilla | FT_Pointer | FT_Closure // The closure and the pointer are specific to the C++ backend.
 
 type Op =
     // Converts the function to a specialized type specific to the C++ backend.
@@ -334,7 +335,7 @@ and RawTExpr =
     | RawTLit of VSCRange * Literal
     | RawTVar of VSCRange * VarString
     | RawTPair of VSCRange * RawTExpr * RawTExpr
-    | RawTFun of VSCRange * RawTExpr * RawTExpr
+    | RawTFun of VSCRange * RawTExpr * RawTExpr * FunType
     | RawTArray of VSCRange * RawTExpr
     | RawTRecord of VSCRange * Map<string,RawTExpr>
     | RawTSymbol of VSCRange * SymbolString
@@ -427,7 +428,7 @@ let range_of_texpr = function
     | RawTTerm(r,_)
     | RawTFilledNominal(r,_)
     | RawTPair(r,_,_)
-    | RawTFun(r,_,_)
+    | RawTFun(r,_,_,_)
     | RawTApply(r,_,_)
     | RawTLayout(r,_,_)
     | RawTExists(r,_,_)
@@ -961,7 +962,7 @@ let typecase_validate x _ =
         | RawTLit _ | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
         | RawTMetaVar(r,a) -> if vars.Contains(a) then errors.Add(r,MetavarShadowedByVar) else metavars.Add(a) |> ignore
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
-        | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f a; f b
+        | RawTApply(_,a,b) | RawTFun(_,a,b,_) | RawTPair(_,a,b) -> f a; f b
         | RawTLayout(_,a,_) | RawTArray(_,a) -> f a
         | RawTUnion(_,a,_) | RawTRecord(_,a) -> Map.iter (fun _ -> f) a
         | RawTMacro(_,a) -> a |> List.iter (function RawMacroType(_,a) -> f a | _ -> ())
@@ -1103,7 +1104,7 @@ and root_type (flags : RootTypeFlags) d =
     let apply d = pipe2 apply_tight (many (indent (col d) (<) apply_tight)) fold_applies d
     
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
-    let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
+    let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b,FT_Vanilla))
     functions d
 
 and root_term d =

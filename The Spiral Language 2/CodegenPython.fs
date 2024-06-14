@@ -10,7 +10,6 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
-open Spiral.PartEval
 
 type PythonBackendType = Cuda
 
@@ -208,7 +207,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> "cp.ndarray"
-        | YFun(a,b,Prepass.FT_Vanilla) -> 
+        | YFun(a,b,FT_Vanilla) -> 
             let a = env.ty_to_data a |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", "
             $"Callable[[{a}], {tup_ty b}]"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
@@ -403,7 +402,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     and closure : _ -> ClosureRec =
         jp true (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
-            | YFun(domain,range,Prepass.FT_Vanilla) ->
+            | YFun(domain,range,FT_Vanilla) ->
                 match (fst env.join_point_closure.[jp_body]).[key] with
                 | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"

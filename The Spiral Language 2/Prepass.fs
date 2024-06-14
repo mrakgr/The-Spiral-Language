@@ -7,7 +7,6 @@ type Id = int32
 type ScopeEnv = {|free_vars : int []; stack_size : int|}
 type Scope = {term : ScopeEnv; ty : ScopeEnv}
 type Range = {path : string; range : VSCRange}
-type FunType = FT_Vanilla | FT_Pointer | FT_Closure // The closure and the pointer are specific to the C++ backend.
 
 type Macro =
     | MText of string
@@ -92,7 +91,7 @@ and [<ReferenceEquality>] T =
     | TLit of Range * Tokenize.Literal
     | TV of Id
     | TPair of Range * T * T
-    | TFun of Range * T * T * FunType
+    | TFun of Range * T * T * BlockParsing.FunType
     | TRecord of Range * Map<string,T>
     | TModule of Map<string,T>
     | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
@@ -189,7 +188,7 @@ module Printable =
         | TV of Id
         | TMetaV of Id
         | TPair of PT * PT
-        | TFun of PT * PT * FunType
+        | TFun of PT * PT * BlockParsing.FunType
         | TFunPtr of PT * PT
         | TRecord of Map<string,PT>
         | TModule of Map<string,PT>
@@ -959,7 +958,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTLit (r, x) -> TLit(p r,x)
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(p r,f a,f b)
-        | RawTFun(r,a,b) -> TFun(p r,f a,f b,FT_Vanilla)
+        | RawTFun(r,a,b,t) -> TFun(p r,f a,f b,t)
         | RawTExists(r,l,b) -> TExists
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
         | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))

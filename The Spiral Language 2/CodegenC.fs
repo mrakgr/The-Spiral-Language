@@ -11,7 +11,6 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
-open Spiral.PartEval
 
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 8
@@ -250,7 +249,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 else raise_codegen_error $"Compiler error: Invalid count in refc_change''. UStack case. Got: {count}"
             | UHeap -> g (fun () -> $"UHDecref{(uheap t).tag}({f v});")
         | YArray t -> g (fun () -> $"ArrayDecref{(carray t).tag}({f v});")
-        | YFun(a,b,Prepass.FT_Vanilla) -> g (fun () ->  $"{f v}->decref_fptr({f v});")
+        | YFun(a,b,FT_Vanilla) -> g (fun () ->  $"{f v}->decref_fptr({f v});")
         | YPrim StringT -> g (fun () ->  $"StringDecref({f v});" )
         | YLayout(a,Heap) -> g (fun () ->  $"HeapDecref{(heap a).tag}({f v});")
         | YLayout(a,HeapMutable) -> g (fun () ->  $"MutDecref{(mut a).tag}({f v});")
@@ -285,7 +284,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "Array%i *" (carray a).tag
-        | YFun(a,b,Prepass.FT_Vanilla) -> sprintf "Fun%i *" (cfun (a,b)).tag
+        | YFun(a,b,FT_Vanilla) -> sprintf "Fun%i *" (cfun (a,b)).tag
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
@@ -538,7 +537,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
-            | YFun(domain,range,Prepass.FT_Vanilla) ->
+            | YFun(domain,range,FT_Vanilla) ->
                 match (fst env.join_point_closure.[jp_body]).[key] with
                 | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
