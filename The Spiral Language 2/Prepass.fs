@@ -569,7 +569,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let scope (env : LowerEnv) x =
         let v = scope.[x]
-        let fv v env = v |> Set.toArray |> Array.map (fun i -> printfn "%i" i; Map.find i env)
+        let fv v env = v |> Set.toArray |> Array.map (fun i -> Map.find i env)
         let sz = function Some(min',max') -> max' - min' + 1 | None -> 0
         let scope : Scope = {
             term = {|free_vars = fv v.term.vars env.term.var; stack_size = sz v.term.range|}
@@ -1155,7 +1155,7 @@ let top_env_default default_env =
             | TyPrim x -> TPrim x
             | TyArray x -> TArray (f x)
             | TyLayout(a,b) -> TLayout(f a,b)
-            | TyInl(a,b) -> m.Add(a.name,m.Count); TArrow(m.Count,f b)
+            | TyInl(a,b) -> let i = m.Count in m.Add(a.name,i); TArrow(i,f b)
             | TyFun(a,b,t) -> TFun(f a, f b, t)
             | _ -> failwith "Compiler error: The base type in Infer is not supported in the prepass yet."
         f x
