@@ -680,7 +680,7 @@ let peval (env : TopEnv) (x : E) =
         | TLit(_,x) -> YLit x
         | TV i -> vt s i
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
-        | TFun(_,a,b,t) -> YFun(ty s a, ty s b,t)
+        | TFun(a,b,t) -> YFun(ty s a, ty s b,t)
         | TModule a | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
         | TUnion(_,(a,b)) -> 
             let tags = Dictionary()
@@ -1348,11 +1348,11 @@ let peval (env : TopEnv) (x : E) =
             then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
         | EOp(_,ToFunPtr,[a]) ->
             match term s a with
-            | DFunction(body,Some(TFun(r,domain,range,_)),a,b,c,d) -> DFunction(body,Some(TFun(r,domain,range,FT_Pointer)),a,b,c,d)
+            | DFunction(body,Some(TFun(domain,range,_)),a,b,c,d) -> DFunction(body,Some(TFun(domain,range,FT_Pointer)),a,b,c,d)
             | a -> raise_type_error s <| sprintf "Expected a function.\nGot: %s" (show_data a)
         | EOp(_,ToFunClosure,[a]) ->
             match term s a with
-            | DFunction(body,Some(TFun(r,domain,range,_)),a,b,c,d) -> DFunction(body,Some(TFun(r,domain,range,FT_Closure)),a,b,c,d)
+            | DFunction(body,Some(TFun(domain,range,_)),a,b,c,d) -> DFunction(body,Some(TFun(domain,range,FT_Closure)),a,b,c,d)
             | a -> raise_type_error s <| sprintf "Expected a function.\nGot: %s" (show_data a)
         | EOp(_,PragmaUnrollPush,[a]) ->
             match term s a with
