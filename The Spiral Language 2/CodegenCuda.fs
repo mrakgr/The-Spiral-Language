@@ -14,12 +14,6 @@ open System.Collections.Generic
 let private backend_name = "Cuda"
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
-// The number of bits needed to represent an union type with an x number of cases.
-// Strictly speaking it should be x * 2 - 1, but we do it like this to give 1 bit of extra wiggle room for the 2,4,8,16 (pow of 2) cases
-// because of how TyUnionUnbox is being compiled. For those particular cases we need to have the -1 to have an extra bit of information.
-// Note: This was how it was compiled in the HLS backend, but in the Cuda C++ one the tag field should get padded up to its full value either way.
-let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 |> uint) |> max 1
-
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 8
     | YPrim (Int32T | UInt32T | Float32T) -> 4
@@ -550,13 +544,13 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     line s_typ $"struct Closure{i} {{"
                 let () =
                     let s_typ = indent s_typ
-                    let () = // env
+                    let () = // free vars in the environment
                         print_ordered_args s_typ x.free_vars
-                    let () = // ()
+                    let () = // operator()
                         match x.funtype with
                         | FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (2)."
-                        | FT_Closure -> line s_typ $"__device__ {range} operator() override ({args}){{"
-                        | FT_Vanilla -> line s_typ $"__device__ {range} operator() ({args}){{"
+                        | FT_Vanilla -> line s_typ $"__device__ {range} operator()({args}){{"
+                        | FT_Closure -> line s_typ $"__device__ {range} operator()({args}) override {{"
                         print_body s_typ
                         line s_typ "}"
                     let () = // constructor
@@ -572,6 +566,10 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                                 |> Array.map (fun (L(i,t)) -> $"v{i}(_v{i})")
                                 |> String.concat ", "
                             line s_typ $"Closure{i}({constructor_args}) : {initializer_args} {{ }}"
+                    let () = // destructor
+                        match x.funtype with
+                        | FT_Pointer | FT_Vanilla -> ()
+                        | FT_Closure -> line s_typ $"~Closure{i}() override = default;"
                     ()
                 line s_typ "};"
             )
@@ -583,7 +581,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
-                line s_fwd $"struct ClosureBase{i} {{ virtual {range} operator()({domain_args_ty}) = 0; }};"
+                line s_fwd $"struct ClosureBase{i} {{ int refc = 0; virtual {range} operator()({domain_args_ty}) = 0; virtual ~ClosureBase{i}() = default; }};"
                 line s_fwd $"typedef sptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
@@ -621,9 +619,6 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         ) x.free_vars
                 line s_typ "} v;"
 
-                // Tag
-                //let num_bits = num_bits_needed_to_represent x.free_vars.Count
-                //if num_bits > 32 then raise_codegen_error "Too many union cases! Cannot have a union case type with more than 2^32 - 1 possible tags."
                 if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
                 line s_typ $"unsigned char tag;"
             line s_typ "};"
