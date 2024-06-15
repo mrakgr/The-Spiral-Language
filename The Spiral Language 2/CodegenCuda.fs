@@ -239,7 +239,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | YUnion a ->
             match a.Item.layout with
             | UStack -> sprintf "US%i" (ustack a).tag
-            | UHeap -> sprintf "UH%i *" (uheap a).tag
+            | UHeap -> sprintf "sptr<UH%i>" (uheap a).tag
         | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
         | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
@@ -318,7 +318,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 match x.funtype with
                 | FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
                 | FT_Pointer -> $"FunPointerMethod{x.tag}"
-                | FT_Closure -> $"sptr{{new Closure{x.tag}{{{args}}}}}" 
+                | FT_Closure -> $"csptr{{new Closure{x.tag}{{{args}}}}}" 
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -582,7 +582,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
                 line s_fwd $"struct ClosureBase{i} {{ int refc = 0; virtual {range} operator()({domain_args_ty}) = 0; virtual ~ClosureBase{i}() = default; }};"
-                line s_fwd $"typedef sptr<ClosureBase{i}> Fun{i};"
+                line s_fwd $"typedef csptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
         tuple (fun s_fwd s_typ s_fun x ->
@@ -590,15 +590,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line s_fwd $"struct {name};"
             line s_typ $"struct {name} {{"
             x.tys |> Array.mapi (fun i x -> L(i,x)) |> print_ordered_args (indent s_typ)
-
             let concat x = String.concat ", " x
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
-            line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
-            line (indent s_typ) $"__device__ {name}() = default;" 
-
+            line (indent s_typ) $"{name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
-
             )
     and ustack : _ -> UnionRec =
         let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
@@ -636,7 +632,104 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_fun "}"
                 ) x.free_vars
             )
-    and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the Cuda C++ backend due to them needing to be heap allocated."
+    and uheap : _ -> UnionRec = 
+        let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
+        union (fun s_fwd s_typ s_fun x ->
+            let i = x.tag
+            line s_fwd $"struct Union{i};" // Forward declaration for the union.
+            map_iteri (fun tag k v -> // The individual union cases.
+                line s_typ $"struct Union{i}_{tag} {{ // {k}"
+                // The free vars in the env.
+                print_ordered_args (indent s_typ) v
+                let () = // constructors
+                    let s_typ = indent s_typ
+                    let concat x = String.concat ", " x
+                    let args = v |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
+                    let con_init = v |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
+                    line s_typ $"Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
+                    if v.Length <> 0 then line s_typ $"Union{i}_{tag}() = delete;" 
+                line s_typ "};"
+                ) x.free_vars
+                
+            line s_typ $"struct Union{i} {{" // The union definition.
+            let _ = // Union cases inside the union.
+                let s_typ = indent s_typ
+                line s_typ $"union {{"
+                let _ =
+                    let s_typ = indent s_typ
+                    map_iteri (fun tag k v -> line s_typ $"Union{i}_{tag} case{tag}; // {k}") x.free_vars
+                line s_typ "};"
+
+                // The constructors for all the union cases.
+                map_iteri (fun tag k v -> 
+                    line s_typ $"Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
+                    ) x.free_vars
+                line s_typ $"Union{i}() = delete;" // Deleting the default construcotr
+                
+                line s_typ $"Union{i}(Union{i} & x) {{" // copy constructor
+                let () =
+                    let s_typ = indent s_typ
+                    line s_typ "switch(x.tag){{"
+                    let () = // copy constructor cases
+                        let s_typ = indent s_typ
+                        map_iteri (fun tag k v -> 
+                            line s_typ $"case {tag}: new (&this->case{tag}) Union{i}_{tag}(x.case{tag}); break; // {k}"
+                            ) x.free_vars
+                    line s_typ "}"
+                line s_typ "}"
+                line s_typ $"Union{i}(Union{i} && x) {{" // move constructor
+                let () =
+                    let s_typ = indent s_typ
+                    line s_typ "switch(x.tag){{"
+                    let () = // move constructor cases
+                        let s_typ = indent s_typ
+                        map_iteri (fun tag k v -> 
+                            line s_typ $"case {tag}: new (&this->case{tag}) Union{i}_{tag}(std::move(x.case{tag})); break; // {k}"
+                            ) x.free_vars
+                    line s_typ "}"
+                line s_typ "}"
+                line s_typ $"Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
+                let () =
+                    let s_typ = indent s_typ
+                    line s_typ "switch(x.tag){{"
+                    let () = // copy assignment cases
+                        let s_typ = indent s_typ
+                        map_iteri (fun tag k v -> 
+                            line s_typ $"case {tag}: this->case{tag} = x.case{tag}; break; // {k}"
+                            ) x.free_vars
+                    line s_typ "}"
+                line s_typ "}"
+                line s_typ $"Union{i} & operator=(Union{i} && x) {{" // move assignment operator
+                let () =
+                    let s_typ = indent s_typ
+                    line s_typ "switch(x.tag){{"
+                    let () = // move assignment cases
+                        let s_typ = indent s_typ
+                        map_iteri (fun tag k v -> 
+                            line s_typ $"case {tag}: this->case{tag} = std::move(x.case{tag}); break; // {k}"
+                            ) x.free_vars
+                    line s_typ "}"
+                    line s_typ "return *this;"
+                line s_typ "}"
+                line s_typ $"~Union{i}() {{"
+                let () = // move assignment
+                    let s_typ = indent s_typ
+                    line s_typ "switch(this->tag){{"
+                    let () = // move assignment cases
+                        let s_typ = indent s_typ
+                        map_iteri (fun tag k v -> 
+                            line s_typ $"case {tag}: this->case{tag}.~Union{i}_{tag}(); break; // {k}"
+                            ) x.free_vars
+                    line s_typ "return *this;"
+                    line s_typ "}"
+                line s_typ "}"
+
+                line s_typ "int refc = 0;"
+                if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
+                line s_typ $"unsigned char tag;"
+            line s_typ "};"
+            )
+
 
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
