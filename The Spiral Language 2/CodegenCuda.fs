@@ -666,7 +666,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     ) x.free_vars
                 line s_typ $"Union{i}() = delete;" // Deleting the default construcotr
                 
-                line s_typ $"Union{i}(Union{i} & x) {{" // copy constructor
+                line s_typ $"Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){{"
@@ -677,7 +677,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"Union{i}(Union{i} && x) {{" // move constructor
+                line s_typ $"Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){{"
@@ -691,6 +691,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_typ $"Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
+                    line s_typ "this->tag = x.tag;"
                     line s_typ "switch(x.tag){{"
                     let () = // copy assignment cases
                         let s_typ = indent s_typ
@@ -702,6 +703,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_typ $"Union{i} & operator=(Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
+                    line s_typ "this->tag = x.tag;"
                     line s_typ "switch(x.tag){{"
                     let () = // move assignment cases
                         let s_typ = indent s_typ
