@@ -31,7 +31,7 @@ type BindsReturn =
 let term_vars_to_tys x = x |> Array.map (function WV(L(_,t)) -> t | WLit x -> YPrim (lit_to_primitive_type x))
 let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
 
-type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
+type UnionRec = {tag : int; free_vars : Map<string, TyV[]>; is_heap : bool}
 type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option}
 type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : FunType; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
@@ -78,7 +78,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         let dict = Dictionary(HashIdentity.Reference)
         let f (a : Union) : UnionRec = 
             let free_vars = a.Item.cases |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
-            {free_vars=free_vars; tag=dict.Count}
+            {free_vars=free_vars; tag=dict.Count; is_heap=a.Item.layout = UHeap}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -238,8 +238,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     and tyv = function
         | YUnion a ->
             match a.Item.layout with
-            | UStack -> sprintf "US%i" (ustack a).tag
-            | UHeap -> sprintf "sptr<UH%i>" (uheap a).tag
+            | UStack -> sprintf "Union%i" (unions a).tag
+            | UHeap -> sprintf "sptr<Union%i>" (unions a).tag
         | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
         | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
@@ -318,7 +318,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 match x.funtype with
                 | FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
                 | FT_Pointer -> $"FunPointerMethod{x.tag}"
-                | FT_Closure -> $"csptr{{new Closure{x.tag}{{{args}}}}}" 
+                | FT_Closure -> $"csptr<Closure{x.tag}>{{new Closure{x.tag}{{{args}}}}}" 
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -373,7 +373,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         let a, s = data_free_vars a, indent s
                         let qs = ResizeArray(a.Length)
                         Array.iteri (fun field_i (L(v_i,t) as v) -> 
-                            qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}v.case{union_i}.v{field_i};"
+                            qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}.case{union_i}.v{field_i};"
                             ) a 
                         line' s qs
                         ) is a
@@ -385,19 +385,18 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 let _ =
                     let s = indent s
                     match on_fail with
-                    | Some b ->
-                        binds s ret b
-                    | None ->
-                        line s "assert(\"Invalid tag.\" && false);"
+                    | Some b -> binds s ret b
+                    | None -> line s "assert(\"Invalid tag.\" && false);"
                 line s "}"
             line s "}"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
             let vars = args' b
+            let tag = (unions c').tag
             match c.layout with
-            | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
-            | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
+            | UHeap -> $"sptr<Union{tag}>{{new Union{tag}{{Union{tag}_{i}{{{vars}}}}}}}"
+            | UStack -> $"Union{tag}{{Union{tag}_{i}{{{vars}}}}}"
             |> return'
         | TyLayoutToHeap(a,b) -> raise_codegen_error "Cannot create a heap layout type in the Cuda C++ backend due to them needing to be heap allocated."
         | TyLayoutToHeapMutable(a,b) -> raise_codegen_error "Cannot create a heap mutable layout type in the Cuda C++ backend due to them needing to be heap allocated."
@@ -596,43 +595,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line (indent s_typ) $"{name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
-    and ustack : _ -> UnionRec =
-        let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
-        union (fun s_fwd s_typ s_fun x ->
-            let i = x.tag
-            line s_fwd $"struct US{i};"
-            line s_typ $"struct US{i} {{"
-            let _ =
-                let s_typ = indent s_typ
-                line s_typ "union {"
-                let _ =
-                    let s_typ = indent s_typ
-                    map_iteri (fun tag k v -> 
-                        if Array.isEmpty v = false then
-                            line s_typ "struct {"
-                            print_ordered_args (indent s_typ) v
-                            line s_typ (sprintf "} case%i; // %s" tag k)
-                        ) x.free_vars
-                line s_typ "} v;"
-
-                if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
-                line s_typ $"unsigned char tag;"
-            line s_typ "};"
-
-            map_iteri (fun tag k v -> 
-                let args = v |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
-                line s_fun (sprintf "__device__ US%i US%i_%i(%s) { // %s" i i tag args k)
-                let _ =
-                    let s_fun = indent s_fun
-                    line s_fun $"US{i} x;"
-                    line s_fun $"x.tag = {tag};"
-                    if v.Length <> 0 then
-                        v |> Array.map (fun (L(i,t)) -> $"x.v.case{tag}.v{i} = v{i};") |> line' s_fun
-                    line s_fun "return x;"
-                line s_fun "}"
-                ) x.free_vars
-            )
-    and uheap : _ -> UnionRec = 
+    and unions : _ -> UnionRec = 
         let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
         union (fun s_fwd s_typ s_fun x ->
             let i = x.tag
@@ -646,8 +609,9 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     let concat x = String.concat ", " x
                     let args = v |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                     let con_init = v |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
-                    line s_typ $"Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
-                    if v.Length <> 0 then line s_typ $"Union{i}_{tag}() = delete;" 
+                    if v.Length <> 0 then 
+                        line s_typ $"Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
+                        line s_typ $"Union{i}_{tag}() = delete;" 
                 line s_typ "};"
                 ) x.free_vars
                 
@@ -669,7 +633,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_typ $"Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
                     let s_typ = indent s_typ
-                    line s_typ "switch(x.tag){{"
+                    line s_typ "switch(x.tag){"
                     let () = // copy constructor cases
                         let s_typ = indent s_typ
                         map_iteri (fun tag k v -> 
@@ -680,7 +644,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_typ $"Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
                 let () =
                     let s_typ = indent s_typ
-                    line s_typ "switch(x.tag){{"
+                    line s_typ "switch(x.tag){"
                     let () = // move constructor cases
                         let s_typ = indent s_typ
                         map_iteri (fun tag k v -> 
@@ -691,20 +655,21 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_typ $"Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
-                    line s_typ "this->tag = x.tag;"
-                    line s_typ "switch(x.tag){{"
+                    line s_typ "this->tag = x.tag;" 
+                    line s_typ "switch(x.tag){"
                     let () = // copy assignment cases
                         let s_typ = indent s_typ
                         map_iteri (fun tag k v -> 
                             line s_typ $"case {tag}: this->case{tag} = x.case{tag}; break; // {k}"
                             ) x.free_vars
                     line s_typ "}"
+                    line s_typ "return *this;"
                 line s_typ "}"
                 line s_typ $"Union{i} & operator=(Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "this->tag = x.tag;"
-                    line s_typ "switch(x.tag){{"
+                    line s_typ "switch(x.tag){"
                     let () = // move assignment cases
                         let s_typ = indent s_typ
                         map_iteri (fun tag k v -> 
@@ -714,24 +679,22 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     line s_typ "return *this;"
                 line s_typ "}"
                 line s_typ $"~Union{i}() {{"
-                let () = // move assignment
+                let () = // destructor
                     let s_typ = indent s_typ
-                    line s_typ "switch(this->tag){{"
-                    let () = // move assignment cases
+                    line s_typ "switch(this->tag){"
+                    let () = // destructor cases
                         let s_typ = indent s_typ
                         map_iteri (fun tag k v -> 
                             line s_typ $"case {tag}: this->case{tag}.~Union{i}_{tag}(); break; // {k}"
                             ) x.free_vars
-                    line s_typ "return *this;"
                     line s_typ "}"
                 line s_typ "}"
 
-                line s_typ "int refc = 0;"
+                if x.is_heap then line s_typ "int refc = 0;"
                 if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
                 line s_typ $"unsigned char tag;"
             line s_typ "};"
             )
-
 
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
