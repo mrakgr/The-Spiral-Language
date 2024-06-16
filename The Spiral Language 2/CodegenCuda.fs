@@ -357,7 +357,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line s "}"
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             let case_tags = x.Item.tags
-            let acs = match x.Item.layout with UHeap -> "->" | UStack -> "."
+            let acs = match x.Item.layout with UHeap -> ".base->" | UStack -> "."
             let head = List.head is |> fun (L(i,_)) -> $"v{i}{acs}tag"
             List.pairwise is
             |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{acs}tag == v{i'}{acs}tag")
@@ -373,7 +373,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         let a, s = data_free_vars a, indent s
                         let qs = ResizeArray(a.Length)
                         Array.iteri (fun field_i (L(v_i,t) as v) -> 
-                            qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}.case{union_i}.v{field_i};"
+                            qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
                             ) a 
                         line' s qs
                         ) is a
@@ -472,7 +472,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | NanIs, [x] -> sprintf "isnan(%s)" (tup_data x)
             | UnionTag, [DV(L(i,YUnion l)) as x] -> 
                 match l.Item.layout with
-                | UHeap -> "->tag"
+                | UHeap -> ".base->tag"
                 | UStack -> ".tag"
                 |> sprintf "v%i%s" i
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
@@ -610,8 +610,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     let args = v |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                     let con_init = v |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                     if v.Length <> 0 then 
-                        line s_typ $"Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
-                        line s_typ $"Union{i}_{tag}() = delete;" 
+                        line s_typ $"__device__ Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
+                        line s_typ $"__device__ Union{i}_{tag}() = delete;" 
                 line s_typ "};"
                 ) x.free_vars
                 
@@ -626,11 +626,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
                 // The constructors for all the union cases.
                 map_iteri (fun tag k v -> 
-                    line s_typ $"Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
+                    line s_typ $"__device__ Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
                     ) x.free_vars
-                line s_typ $"Union{i}() = delete;" // Deleting the default construcotr
+                line s_typ $"__device__ Union{i}() = delete;" // Deleting the default construcotr
                 
-                line s_typ $"Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
+                line s_typ $"__device__ Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -641,7 +641,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
+                line s_typ $"__device__ Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -652,7 +652,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
+                line s_typ $"__device__ Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "this->tag = x.tag;" 
@@ -665,7 +665,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"Union{i} & operator=(Union{i} && x) {{" // move assignment operator
+                line s_typ $"__device__ Union{i} & operator=(Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "this->tag = x.tag;"
@@ -678,7 +678,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"~Union{i}() {{"
+                line s_typ $"__device__ ~Union{i}() {{"
                 let () = // destructor
                     let s_typ = indent s_typ
                     line s_typ "switch(this->tag){"
