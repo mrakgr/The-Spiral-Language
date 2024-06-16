@@ -509,5 +509,9 @@ class static_array_list(static_array):
         assert (0 < self.length), "The length before popping has to be greater than 0."
         self.length -= 1
         return self.ptr[self.length]
+
+    def unsafe_set_length(self,i):
+        assert 0 <= i <= len(self.ptr), "The new length has to be in range."
+        self.length = i
     """.Trim())
         .Append(python_code).ToString()

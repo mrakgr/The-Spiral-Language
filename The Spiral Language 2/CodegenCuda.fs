@@ -12,6 +12,7 @@ open System.Text
 open System.Collections.Generic
 
 let private backend_name = "Cuda"
+let private max_tag = 255uy
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 let sizeof_tyv = function
@@ -244,7 +245,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
         let args = Array.map show_w x |> String.concat ", "
-        if 1 < x.Length then sprintf "Tuple%i{{%s}}" (tup (term_vars_to_tys x)).tag args else args
+        if 1 < x.Length then sprintf "Tuple%i{%s}" (tup (term_vars_to_tys x)).tag args else args
     and tup_data x = tup_term_vars (data_term_vars x)
     and tup_ty_tys = function
         | [||] -> "void"
@@ -383,7 +384,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             List.pairwise is
             |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{acs}tag == v{i'}{acs}tag")
             |> String.concat " && "
-            |> function "" -> head | x -> $"{x} ? {head} : -1"
+            |> function "" -> head | x -> $"{x} ? {head} : {max_tag}"
             |> sprintf "switch (%s) {" |> line s
             let _ =
                 let s = indent s
@@ -613,18 +614,20 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
-                line s_fwd $"struct ClosureBase{i} {{ int refc = 0; __device__ virtual {range} operator()({domain_args_ty}) = 0; __device__ virtual ~ClosureBase{i}() = default; }};"
+                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; __device__ virtual {range} operator()({domain_args_ty}) = 0; __device__ virtual ~ClosureBase{i}() = default; }};"
                 line s_fwd $"typedef csptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
         tuple (fun s_fwd s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
+            line s_fwd $"struct {name};"
             line s_typ $"struct {name} {{"
             x.tys |> Array.mapi (fun i x -> L(i,x)) |> print_ordered_args (indent s_typ)
             let concat x = String.concat ", " x
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
-            line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
+            line (indent s_typ) $"__device__ {name}() = default;"
+            line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}"
             line s_typ "};"
             )
     and unions : _ -> UnionRec = 
@@ -656,11 +659,14 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     map_iteri (fun tag k v -> line s_typ $"Union{i}_{tag} case{tag}; // {k}") x.free_vars
                 line s_typ "};"
 
-                // The constructors for all the union cases.
-                map_iteri (fun tag k v -> 
+                if x.is_heap then line s_typ "int refc{0};"
+                if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
+                line s_typ $"unsigned char tag{{{max_tag}}};"
+                line s_typ $"__device__ Union{i}() {{}}" // default constructor, the refc and tag have def value so we don't have to do anything here.
+                
+                map_iteri (fun tag k v -> // The constructors for all the union cases.
                     line s_typ $"__device__ Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
                     ) x.free_vars
-                line s_typ $"__device__ Union{i}() = delete;" // Deleting the default construcotr
                 
                 line s_typ $"__device__ Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
@@ -687,26 +693,42 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 line s_typ $"__device__ Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
-                    line s_typ "this->tag = x.tag;" 
-                    line s_typ "switch(x.tag){"
-                    let () = // copy assignment cases
+                    line s_typ "if (this->tag == x.tag) {" 
+                    let () =
                         let s_typ = indent s_typ
-                        map_iteri (fun tag k v -> 
-                            line s_typ $"case {tag}: this->case{tag} = x.case{tag}; break; // {k}"
-                            ) x.free_vars
+                        line s_typ "switch(x.tag){"
+                        let () = // copy assignment cases
+                            let s_typ = indent s_typ
+                            map_iteri (fun tag k v -> 
+                                line s_typ $"case {tag}: this->case{tag} = x.case{tag}; break; // {k}"
+                                ) x.free_vars
+                        line s_typ "}"
+                    line s_typ "} else {"
+                    let () =
+                        let s_typ = indent s_typ
+                        line s_typ $"this->~Union{i}();"
+                        line s_typ $"new (this) Union{i}{{x}};"
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
                 line s_typ $"__device__ Union{i} & operator=(Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
-                    line s_typ "this->tag = x.tag;"
-                    line s_typ "switch(x.tag){"
-                    let () = // move assignment cases
+                    line s_typ "if (this->tag == x.tag) {" 
+                    let () =
                         let s_typ = indent s_typ
-                        map_iteri (fun tag k v -> 
-                            line s_typ $"case {tag}: this->case{tag} = std::move(x.case{tag}); break; // {k}"
-                            ) x.free_vars
+                        line s_typ "switch(x.tag){"
+                        let () = // move assignment cases
+                            let s_typ = indent s_typ
+                            map_iteri (fun tag k v -> 
+                                line s_typ $"case {tag}: this->case{tag} = std::move(x.case{tag}); break; // {k}"
+                                ) x.free_vars
+                        line s_typ "}"
+                    line s_typ "} else {"
+                    let () =
+                        let s_typ = indent s_typ
+                        line s_typ $"this->~Union{i}();"
+                        line s_typ $"new (this) Union{i}{{std::move(x)}};"
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
@@ -720,16 +742,14 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                             line s_typ $"case {tag}: this->case{tag}.~Union{i}_{tag}(); break; // {k}"
                             ) x.free_vars
                     line s_typ "}"
+                    line s_typ $"this->tag = {max_tag};"
                 line s_typ "}"
-
-                if x.is_heap then line s_typ "int refc = 0;"
-                if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
-                line s_typ $"unsigned char tag;"
             line s_typ "};"
             )
     and layout_tmpl name : _ -> LayoutRec =
-        layout (fun _ s_typ s_fun (x : LayoutRec) ->
+        layout (fun s_fwd s_typ s_fun (x : LayoutRec) ->
             let name = sprintf "%s%i" name x.tag
+            line s_fwd $"struct {name};"
             line s_typ $"struct {name} {{"
             let () =
                 let s_typ = indent s_typ
@@ -738,6 +758,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 let concat x = String.concat ", " x
                 let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                 let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
+                line s_typ $"__device__ {name}() = default;" 
                 line s_typ $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
