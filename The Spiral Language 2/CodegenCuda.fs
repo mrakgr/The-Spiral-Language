@@ -753,7 +753,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             line s_typ $"struct {name} {{"
             let () =
                 let s_typ = indent s_typ
-                line s_typ "int refc = 0;"
+                line s_typ "int refc{0};"
                 x.free_vars |> print_ordered_args s_typ
                 let concat x = String.concat ", " x
                 let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
