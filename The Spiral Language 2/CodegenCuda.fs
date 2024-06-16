@@ -626,8 +626,9 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             let concat x = String.concat ", " x
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
-            line (indent s_typ) $"__device__ {name}() = default;"
-            line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}"
+            if args.Length <> 0 then
+                line (indent s_typ) $"__device__ {name}() = default;"
+                line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}"
             line s_typ "};"
             )
     and unions : _ -> UnionRec = 
@@ -758,8 +759,9 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 let concat x = String.concat ", " x
                 let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                 let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
-                line s_typ $"__device__ {name}() = default;" 
-                line s_typ $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
+                if args.Length <> 0 then
+                    line s_typ $"__device__ {name}() = default;"
+                    line s_typ $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
     and heap : _ -> LayoutRec = layout_tmpl "Heap"
