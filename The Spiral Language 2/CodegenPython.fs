@@ -11,8 +11,6 @@ open System
 open System.Text
 open System.Collections.Generic
 
-type PythonBackendType = Cuda
-
 let private backend_name = "Python"
 
 let lit = function
@@ -101,7 +99,7 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
+let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     let globals = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
@@ -445,48 +443,71 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()
 
-let codegen' backend_type env x = 
-    match backend_type with
-    | Cuda ->
-        let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
-        let g = Dictionary(HashIdentity.Structural)
-        let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
+let codegen (default_env : Startup.DefaultEnv) env x = 
+    let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
+    let g = Dictionary(HashIdentity.Structural)
+    let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
 
-        let codegen = Cuda.codegen ars env
-        let python_code =
-            codegen'' (fun (jp_body,key,r') ->
-                let backend_name = (fst jp_body).node
-                match backend_name with
-                | "Cuda" -> 
-                    Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
-                        let args = rdata_free_vars args
-                        match (fst env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _, _ -> codegen args a
-                        | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                        string g.Count
-                        ) (jp_body,key)
-                | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
-                ) env x
+    let codegen = Cuda.codegen default_env ars env
+    let python_code =
+        codegen' (fun (jp_body,key,r') ->
+            let backend_name = (fst jp_body).node
+            match backend_name with
+            | "Cuda" -> 
+                Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
+                    let args = rdata_free_vars args
+                    match (fst env.join_point_method.[jp_body]).[key] with
+                    | Some a, Some _, _ -> codegen args a
+                    | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                    string g.Count
+                    ) (jp_body,key)
+            | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
+            ) env x
 
-        globals |> Seq.iter (fun x -> cuda_kernels.AppendLine(x) |> ignore)
-        fwd_dcls |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-        types |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-        functions |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-        main_defs |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    globals |> Seq.iter (fun x -> cuda_kernels.AppendLine(x) |> ignore)
+    fwd_dcls |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    types |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    functions |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    main_defs |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
 
-        cuda_kernels
-            .AppendLine("\"\"\"")
-            .AppendLine("""
-class static_array(list):
+    cuda_kernels
+        .AppendLine("\"\"\"")
+        .AppendLine("""
+class static_array():
     def __init__(self, length):
+        self.ptr = []
         for _ in range(length):
-            self.append(None)
+            self.ptr.append(None)
+
+    def __getitem__(self, index):
+        assert 0 <= index < len(self.ptr), "The get index needs to be in range."
+        return self.ptr[index]
+    
+    def __setitem__(self, index, value):
+        assert 0 <= index < len(self.ptr), "The set index needs to be in range."
+        self.ptr[index] = value
 
 class static_array_list(static_array):
     def __init__(self, length):
         super().__init__(length)
         self.length = 0
-        """.Trim())
-            .Append(python_code).ToString()
 
-let codegen_cuda env x = codegen' Cuda env x
+    def __getitem__(self, index):
+        assert 0 <= index < self.length, "The get index needs to be in range."
+        return self.ptr[index]
+    
+    def __setitem__(self, index, value):
+        assert 0 <= index < self.length, "The set index needs to be in range."
+        self.ptr[index] = value
+
+    def push(self,value):
+        assert (self.length < len(self.ptr)), "The length before pushing has to be less than the maximum length of the array."
+        self.ptr[self.length] = value
+        self.length += 1
+
+    def pop(self):
+        assert (0 < self.length), "The length before popping has to be greater than 0."
+        self.length -= 1
+        return self.ptr[self.length]
+    """.Trim())
+        .Append(python_code).ToString()

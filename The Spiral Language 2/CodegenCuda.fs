@@ -31,6 +31,7 @@ type BindsReturn =
 let term_vars_to_tys x = x |> Array.map (function WV(L(_,t)) -> t | WLit x -> YPrim (lit_to_primitive_type x))
 let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
 
+type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>; is_heap : bool}
 type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option}
 type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : FunType; body : TypedBind[]}
@@ -61,7 +62,7 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ ResizeArray, functions : _ ResizeArray, main_defs : _ ResizeArray) (env : PartEvalResult) =
+let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ ResizeArray, functions : _ ResizeArray, main_defs : _ ResizeArray) (env : PartEvalResult) =
     let print show r =
         let s_typ_fwd = {text=StringBuilder(); indent=0}
         let s_typ = {text=StringBuilder(); indent=0}
@@ -73,6 +74,22 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         f fwd_dcls s_typ_fwd
         f types s_typ
         f functions s_fun
+
+    let layout show =
+        let dict' = Dictionary(HashIdentity.Structural)
+        let dict = Dictionary(HashIdentity.Reference)
+        let f x : LayoutRec = 
+            let x = env.ty_to_data x
+            let a, b =
+                match x with
+                | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
+                | _ -> data_free_vars x, Map.empty
+            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
+            if dirty then print show r
+            r
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
@@ -227,7 +244,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
         let args = Array.map show_w x |> String.concat ", "
-        if 1 < x.Length then sprintf "Tuple%i(%s)" (tup (term_vars_to_tys x)).tag args else args
+        if 1 < x.Length then sprintf "Tuple%i{{%s}}" (tup (term_vars_to_tys x)).tag args else args
     and tup_data x = tup_term_vars (data_term_vars x)
     and tup_ty_tys = function
         | [||] -> "void"
@@ -240,8 +257,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match a.Item.layout with
             | UStack -> sprintf "Union%i" (unions a).tag
             | UHeap -> sprintf "sptr<Union%i>" (unions a).tag
-        | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
-        | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
+        | YLayout(a,Heap) -> sprintf "sptr<Heap%i>" (heap a).tag
+        | YLayout(a,HeapMutable) -> sprintf "sptr<Mut%i>" (mut a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind backend_name r with
             | Some x -> tup_ty x
@@ -318,7 +335,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 match x.funtype with
                 | FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
                 | FT_Pointer -> $"FunPointerMethod{x.tag}"
-                | FT_Closure -> $"csptr<Closure{x.tag}>{{new Closure{x.tag}{{{args}}}}}" 
+                | FT_Closure -> $"csptr<ClosureBase{x.tag}>{{new Closure{x.tag}{{{args}}}}}"
+        let layout_index (x'_i : int) (x' : TyV []) =
+            match ret with
+            | BindsLocal x -> Array.map2 (fun (L(i,_)) (L(i',_)) -> $"v{i} = v{x'_i}.base->v{i'};") x x' |> line' s
+            | BindsTailEnd -> raise_codegen_error "Compiler error: Layout index should never come in end position."
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -398,11 +419,18 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | UHeap -> $"sptr<Union{tag}>{{new Union{tag}{{Union{tag}_{i}{{{vars}}}}}}}"
             | UStack -> $"Union{tag}{{Union{tag}_{i}{{{vars}}}}}"
             |> return'
-        | TyLayoutToHeap(a,b) -> raise_codegen_error "Cannot create a heap layout type in the Cuda C++ backend due to them needing to be heap allocated."
-        | TyLayoutToHeapMutable(a,b) -> raise_codegen_error "Cannot create a heap mutable layout type in the Cuda C++ backend due to them needing to be heap allocated."
-        | TyLayoutIndexAll _ 
-        | TyLayoutIndexByKey _ -> raise_codegen_error "Cannot index into a layout type in the Cuda C++ backend due to them needing to be heap allocated."
-        | TyLayoutHeapMutableSet(L(i,t),b,c) -> raise_codegen_error "Cannot set a value into a layout type in the Cuda C++ backend due to them needing to be heap allocated."
+        | TyLayoutToHeap(a,b) -> 
+            let tag = (heap b).tag
+            $"sptr<Heap{tag}>{{new Heap{tag}{{{args' a}}}}}" |> return'
+        | TyLayoutToHeapMutable(a,b) -> 
+            let tag = (mut b).tag
+            $"sptr<Mut{tag}>{{new Mut{tag}{{{args' a}}}}}" |> return'
+        | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
+        | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
+        | TyLayoutHeapMutableSet(L(i,t),b,c) ->
+            let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
+            Array.map2 (fun (L(i',_)) b -> $"v{i}.base->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
+            |> String.concat " " |> line s
         | TyArrayLiteral(a,b') -> raise_codegen_error "Compiler error: TyArrayLiteral should have been taken care of in TyLet."
         | TyArrayCreate(a,b) ->  raise_codegen_error "Compiler error: TyArrayCreate should have been taken care of in TyLet."
         | TyFailwith(a,b) ->
@@ -415,7 +443,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let rec loop = function
                 | DPair(a,b) -> tup_data a :: loop b
                 | a -> [tup_data a]
-            let args = loop b |> String.concat ", "
+            let args = loop b |> List.filter ((<>) "") |> String.concat ", "
             $"v{i}({args})" |> return'
         | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
@@ -500,9 +528,14 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | YPair(a,b) -> a :: loop b
             | a -> [a]
         let mutable count = count_start
-        let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
         let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
-        loop domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
+        let mutable i = 0
+        loop domain |> List.choose (fun x -> 
+            let n = env.ty_to_data x |> data_free_vars 
+            let x = if n.Length <> 0 then Some(i, tup_ty_tyvs n, n |> rename) else None
+            i <- i+1
+            x
+            )
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
@@ -580,19 +613,18 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
-                line s_fwd $"struct ClosureBase{i} {{ int refc = 0; virtual {range} operator()({domain_args_ty}) = 0; virtual ~ClosureBase{i}() = default; }};"
+                line s_fwd $"struct ClosureBase{i} {{ int refc = 0; __device__ virtual {range} operator()({domain_args_ty}) = 0; __device__ virtual ~ClosureBase{i}() = default; }};"
                 line s_fwd $"typedef csptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
         tuple (fun s_fwd s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
-            line s_fwd $"struct {name};"
             line s_typ $"struct {name} {{"
             x.tys |> Array.mapi (fun i x -> L(i,x)) |> print_ordered_args (indent s_typ)
             let concat x = String.concat ", " x
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
-            line (indent s_typ) $"{name}({concat args}) : {concat con_init} {{}}" 
+            line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
     and unions : _ -> UnionRec = 
@@ -695,11 +727,29 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_typ $"unsigned char tag;"
             line s_typ "};"
             )
+    and layout_tmpl name : _ -> LayoutRec =
+        layout (fun _ s_typ s_fun (x : LayoutRec) ->
+            let name = sprintf "%s%i" name x.tag
+            line s_typ $"struct {name} {{"
+            let () =
+                let s_typ = indent s_typ
+                line s_typ "int refc = 0;"
+                x.free_vars |> print_ordered_args s_typ
+                let concat x = String.concat ", " x
+                let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
+                let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
+                line s_typ $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
+            line s_typ "};"
+            )
+    and heap : _ -> LayoutRec = layout_tmpl "Heap"
+    and mut : _ -> LayoutRec = layout_tmpl "Mut"
 
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
         | [||] ->
-            import' "reference_counting.h"
+            global' $"using default_int = {prim default_env.default_int};"
+            global' $"using default_uint = {prim default_env.default_uint};"
+            import' "reference_counting.cuh"
             let main_defs' = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             line main_defs' $"extern \"C\" __global__ void entry%i{main_defs.Count}(%s{args}) {{"
