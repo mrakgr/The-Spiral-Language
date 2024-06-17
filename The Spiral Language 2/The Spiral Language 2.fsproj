@@ -48,6 +48,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="CodegenCuda.fs" />
+    <None Include="reference_counting.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Compile Include="CodegenPython.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />
