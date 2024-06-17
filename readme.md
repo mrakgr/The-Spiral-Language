@@ -1,7 +1,7 @@
 <!-- TOC -->
 
 - [News](#news)
-    - [Date: 6/17/2024 - The Python + Cuda backend now support all of Spiral's featues](#date-6172024---the-python--cuda-backend-now-support-all-of-spirals-featues)
+    - [Date: 6/17/2024 - The Python + Cuda backend now supports all of Spiral's featues](#date-6172024---the-python--cuda-backend-now-supports-all-of-spirals-featues)
     - [Date: 3/30/2024 - Added existentials to the language](#date-3302024---added-existentials-to-the-language)
     - [Date: 8/27/2023 - Check out the Spiral playlist on Youtube](#date-8272023---check-out-the-spiral-playlist-on-youtube)
     - [Date: 1/7/2023 - UPMEM demo & backend](#date-172023---upmem-demo--backend)
@@ -46,7 +46,7 @@
 
 # News
 
-## Date: 6/17/2024 - The Python + Cuda backend now support all of Spiral's featues
+## Date: 6/17/2024 - The Python + Cuda backend now supports all of Spiral's featues
 
 In support of single threaded GPU programming, the Python + Cuda backend has been extended with C++ style reference counting so it supports heap allocated closures, recursive unions and layout types. The Cuda backend in particular has novel function types that were added to the language specifically for it: `fptr` and `closure`. The vanilla functions can be converted to function pointers and closures specifically using `to_fptr` and `to_closure`. Because the these types use native C++ features based on shared pointers for ref counting, they are completely interoperable with existing C++ libraries.
 
