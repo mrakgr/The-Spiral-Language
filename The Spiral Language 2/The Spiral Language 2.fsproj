@@ -44,6 +44,9 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="RefCounting.fs" />
     <Compile Include="CodegenC.fs" />
+    <None Include="reference_counting.cuh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Compile Include="CodegenCuda.fs" />
     <Compile Include="CodegenPython.fs" />
     <Compile Include="WDiff.fs" />

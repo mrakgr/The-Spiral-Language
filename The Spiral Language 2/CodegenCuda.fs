@@ -661,7 +661,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 line s_typ "};"
 
                 if x.is_heap then line s_typ "int refc{0};"
-                if x.free_vars.Count >= 255 then raise_codegen_error "Too many union cases. They should not be more than 255."
+                if x.free_vars.Count > int max_tag then raise_codegen_error $"Too many union cases. They should not be more than {max_tag}."
                 line s_typ $"unsigned char tag{{{max_tag}}};"
                 line s_typ $"__device__ Union{i}() {{}}" // default constructor, the refc and tag have def value so we don't have to do anything here.
                 
@@ -770,14 +770,16 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
         | [||] ->
-            global' $"using default_int = {prim default_env.default_int};"
-            global' $"using default_uint = {prim default_env.default_uint};"
-            import' "reference_counting.cuh"
             let main_defs' = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             line main_defs' $"extern \"C\" __global__ void entry%i{main_defs.Count}(%s{args}) {{"
             binds_start (indent main_defs') x
             line main_defs' "}"
             main_defs.Add(main_defs'.text.ToString())
+
+            global' $"using default_int = {prim default_env.default_int};"
+            global' $"using default_uint = {prim default_env.default_uint};"
+            global' (IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh")))
+            
         | _ ->
             raise_codegen_error $"The return type of the __global__ kernel in the Cuda backend should be a void type."

@@ -513,5 +513,9 @@ class static_array_list(static_array):
     def unsafe_set_length(self,i):
         assert 0 <= i <= len(self.ptr), "The new length has to be in range."
         self.length = i
+
+class dynamic_array(static_array): pass
+class dynamic_array_list(static_array_list):
+    def length_(self): return self.length
     """.Trim())
         .Append(python_code).ToString()
