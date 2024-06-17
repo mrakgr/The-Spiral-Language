@@ -1,6 +1,7 @@
 <!-- TOC -->
 
 - [News](#news)
+    - [Date: 6/17/2024 - The Python + Cuda backend now support all of Spiral's featues](#date-6172024---the-python--cuda-backend-now-support-all-of-spirals-featues)
     - [Date: 3/30/2024 - Added existentials to the language](#date-3302024---added-existentials-to-the-language)
     - [Date: 8/27/2023 - Check out the Spiral playlist on Youtube](#date-8272023---check-out-the-spiral-playlist-on-youtube)
     - [Date: 1/7/2023 - UPMEM demo & backend](#date-172023---upmem-demo--backend)
@@ -44,6 +45,18 @@
 <!-- /TOC -->
 
 # News
+
+## Date: 6/17/2024 - The Python + Cuda backend now support all of Spiral's featues
+
+In support of single threaded GPU programming, the Python + Cuda backend has been extended with C++ style reference counting so it supports heap allocated closures, recursive unions and layout types. The Cuda backend in particular has novel function types that were added to the language specifically for it: `fptr` and `closure`. The vanilla functions can be converted to function pointers and closures specifically using `to_fptr` and `to_closure`. Because the these types use native C++ features based on shared pointers for ref counting, they are completely interoperable with existing C++ libraries.
+
+Whereas what we had before could be considered a prototype backend, this one has support for the full range of Spiral's language features. The tiny Python + Cuda backend has grown up. It is now a fully fledged one.
+
+Even if you don't want to use function pointers or closures, it's also possible to interop with C++ using just regular Spiral functions as long as they aren't returned or passed through join points, and in general, as long as their types aren't printed anywhere other than their origin by the codegen. They'll get compiled to stack allocated C++ functors that can capture free variables and be passed into macro expressions. Furthermore, the core library now provides two new dynamic array classes that can be used directly in device side Cuda kernels. The serialization code for those new classes has been added to the core library as well.
+
+The video will be added on the 28th on the [Spiral playlist](https://www.youtube.com/playlist?list=PL04PGV4cTuIVP50-B_1scXUUMn8qEBbSs) for anybody interested in how PL development looks like. Unfortunately, during the course of the video I couldn't get the compilation times for the NL Holdem to go down significantly using the new dynamic arrays. It will be up to the Cuda team to bring those down in the end.
+
+Next in the series, we will be continuing work on the [ML library](https://github.com/mrakgr/Spiral-s-ML-Library) for Spiral, and using it to train the RL agents on various poker games. The games themselves are already implemented and architected so they'll be easily usable in ML pipelines, so there is only a little bit more to go until that happens.
 
 ## Date: 3/30/2024 - Added existentials to the language
 

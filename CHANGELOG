@@ -1,3 +1,7 @@
+2.11.1 (6/17/2024)
+
+* Updated the readme.
+
 2.11.0 (6/17/2024)
 
 Extended the Python + Cuda backend so it supports heap allocated closures, recursive mutual unions and layout types. The Cuda backend in particular has novel function types that were added to the language: fptr and closure. The vanilla functions can be converted to function pointers and closures specifically using `to_fptr` and `to_closure`. Because the these types use native C++ features based on shared pointers for ref counting, they are completely interoperable with existing C++ libraries.
