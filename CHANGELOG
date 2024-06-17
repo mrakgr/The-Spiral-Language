@@ -1,8 +1,10 @@
-2.11.0 (WIP/2024)
+2.11.0 (6/17/2024)
 
-Created the Cuda backend with reference counting.
+Extended the Python + Cuda backend so it supports heap allocated closures, recursive mutual unions and layout types. The Cuda backend in particular has novel function types that were added to the language: fptr and closure. The vanilla functions can be converted to function pointers and closures specifically using `to_fptr` and `to_closure`. Because the these types use native C++ features based on shared pointers for ref counting, they are completely interoperable with existing C++ libraries.
 
-* Increased the stack space available to the partial evaluator and the code generator by over 200 fold. Now they are on their own thread.
+Whereas what we had before could be considered a prototype backend, this one has support for the full range of Spiral's language features. The tiny Python + Cuda backend has grown up. It is now a fully fledged one.
+
+* Increased the stack space available to the partial evaluator and the code generator by over 200 fold. Now they are ran on their own thread.
 
 2.10.11 (6/5/2024)
 
