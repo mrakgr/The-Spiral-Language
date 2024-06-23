@@ -7,7 +7,7 @@ foreach ($file in $files) { # Copies the readme and the image files into the cur
     Copy-Item ../$file .
 }
 # vsce publish minor
-vsce publish patch # https://marketplace.visualstudio.com/items?itemName=mrakgr.spiral-lang-vscode
+# vsce publish patch # https://marketplace.visualstudio.com/items?itemName=mrakgr.spiral-lang-vscode
 npx ovsx publish -p $keys.ovsx # https://open-vsx.org/extension/mrakgr/spiral-lang-vscode
 foreach ($file in $files) { # Copies the readme and the image files in the current folder
     Remove-Item ./$file
