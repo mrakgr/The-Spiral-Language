@@ -1,4 +1,4 @@
-2.11.2 (6/23/2024)
+2.11.3 (6/23/2024)
 
 * Turned off the existential variable shadowing check so they can be used in `or` patterns.
 
