@@ -1479,7 +1479,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     unify r s (l |> Map |> TyRecord)
                     env
             | PatExists(r,l,p) ->
-                l |> List.iter (fun (r,name) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedExists))
+                // TODO: The way variable shadowing is being checked in the top down segment needs to be factored out
+                // into its own pass. For now it will simply be turned off in existentials in order to be able to use them
+                // in `|` patterns.
+                //l |> List.iter (fun (r,name) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedExists))
                 match visit_t s with
                 | TyExists(type_vars,type_body) ->
                     if l.Length = type_vars.Length then
