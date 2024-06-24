@@ -1,3 +1,7 @@
+2.11.4 (6/24/2024)
+
+* Changed `long` to `int` in the Cuda backend as longs are 8 byte on some systems.
+
 2.11.3 (6/23/2024)
 
 * Turned off the existential variable shadowing check so they can be used in `or` patterns.

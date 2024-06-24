@@ -273,11 +273,11 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
     and prim = function
         | Int8T -> "char" 
         | Int16T -> "short"
-        | Int32T -> "long"
+        | Int32T -> "int"
         | Int64T -> "long long"
         | UInt8T -> "unsigned char"
         | UInt16T -> "unsigned short"
-        | UInt32T -> "unsigned long"
+        | UInt32T -> "unsigned int"
         | UInt64T -> "unsigned long long"
         | Float32T -> "float"
         | Float64T -> "double"
