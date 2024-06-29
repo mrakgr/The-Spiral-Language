@@ -235,7 +235,7 @@ let rec constraint_name (env : TopEnv) = function
     | CSymbol -> "symbol" | CRecord -> "record"
     | CPrototype i -> env.prototypes.[i].name
 
-let rec constraint_kind (env : TopEnv) = function
+let constraint_kind (env : TopEnv) = function
     | CSInt | CUInt | CInt | CFloat | CNumber | CPrim | CSymbol | CRecord -> KindType
     | CPrototype i -> env.prototypes.[i].kind
 
