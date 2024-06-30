@@ -345,13 +345,9 @@ and RawTExpr =
     | RawTPrim of VSCRange * PrimitiveType
     | RawTTerm of VSCRange * RawExpr
     | RawTMacro of VSCRange * RawMacro list
-    | RawTUnion of VSCRange * Map<string,ParsedUnionCases> * UnionLayout
+    | RawTUnion of VSCRange * Map<string,bool * RawTExpr> * UnionLayout // The boolean arg determines whether the union case is generalized
     | RawTLayout of VSCRange * RawTExpr * Layout
     | RawTFilledNominal of VSCRange * GlobalId // Filled in by the inferencer.
-
-and ParsedUnionCases = // Parses the regular union and GADT cases separately.
-    | U_Vanilla of RawTExpr
-    | U_Generalized of RawTExpr
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
@@ -970,7 +966,7 @@ let typecase_validate x _ =
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
         | RawTApply(_,a,b) | RawTFun(_,a,b,_) | RawTPair(_,a,b) -> f a; f b
         | RawTLayout(_,a,_) | RawTArray(_,a) -> f a
-        | RawTUnion(_,a,_) -> Map.iter (fun _ (U_Vanilla x | U_Generalized x) -> f x) a 
+        | RawTUnion(_,a,_) -> Map.iter (fun _ x -> f (snd x)) a 
         | RawTRecord(_,a) -> Map.iter (fun _ -> f) a
         | RawTMacro(_,a) -> a |> List.iter (function RawMacroType(_,a) -> f a | _ -> ())
     f x
@@ -1072,14 +1068,14 @@ and root_type_record (flags : RootTypeFlags) d =
         ) d
 and root_type_union (flags : RootTypeFlags) d =
     let bar = bar (col d)
-    let vanilla = skip_op ":" >>. root_type flags |>> (U_Vanilla >> Some)
-    let gadt = skip_op "::" >>. root_type {flags with allow_forall=true} |>> (U_Generalized >> Some)
+    let vanilla = skip_op ":" >>. root_type flags |>> fun x -> Some (false, x)
+    let gadt = skip_op "::" >>. root_type {flags with allow_forall=true} |>> fun x -> Some (true, x)
     let body = vanilla <|> gadt <|>% None
     (range (optional bar >>. sepBy1 (range read_big_var_as_symbol .>>. body) bar)
     >>= fun (r,x) _ ->
         x |> List.map fst |> duplicates DuplicateUnionKey
         |> function 
-            | [] -> Ok(r,x |> List.map (fun ((r,n),x) -> n, match x with Some x -> x | None -> U_Vanilla (RawTB r)) |> Map.ofList)
+            | [] -> Ok(r,x |> List.map (fun ((r,n),x) -> n, match x with Some x -> x | None -> false, RawTB r) |> Map.ofList)
             | er -> Error er
         ) d
 and root_type (flags : RootTypeFlags) d =

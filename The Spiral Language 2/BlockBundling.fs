@@ -49,7 +49,7 @@ let rec fold_offset_ty offset x =
     | RawTPair(r,a,b) -> RawTPair(g r,f a,f b)
     | RawTFun(r,a,b,t) -> RawTFun(g r,f a,f b,t)
     | RawTRecord(r,a) -> RawTRecord(g r,Map.map (fun _ -> f) a)
-    | RawTUnion(r,a,b) -> RawTUnion(g r,Map.map (fun _ -> function U_Vanilla x -> U_Vanilla(f x) | U_Generalized x -> U_Generalized(f x)) a,b)
+    | RawTUnion(r,a,b) -> RawTUnion(g r,Map.map (fun _ (is_gadt,body) -> is_gadt, f body) a,b)
     | RawTSymbol(r,a) -> RawTSymbol(g r,a)
     | RawTApply(r,a,b) -> RawTApply(g r,f a,f b)
     | RawTForall(r,a,b) -> RawTForall(g r,add_offset_typevar offset a,f b)
