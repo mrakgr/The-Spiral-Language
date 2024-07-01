@@ -62,6 +62,8 @@ and T =
     | TyMacro of TM list
     | TyLayout of T * BlockParsing.Layout
 
+let tyvar x = TyVar(x, ref None)
+
 type TypeError =
     | KindError of TT * TT
     | KindErrorInConstraint of TT * TT
@@ -130,6 +132,8 @@ type TypeError =
     | ShadowedInstance
     | UnusedTypeVariable of string list
     | CompilerError of string
+    | IncorrectGADTConstructorType
+    | IncorrectRecursiveUnion
 
 let inline shorten'<'a> (x : 'a) link next = 
     let x' : 'a = next x
@@ -671,6 +675,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let module_type_apply_args = Dictionary(HashIdentity.Reference)
     let annotations = Dictionary<obj,_>(HashIdentity.Reference)
     let exists_vars = Dictionary<obj,_>(HashIdentity.Reference)
+    let type_ranges = Dictionary<T,VSCRange>(HashIdentity.Reference)
 
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
     /// Dealing with recursive statement type applies requires some special consideration.
@@ -813,7 +818,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         vars, subst (List.zip l vars) body
 
     let exists_subst_pattern scope names (l,body) =
-        let vars = (names, l) ||> List.map2 (fun (_,name) l -> TyVar ({l with scope=scope; name=name}, ref None))
+        let vars = (names, l) ||> List.map2 (fun (_,name) l -> tyvar {l with scope=scope; name=name})
         vars, subst (List.zip l vars) body
 
     let assert_exists_hasnt_metavars r vars =
@@ -858,7 +863,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyVar (_,{contents=Some x})
             | TyMetavar(_,{contents=Some x}) -> f x
             | TyMetavar(x, link) when scope = x.scope ->
-                let v = TyVar ({scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=autogen_name autogened_forallvar_count}, ref None)
+                let v = tyvar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=autogen_name autogened_forallvar_count}
                 autogened_forallvar_count <- autogened_forallvar_count+1
                 link := Some v
                 replace_metavars v
@@ -884,7 +889,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let rec loop m x = 
                 match visit_t x with
                 | TyForall(a,b) ->
-                    let v = TyVar({a with name=autogen_name autogened_forallvar_count; scope=scope},ref None)
+                    let v = tyvar {a with name=autogen_name autogened_forallvar_count; scope=scope}
                     autogened_forallvar_count <- autogened_forallvar_count+1
                     let type_apply_args,b = loop ((a, v) :: m) b
                     v :: type_apply_args, b
@@ -1002,9 +1007,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyExists(a,b), TyExists(a',b') when 
                     List.length a = List.length a'
                     && List.forall2 (fun (a : Var) (a' : Var) -> a.kind = a'.kind && a.constraints = a'.constraints) a a' -> 
-                loop (b, subst (List.map2 (fun a a' -> a', TyVar(a, ref None)) a a') b')
+                loop (b, subst (List.map2 (fun a a' -> a', tyvar a) a a') b')
             | TyForall(a,b), TyForall(a',b') 
-            | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind && a.constraints = a'.constraints -> loop (b, subst [a',TyVar(a, ref None)] b')
+            | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind && a.constraints = a'.constraints -> loop (b, subst [a',tyvar a] b')
             | TyMacro a, TyMacro b -> 
                 List.iter2 (fun a b -> 
                     match a,b with
@@ -1061,7 +1066,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let typevars scope env (l : TypeVar list) =
         List.mapFold (fun s x ->
             let v = typevar_to_var scope env.constraints x
-            v, Map.add v.name (TyVar(v, ref None)) s
+            v, Map.add v.name (tyvar v) s
             ) env.ty l
 
     let rec term scope env s x = term' scope false env s x
@@ -1407,12 +1412,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTExists(r,a,b) ->
             let a = List.map (typevar_to_var scope env.constraints) a
             let body_var = fresh_var scope
-            ty scope {env with ty = List.fold (fun s a -> Map.add a.name (TyVar(a, ref None)) s) env.ty a} body_var b
+            ty scope {env with ty = List.fold (fun s a -> Map.add a.name (tyvar a) s) env.ty a} body_var b
             unify r s (TyExists(a, body_var))
         | RawTForall(r,a,b) ->
             let a = typevar_to_var scope env.constraints a
             let body_var = fresh_var scope
-            ty scope {env with ty = Map.add a.name (TyVar(a, ref None)) env.ty} body_var b
+            ty scope {env with ty = Map.add a.name (tyvar a) env.ty} body_var b
             unify r s (TyForall(a, body_var))
         | RawTApply(r,a',b) ->
             let f' b k x = let v = fresh_var' scope k in ty' scope b env v x; visit_t v
@@ -1543,12 +1548,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         let x,m = ho_make i n.vars
                         unify r s x
                         match Map.tryFind name cases with
-                        | Some (is_gadt & false, v) -> f (subst m v) a 
-                        | Some (is_gadt & true, v) ->
-                            let scope,(body : T),(specialized_constructor : T) = gadt_extract scope v
-                            let scope,env = loop (scope,env) body a
-                            unify_gadt (Some gadt_links) r s specialized_constructor
-                            scope,env
+                        | Some (is_gadt, v) -> 
+                            if is_gadt then 
+                                f (subst m v) a 
+                            else
+                                let scope,(body : T),(specialized_constructor : T) = gadt_extract scope v
+                                let scope,env = loop (scope,env) body a
+                                unify_gadt (Some gadt_links) r s specialized_constructor
+                                scope,env
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
                 match term_subst s |> ho_index with
@@ -1588,25 +1595,25 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 List.fold (fun (scope,env) x -> loop (scope, env) v x) (scope,env) a
         gadt_links, loop (scope,env) s a
 
-    let nominal_term r i tt name vars v =
+    let nominal_term global_id tt name vars v =
         let constructor body =
-            let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,TyVar(b, ref None),k),k) (TyNominal i,tt) vars
+            let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,tyvar b,k),k) (TyNominal global_id,tt) vars
             let x = match body with TyB -> t | _ -> TyFun(body,t,FT_Vanilla)
             List.foldBack (fun var ty -> TyForall(var,ty)) vars x
         match v with
-        | TyUnion(l,_) -> Map.fold (fun s name v -> Map.add name (constructor v) s) Map.empty l
+        | TyUnion(l,_) -> Map.fold (fun s name (is_gadt,v) -> Map.add name (if is_gadt then v else constructor v) s) Map.empty l
         | _ -> Map.add name (constructor v) Map.empty
 
     let psucc = Hopac.Job.thunk >> Hopac.Hopac.memo
     let pfail = Hopac.Promise.Now.withFailure (System.Exception "Compiler error: Tried to read from a FilledTop that has errors.")
 
-    let top_env_nominal s r (i : GlobalId) tt name vars v =
-        { s with
-            nominals_next_tag = max s.nominals_next_tag i.tag + 1
-            nominals_aux = Map.add i {|kind=tt; name=name|} s.nominals_aux
-            nominals = Map.add i {|vars=vars; body=v|} s.nominals
-            term = Map.foldBack Map.add (nominal_term r i tt name vars v) s.term
-            ty = Map.add name (TyNominal i) s.ty
+    let top_env_nominal top_env (global_id : GlobalId) tt name vars v =
+        { top_env with
+            nominals_next_tag = max top_env.nominals_next_tag global_id.tag + 1
+            nominals_aux = Map.add global_id {|kind=tt; name=name|} top_env.nominals_aux
+            nominals = Map.add global_id {|vars=vars; body=v|} top_env.nominals
+            term = Map.foldBack Map.add (nominal_term global_id tt name vars v) top_env.term
+            ty = Map.add name (TyNominal global_id) top_env.ty
             }
 
     let rec typevar = function
@@ -1615,35 +1622,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let hovars (x : HoVar list) = 
         List.mapFold (fun s (_,(n,t)) -> 
             let v = {scope=0; kind=typevar t; name=n; constraints=Set.empty}
-            v, Map.add n (TyVar(v, ref None)) s
+            v, Map.add n (tyvar v) s
             ) Map.empty x
 
     let scope = 0
-    match expr with
-    | BundleType(q,(r,name),vars',expr) ->
-        let vars,env_ty = hovars vars'
-        let v = fresh_var scope
-        ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
-        hover_types.Add(r,(t,""))
-        if 0 = errors.Count then psucc (fun () -> FType(q,(r,name),vars',expr)), AInclude {top_env_empty with ty = Map.add name t Map.empty}
-        else pfail, AInclude top_env_empty
-    | BundleNominal(q,(r,name),vars',expr) ->
-        let vars,env_ty = hovars vars'
-        let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
-        let v = fresh_var scope
-        ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let v = term_subst v
-        if 0 = errors.Count then psucc (fun () -> FNominal(q,(r,name),vars',expr)), AInclude(top_env_nominal top_env_empty r (at_tag top_env'.nominals_next_tag) tt name vars v)
-        else pfail, AInclude top_env_empty
-    | BundleNominalRec l' ->
-        let _ = // Checks that mutually recursive unions do not have duplicates.
-            let h = HashSet()
-            l' |> List.iter (fun (_,_,_,x) ->
-                match x with
-                | RawTUnion(_,l,_) -> l |> Map.iter (fun k v -> if h.Add k = false then errors.Add(range_of_texpr v,DuplicateKeyInRecUnion))
-                | _ -> ()
-                )
+    let bundle_nominal_rec l' =
         let l,_ =
             List.mapFold (fun i (_,name,vars,body) ->
                 let l,env = hovars vars
@@ -1654,14 +1637,73 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let f s (i,(_,name),l,env,tt,body) = Map.add i {|name=name; kind=tt|} s
             {top_env with nominals_aux = List.fold f top_env.nominals_aux l}
         let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env.ty l
-        let x = 
-            List.fold (fun s (i,(r,name),vars,env_ty',tt,body) ->
-                let v = fresh_var scope
-                ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
-                let v = term_subst v
-                top_env_nominal s r i tt name vars v
-                ) top_env_empty l
-        if 0 = errors.Count then psucc (fun () -> FNominalRec l'), AInclude x
+        List.fold (fun top_env (global_id,(r,name),vars,env_ty',tt,body) ->
+            let v = fresh_var scope
+            ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
+            let v = term_subst v
+            match v with // Validates the union type.
+            | TyUnion(a,b) ->
+                let rec assert_union_non_recursive v =
+                    let f = assert_union_non_recursive
+                    match visit_t v with
+                    | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr body, IncorrectRecursiveUnion)
+                    | TyMetavar _ | TyVar _ -> ()
+                    | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+                    | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
+                    | TyUnion(a,_) -> Map.iter (fun _ -> snd >> f) a
+                    | TyRecord a -> Map.iter (fun _ -> f) a
+                    | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+                    | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
+                    | TyModule _ -> ()
+
+                let rec assert_gadt_has_proper_specialized_constructor = function
+                    | TyNominal global_id' as a -> if global_id <> global_id' then errors.Add(range_of_texpr body, IncorrectGADTConstructorType)
+                    | TyApply(a,_,_) -> assert_gadt_has_proper_specialized_constructor a
+                    | a -> errors.Add(range_of_texpr body, IncorrectGADTConstructorType)
+
+                let assert_union_is_valid is_stack is_gadt v =
+                    let rec find_gadt_constructor = function
+                        | TyForall(_,t) -> find_gadt_constructor t
+                        | TyFun(a,b,_) -> 
+                            if is_stack then assert_union_non_recursive a
+                            if is_gadt then assert_gadt_has_proper_specialized_constructor b
+                        | b -> 
+                            if is_gadt then assert_gadt_has_proper_specialized_constructor b
+                    find_gadt_constructor v
+
+                a |> Map.iter (fun _ (is_gadt, v) -> 
+                    assert_union_is_valid (b = UStack) is_gadt v
+                    )
+            | _ -> failwith "Compiler error: Expected a TyUnion."
+            top_env_nominal top_env global_id tt name vars v
+            ) top_env_empty l
+
+    match expr with
+    | BundleType(q,(r,name),vars',expr) ->
+        let vars,env_ty = hovars vars'
+        let v = fresh_var scope
+        ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
+        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
+        hover_types.Add(r,(t,""))
+        if 0 = errors.Count then psucc (fun () -> FType(q,(r,name),vars',expr)), AInclude {top_env_empty with ty = Map.add name t Map.empty}
+        else pfail, AInclude top_env_empty
+    | BundleNominal(q,(r,name),vars',expr) ->
+        let x = bundle_nominal_rec [q,(r,name),vars',expr]
+        // Check GADT cases.
+        // Assert the types aren't used recursively.
+        if 0 = errors.Count then psucc (fun () -> FNominal(q,(r,name),vars',expr)), AInclude x
+        else pfail, AInclude top_env_empty
+    | BundleNominalRec l ->
+        let _ = // Checks that mutually recursive unions do not have duplicates.
+            let h = HashSet()
+            l |> List.iter (fun (_,_,_,x) ->
+                match x with
+                | RawTUnion(_,l,_) -> l |> Map.iter (fun k v -> if h.Add k = false then errors.Add(range_of_texpr (snd v),DuplicateKeyInRecUnion))
+                | _ -> ()
+                )
+        let x = bundle_nominal_rec l
+        // Check GADT cases.
+        if 0 = errors.Count then psucc (fun () -> FNominalRec l), AInclude x
         else pfail, AInclude top_env_empty
     | BundlePrototype(com,r,(r',name),(w,var_init),vars',expr) ->
         let i = at_tag top_env'.prototypes_next_tag
@@ -1670,7 +1712,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars,env_ty = typevars scope {term=Map.empty; constraints=Map.empty; ty=Map.empty} vars'
         let kind = List.foldBack (fun (k : Var) s -> KindFun(k.kind,s)) vars KindType
         let v' = {scope=scope; constraints=Set.singleton cons; name=var_init; kind=kind}
-        let env_ty = Map.add var_init (TyVar v') env_ty
+        let env_ty = Map.add var_init (tyvar v') env_ty
         let vars = v' :: vars
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
@@ -1749,22 +1791,22 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let ins_vars, env_ty =
                 List.mapFold (fun s (((r,_),_) & x,k) ->
                     let v = {typevar_to_var scope Map.empty x with kind = k}
-                    let x = TyVar v
+                    let x = tyvar v
                     hover_types.Add(r,(x,""))
                     x, Map.add v.name x s
                     ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
-            let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
+            let ins_constraints = ins_vars |> List.map (visit_t >> function TyVar (x,_) -> x.constraints | _ -> failwith "impossible")
             let ins_core, _ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyNominal ins_id,ins_kind') ins_vars
             let env_ty, prot_body =
                 match foralls_ty_get prototype.signature with
                 | (prot_core :: prot_foralls), prot_body ->
                     List.fold (fun ty x ->
                         assert_instance_forall_does_not_shadow_prototype_forall x.name
-                        Map.add x.name (TyVar x) ty) env_ty prot_foralls,
+                        Map.add x.name (tyvar x) ty) env_ty prot_foralls,
                     let prot_body = subst [prot_core, ins_core] prot_body
                     let _ =
                         List.foldBack (fun x s -> TyForall(x,s)) prot_foralls prot_body
-                        |> List.foldBack (fun x s -> match x with TyVar x -> TyForall(x,s) | _ -> failwith "impossible") ins_vars
+                        |> List.foldBack (fun x s -> match visit_t x with TyVar(x,_) -> TyForall(x,s) | _ -> failwith "impossible") ins_vars
                         |> fun x -> generalized_statements.Add(body,x)
                     prot_body
                 | _ -> failwith "impossible"
@@ -1820,11 +1862,11 @@ let base_types (default_env : Startup.DefaultEnv) =
     "string", TyPrim StringT
     "bool", TyPrim BoolT
     "char", TyPrim CharT
-    "array_base", inl (fun x -> TyArray(TyVar x))
-    "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
-    "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
-    "fptr", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Pointer))
-    "closure", inl2 (fun x y -> TyFun(TyVar x,TyVar y,FT_Closure))
+    "array_base", inl (fun x -> TyArray(tyvar x))
+    "heap", inl (fun x -> TyLayout(tyvar x,Layout.Heap))
+    "mut", inl (fun x -> TyLayout(tyvar x,Layout.HeapMutable))
+    "fptr", inl2 (fun x y -> TyFun(tyvar x,tyvar y,FT_Pointer))
+    "closure", inl2 (fun x y -> TyFun(tyvar x,tyvar y,FT_Closure))
     "int", TyPrim default_env.default_int
     "uint", TyPrim default_env.default_uint
     "float", TyPrim default_env.default_float
