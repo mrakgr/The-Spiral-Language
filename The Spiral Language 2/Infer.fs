@@ -812,10 +812,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars = l |> List.map (fun a -> fresh_subst_var scope a.constraints a.kind)
         vars, subst (List.zip l vars) body
 
-    let exists_subst_pattern scope names (l,body) =
-        let vars = (names, l) ||> List.map2 (fun (_,name) l -> tyvar {l with scope=scope; name=name})
-        vars, subst (List.zip l vars) body
-
     let assert_exists_hasnt_metavars r vars =
         if List.exists has_metavars vars then errors.Add(r, ExistsShouldntHaveMetavars vars)
 
@@ -1541,9 +1537,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyExists(type_var_list,type_body) ->
                     if l.Length = type_var_list.Length then
                         scope <- scope + 1
-                        let vars, s = exists_subst_pattern scope l (type_var_list, type_body)
-                        List.iter2 (fun (_,x) v -> try ty_vars.Add(x, v) with :? System.ArgumentException -> ()) l vars // The duplicate checking should be taken care of during parsing in `patterns_validate`.
-                        loop s p
+                        let vars = (l, type_var_list) ||> List.map2 (fun (_,name) l -> 
+                            Utils.memoize ty_vars (fun name -> tyvar {l with scope=scope; name=name}) name
+                            )
+                        loop (subst (List.zip type_var_list vars) type_body) p
                     else
                        errors.Add(r, UnexpectedNumberOfArgumentsInExistsPattern(l.Length,type_var_list.Length))
                 | s -> errors.Add(r, ExpectedExistentialInPattern s)
