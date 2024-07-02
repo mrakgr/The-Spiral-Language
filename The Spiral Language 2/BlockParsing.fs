@@ -691,12 +691,13 @@ let patterns_validate pats =
                 ) Set.empty x
         | PatExists(r,l,p) ->
             if is_type then
-                List.fold (fun s (r,x) ->
-                    pos.Add(x,r)
-                    Set.add x s
-                    ) Set.empty l
+                let s = List.fold (fun s (r,x) -> pos.Add(x,r); Set.add x s) Set.empty l
+                let x = loop p
+                let inters = Set.intersect s x
+                if Set.isEmpty inters = false then inters |> Set.iter (fun x -> errors.Add(pos.[x], duplicate_var()))
+                s + x
             else 
-                Set.empty
+                loop p
         | PatVar(r,x) -> 
             if is_type then
                 Set.empty

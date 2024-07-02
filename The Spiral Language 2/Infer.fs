@@ -541,6 +541,8 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
+    | IncorrectRecursiveUnion -> "The non-recursive unions should not use their own type in the clause."
+    | IncorrectGADTConstructorType -> "The GADT case in the union has to result in an instance of the union being constructed. Any type other than the self being in the range of the union is not allowed."
     | ExistsShouldntHaveMetavars a -> sprintf "The variables of the exists body shouldn't have metavariables left over in them.\nGot: [%s]"  (List.map f a |> String.concat ", ")
     | ExpectedExistentialInPattern a -> sprintf "The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | UnexpectedNumberOfArgumentsInExistsPattern(got,exp) -> sprintf "The number of arguments in the existential pattern doesn't match the one in the type.\nGot: %i\nExpected: %i" got exp
@@ -1456,7 +1458,16 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern (scope : Scope) (env : Env) s a : T option ref ResizeArray * (Scope * Env) = 
         let gadt_links = ResizeArray()
-        let is_first = System.Collections.Generic.HashSet() // This is here so the variables already in the env aren't being unified with new pattern vars.
+        //let is_first = System.Collections.Generic.HashSet() // This is here so the variables already in the env aren't being unified with new pattern vars.
+        let term_vars = Dictionary(HashIdentity.Structural)
+        let ty_vars = Dictionary(HashIdentity.Structural)
+        let mutable scope = scope
+        let update_env () =
+            scope, 
+            {env with
+                ty = (env.ty,ty_vars) ||> Seq.fold (fun s x -> Map.add x.Key x.Value s)
+                term = (env.term,term_vars) ||> Seq.fold (fun s x -> Map.add x.Key x.Value s)
+                }
         let ho_make (i : GlobalId) (l : Var list) =
             let h = TyNominal i
             let l' = List.map (fun (x : Var) -> x, fresh_subst_var scope x.constraints x.kind) l
@@ -1468,30 +1479,34 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let rec ho_fun = function
             | TyFun(_,a,_) | TyForall(_,a) -> ho_fun a
             | a -> ho_index a
-        let rec loop (scope : Scope, env : Env) s x =
-            let f = loop (scope, env)
+        let rec loop s x : unit =
+            let f = loop
             match x with
             | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear during inference."
-            | PatB r -> unify r s TyB; scope, env
-            | PatE r -> hover_types.Add(r,(s,"")); scope, env
+            | PatB r -> unify r s TyB
+            | PatE r -> hover_types.Add(r,(s,""))
             | PatVar(r,a) ->
                 hover_types.Add(r,(s,""))
-                if is_first.Add a then scope, {env with term=Map.add a s env.term}
-                else unify r s env.term.[a]; scope, env
+                match term_vars.TryGetValue(a) with
+                | true, v -> unify r s v
+                | _ -> term_vars.Add(a,s)
             | PatDyn(_,a) -> f s a
             | PatAnnot(_,a,b) -> ty scope env s b; f s a
-            | PatWhen(_,a,b) -> let scope, env = f s a in term scope env (TyPrim BoolT) b; scope, env
+            | PatWhen(_,a,b) -> 
+                f s a
+                let scope,env = update_env()
+                term scope env (TyPrim BoolT) b
             | PatPair(r,a,b) ->
                 let q,w = fresh_var scope, fresh_var scope
                 unify r s (TyPair(q,w))
-                loop (loop (scope, env) q a) w b
-            | PatSymbol(r,a) -> unify r s (TySymbol a); scope, env
-            | PatOr(_,a,b) | PatAnd(_,a,b) -> loop (loop (scope, env) s a) s b
-            | PatValue(r,a) -> unify r s (lit a); scope, env
+                loop q a; loop w b
+            | PatSymbol(r,a) -> unify r s (TySymbol a)
+            | PatOr(_,a,b) | PatAnd(_,a,b) -> loop s a; loop s b
+            | PatValue(r,a) -> unify r s (lit a)
             | PatDefaultValue(r,_) -> 
                 hover_types.Add(r,(s,""))
                 annotations.Add(x,(r,s))
-                unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType); scope, env
+                unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
             | PatRecordMembers(r,l) ->
                 let l =
                     List.choose (function
@@ -1511,27 +1526,27 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             | None -> (fresh_var scope,b), a :: missing
                             ) l []
                     if List.isEmpty missing = false then errors.Add(r, MissingRecordFieldsInPattern(s, missing))
-                    List.fold (fun env (a,b) -> loop env a b) (scope, env) l
+                    List.iter (fun (a,b) -> loop a b) l
                 | s ->
-                    let l, env =
-                        List.mapFold (fun env (a,b) -> 
+                    let l =
+                        List.map (fun (a,b) -> 
                             let v = fresh_var scope
-                            (a, v), loop env v b
-                            ) (scope, env) l
+                            loop v b
+                            a, v
+                            ) l
                     unify r s (l |> Map |> TyRecord)
-                    env
             | PatExists(r,l,p) ->
                 l |> List.iter (fun (r,name) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedExists))
                 match visit_t s with
-                | TyExists(type_vars,type_body) ->
-                    if l.Length = type_vars.Length then
-                        let scope = scope + 1
-                        let vars, s = exists_subst_pattern scope l (type_vars, type_body)
-                        let env = {env with ty = List.fold2 (fun s (_,x) v -> Map.add x v s) env.ty l vars}
-                        loop (scope, env) s p
+                | TyExists(type_var_list,type_body) ->
+                    if l.Length = type_var_list.Length then
+                        scope <- scope + 1
+                        let vars, s = exists_subst_pattern scope l (type_var_list, type_body)
+                        List.iter2 (fun (_,x) v -> try ty_vars.Add(x, v) with :? System.ArgumentException -> ()) l vars // The duplicate checking should be taken care of during parsing in `patterns_validate`.
+                        loop s p
                     else
-                       errors.Add(r, UnexpectedNumberOfArgumentsInExistsPattern(l.Length,type_vars.Length)); scope, env 
-                | s -> errors.Add(r, ExpectedExistentialInPattern s); scope, env
+                       errors.Add(r, UnexpectedNumberOfArgumentsInExistsPattern(l.Length,type_var_list.Length))
+                | s -> errors.Add(r, ExpectedExistentialInPattern s)
             | PatUnbox(r,name,a) ->
                 let assume i =
                     let n = top_env.nominals.[i]
@@ -1547,9 +1562,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             else
                                 let scope,forall_vars,body,specialized_constructor = gadt_extract scope v
                                 // typecase s with specialiazed_constructor => ...
-                                let scope,env = loop (scope,env) body a
+                                loop body a
                                 unify_gadt (Some gadt_links) r s specialized_constructor
-                                scope,env
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
                 match term_subst s |> ho_index with
@@ -1586,8 +1600,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | PatArray(r,a) ->
                 let v = fresh_var scope
                 unify r s (TyArray v)
-                List.fold (fun (scope,env) x -> loop (scope, env) v x) (scope,env) a
-        gadt_links, loop (scope,env) s a
+                List.iter (fun x -> loop v x) a
+        gadt_links, update_env()
 
     let nominal_term global_id tt name vars v =
         let constructor body =
