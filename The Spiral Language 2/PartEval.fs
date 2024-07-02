@@ -1364,10 +1364,21 @@ let peval (env : TopEnv) (x : E) =
             push_op_no_rewrite' s PragmaUnrollPop [] YB
         | EOp(_,BackendSwitch,l) ->
             let rec loop = function
-                | EPair(r,ELit(_,LitString backend),b) :: xs -> if backend = s.backend.node then term s b else loop xs
+                | EPair(_,ELit(_,LitString backend),b) :: xs -> if backend = s.backend.node then term s b else loop xs
                 | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
                 | [] -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
-            loop l |> dyn true s
+            let x = loop l |> dyn true s
+            let rec loop = function
+                | EPair(_,ELit(_,LitString backend),b) :: xs -> 
+                    if backend <> s.backend.node then 
+                        let t = data_to_ty s x
+                        let _,t' = term_scope s b 
+                        if t = t' then raise_type_error s $"The backend switch needs to have the same type for all of its branches.\nGot: {show_ty t'}\nExpected: {show_ty t}"
+                        loop xs
+                | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
+                | [] -> ()
+            loop l
+            x
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'
             let b = term s b |> data_term_vars'

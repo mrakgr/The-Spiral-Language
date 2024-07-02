@@ -92,7 +92,6 @@ type TypeError =
     | ExpectedSymbol' of T
     | ExpectedSymbolInRecordWith of T
     | RealFunctionInTopDown
-    | BackendSwitchInTopDownSegment
     | ModuleMustBeImmediatelyApplied
     | MissingRecordFieldsInPattern of T * string list
     | CasePatternNotFoundForType of GlobalId * string
@@ -122,7 +121,6 @@ type TypeError =
     | InstanceVarShouldNotMatchAnyOfPrototypes
     | MissingBody
     | MacroIsMissingAnnotation
-    | BackendSwitchIsMissingAnnotation
     | ArrayIsMissingAnnotation
     | ExistsIsMissingAnnotation
     | ShadowedForall
@@ -299,9 +297,6 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm constraints (term, ty) e
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
-            
-        | RawAnnot(_,RawOp(_,BackendSwitch,l),b) -> List.iter (cterm constraints (term, ty)) l; ctype constraints term ty b
-        | RawOp(r,BackendSwitch,l) -> errors.Add(r,BackendSwitchIsMissingAnnotation); List.iter (cterm constraints (term, ty)) l
         | RawOp(_,_,l) -> List.iter (cterm constraints (term, ty)) l
         | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints (term, ty) x
         | RawExists(_,a,b) -> Option.iter (List.iter (ctype constraints term ty)) a; cterm constraints (term, ty) b
@@ -546,7 +541,6 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
-    | BackendSwitchIsMissingAnnotation -> "The backend switch is missing an annotation."
     | ExistsShouldntHaveMetavars a -> sprintf "The variables of the exists body shouldn't have metavariables left over in them.\nGot: [%s]"  (List.map f a |> String.concat ", ")
     | ExpectedExistentialInPattern a -> sprintf "The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | UnexpectedNumberOfArgumentsInExistsPattern(got,exp) -> sprintf "The number of arguments in the existential pattern doesn't match the one in the type.\nGot: %i\nExpected: %i" got exp
@@ -575,7 +569,6 @@ let show_type_error (env : TopEnv) x =
     | ExpectedModule a -> sprintf "Expected a module.\nGot: %s" (f a)
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment. They can only be used in `real` expressions or .spir modules."
-    | BackendSwitchInTopDownSegment -> sprintf "BackendSwitch needs to be used in the real segment. It isn't allowed in the top down one."
     | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
     | CasePatternNotFoundForType(i,n) -> sprintf "%s does not have the %s case." (show_nominal env i) n
     | CasePatternNotFound n -> sprintf "Cannot find a function with the same name as the %s case in the environment." n
@@ -897,8 +890,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             loop [] x
         let forall_vars,v = forall_subst_all_gadt v
         match v with
-        | TyFun(a,b,_) -> scope,a,b
-        | b -> scope,TyB,b
+        | TyFun(a,b,_) -> scope,forall_vars,a,b
+        | b -> scope,forall_vars,TyB,b
 
     let inline unify_kind' er r got expected =
         let rec loop (a'',b'') =
@@ -1101,7 +1094,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             f q a; f w b
         | RawSeq(_,a,b) -> f TyB a; f s b
         | RawReal(_,a) -> assert_bound_vars env a
-        | RawOp(r,BackendSwitch,_) -> errors.Add(r,BackendSwitchInTopDownSegment)
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
         | RawJoinPoint(r,None,a,_) -> annotations.Add(x,(r,s)); f s a
         | RawJoinPoint(r,Some _,a,_) -> 
@@ -1529,6 +1521,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     unify r s (l |> Map |> TyRecord)
                     env
             | PatExists(r,l,p) ->
+                l |> List.iter (fun (r,name) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedExists))
                 match visit_t s with
                 | TyExists(type_vars,type_body) ->
                     if l.Length = type_vars.Length then
@@ -1552,7 +1545,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             if is_gadt then 
                                 f (subst m v) a 
                             else
-                                let scope,(body : T),(specialized_constructor : T) = gadt_extract scope v
+                                let scope,forall_vars,body,specialized_constructor = gadt_extract scope v
+                                // typecase s with specialiazed_constructor => ...
                                 let scope,env = loop (scope,env) body a
                                 unify_gadt (Some gadt_links) r s specialized_constructor
                                 scope,env
