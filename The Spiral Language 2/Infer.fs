@@ -834,7 +834,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
                     else Set.remove v.name a
                     ) (f a) v
-            | TyForall(v,a) -> 
+            | TyForall(v,a) ->
                 let a = f a
                 if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
                 else Set.remove v.name a
@@ -1643,6 +1643,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let v = term_subst v
             match v with // Validates the union type.
             | TyUnion(a,b) ->
+                // Stack union types must not be recursive.
+                // Unlike in the previous version of Spiral which simply didn't put the union type in the environment
+                // this one has to do it becaus the GADT constructors need access to it.
                 let rec assert_union_non_recursive v =
                     let f = assert_union_non_recursive
                     match visit_t v with
@@ -1656,6 +1659,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
                     | TyModule _ -> ()
 
+                // Makes sure that the GADT constructor is resulting in its own type.
                 let rec assert_gadt_has_proper_specialized_constructor = function
                     | TyNominal global_id' as a -> if global_id <> global_id' then errors.Add(range_of_texpr body, IncorrectGADTConstructorType)
                     | TyApply(a,_,_) -> assert_gadt_has_proper_specialized_constructor a
@@ -1666,10 +1670,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         | TyForall(_,t) -> find_gadt_constructor t
                         | TyFun(a,b,_) -> 
                             if is_stack then assert_union_non_recursive a
-                            if is_gadt then assert_gadt_has_proper_specialized_constructor b
+                            if is_gadt then 
+                                assert_gadt_has_proper_specialized_constructor b
+                                assert_foralls_used (range_of_texpr body) b
                         | b -> 
-                            if is_gadt then assert_gadt_has_proper_specialized_constructor b
-                    find_gadt_constructor v
+                            if is_gadt then 
+                                assert_gadt_has_proper_specialized_constructor b
+                                assert_foralls_used (range_of_texpr body) b
+                    if is_stack || is_gadt then
+                        find_gadt_constructor v
 
                 a |> Map.iter (fun _ (is_gadt, v) -> 
                     assert_union_is_valid (b = UStack) is_gadt v
