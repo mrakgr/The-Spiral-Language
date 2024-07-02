@@ -1698,8 +1698,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         else pfail, AInclude top_env_empty
     | BundleNominal(q,(r,name),vars',expr) ->
         let x = bundle_nominal_rec [q,(r,name),vars',expr]
-        // Check GADT cases.
-        // Assert the types aren't used recursively.
         if 0 = errors.Count then psucc (fun () -> FNominal(q,(r,name),vars',expr)), AInclude x
         else pfail, AInclude top_env_empty
     | BundleNominalRec l ->
@@ -1711,7 +1709,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | _ -> ()
                 )
         let x = bundle_nominal_rec l
-        // Check GADT cases.
         if 0 = errors.Count then psucc (fun () -> FNominalRec l), AInclude x
         else pfail, AInclude top_env_empty
     | BundlePrototype(com,r,(r',name),(w,var_init),vars',expr) ->
