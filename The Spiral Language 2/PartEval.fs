@@ -1363,22 +1363,26 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,PragmaUnrollPop,[]) -> 
             push_op_no_rewrite' s PragmaUnrollPop [] YB
         | EOp(_,BackendSwitch,l) ->
-            let rec loop = function
-                | EPair(_,ELit(_,LitString backend),b) :: xs -> if backend = s.backend.node then term s b else loop xs
-                | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
-                | [] -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
-            let x = loop l |> dyn true s
-            let rec loop = function
-                | EPair(_,ELit(_,LitString backend),b) :: xs -> 
-                    if backend <> s.backend.node then 
-                        let t = data_to_ty s x
-                        let _,t' = term_scope s b 
-                        if t = t' then raise_type_error s $"The backend switch needs to have the same type for all of its branches.\nGot: {show_ty t'}\nExpected: {show_ty t}"
-                        loop xs
-                | _ :: xs -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
-                | [] -> ()
-            loop l
-            x
+            let mutable t = None
+            let mutable d = None
+            let validate_type t' =
+                match t with
+                | Some t -> if t <> t' then raise_type_error s $"The backend switch needs to have the same type for all of its branches.\nGot: {show_ty t'}\nExpected: {show_ty t}"
+                | None -> t <- Some t'
+            l |> List.iter (function
+                | EPair(_,ELit(_,LitString backend),b) -> 
+                    if backend = s.backend.node then 
+                        let d' = term s b
+                        validate_type (data_to_ty s d')
+                        d <- Some d'
+                    else
+                        let _,t' = term_scope s b
+                        validate_type t'
+                | _ -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
+                )
+            match d with
+            | Some cur -> cur
+            | None -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'
             let b = term s b |> data_term_vars'

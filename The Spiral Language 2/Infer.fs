@@ -1459,7 +1459,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let ty_vars = Dictionary(HashIdentity.Structural)
         let mutable scope = scope
         let update_env () =
-            scope, 
+            scope,
             {env with
                 ty = (env.ty,ty_vars) ||> Seq.fold (fun s x -> Map.add x.Key x.Value s)
                 term = (env.term,term_vars) ||> Seq.fold (fun s x -> Map.add x.Key x.Value s)
