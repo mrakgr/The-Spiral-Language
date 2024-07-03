@@ -683,7 +683,7 @@ let peval (env : TopEnv) (x : E) =
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(a,b,t) -> YFun(ty s a, ty s b,t)
         | TModule a | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
-        | TUnion(_,(a,b)) -> 
+        | TUnion(_,(a,b)) ->
             let tags = Dictionary()
             let tag_cases = Array.zeroCreate (Map.count a)
             let mutable is_degenerate = true

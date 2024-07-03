@@ -681,6 +681,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let fill r rec_term expr =
         assert (0 = errors.Count)
         let t_to_rawtexpr r vars_to_metavars expr =
+            // TODO: Should we be removing the vars from the list?
             let rec f x = 
                 match visit_t x with
                 | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
@@ -1661,7 +1662,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env.ty l
         List.fold (fun top_env (global_id,(r,name),vars,env_ty',tt,body) ->
             let v = fresh_var scope
-            ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
+            // TODO: Not correct. The GADT cases have to be taken care of without the top level hovars being inserted into the dict.
+            ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body
             let v = term_subst v
             match v with // Validates the union type.
             | TyUnion(a,b) ->
