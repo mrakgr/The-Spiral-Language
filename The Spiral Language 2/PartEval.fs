@@ -1381,7 +1381,7 @@ let peval (env : TopEnv) (x : E) =
                 | _ -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
                 )
             match d with
-            | Some cur -> cur
+            | Some cur -> cur |> dyn true s
             | None -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'

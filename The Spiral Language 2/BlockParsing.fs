@@ -434,6 +434,14 @@ let range_of_texpr = function
     | RawTExists(r,_,_)
     | RawTForall(r,_,_) -> r
 
+let rec range_of_texpr_gadt_constructor = function
+    | RawTForall(_,_,x) -> range_of_texpr_gadt_constructor x
+    | RawTFun(_,x,_,_) | x -> range_of_texpr x
+
+let rec range_of_texpr_gadt_body = function
+    | RawTForall(_,_,x) -> range_of_texpr_gadt_body x
+    | RawTFun(_,_,x,_) | x -> range_of_texpr x
+
 type VectorCord = {|row : int; col : int|}
 type Env = {
     semantic_updates : (VectorCord * SemanticTokenLegend) ResizeArray

@@ -94,7 +94,7 @@ and [<ReferenceEquality>] T =
     | TFun of T * T * BlockParsing.FunType
     | TRecord of Range * Map<string,T>
     | TModule of Map<string,T>
-    | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
+    | TUnion of Range * (Map<string,bool * T> * BlockParsing.UnionLayout)
     | TSymbol of Range * string
     | TApply of Range * T * T
     | TPrim of Startup.PrimitiveType
@@ -192,7 +192,7 @@ module Printable =
         | TFunPtr of PT * PT
         | TRecord of Map<string,PT>
         | TModule of Map<string,PT>
-        | TUnion of Map<string,PT> * BlockParsing.UnionLayout
+        | TUnion of Map<string,bool * PT> * BlockParsing.UnionLayout
         | TSymbol of string
         | TApply of PT * PT
         | TPrim of Startup.PrimitiveType
@@ -305,7 +305,7 @@ module Printable =
             | T.TFun(a,b,t) -> TFun(ty a,ty b,t)
             | T.TRecord(_,a) -> TRecord(Map.map (fun _ -> ty) a)
             | T.TModule a -> TModule(Map.map (fun _ -> ty) a)
-            | T.TUnion(_,(a,b)) -> TUnion(Map.map (fun _ -> ty) a,b)
+            | T.TUnion(_,(a,b)) -> TUnion(Map.map (fun _ (is_gadt, x) -> is_gadt, ty x) a,b)
             | T.TSymbol(_,a) -> TSymbol a
             | T.TApply(_,a,b) -> TApply(ty a, ty b)
             | T.TPrim a -> TPrim a
@@ -456,7 +456,8 @@ let propagate x =
         | TV i -> singleton_ty i
         | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
         | TApply(_,a,b) | TPair(_,a,b) | TFun(a,b,_) -> ty a + ty b
-        | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
+        | TUnion(_,(a,_)) -> Map.fold (fun s k (_,v) -> s + ty v) empty a
+        | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
         | TArrow(i,a) as x -> scope x (ty a -. i)
@@ -553,7 +554,8 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | TPatternRef a -> f !a
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(a,b,_) | TPair(_,a,b) -> f a; f b
-        | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
+        | TUnion(_,(a,_)) -> Map.iter (fun _ (_,x) -> f x) a
+        | TRecord(_,a) | TModule a -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMLitType a | TMType a -> f a)
         | TJoinPoint(_,a) | TLayout(a,_) | TArray(a) -> f a
@@ -765,7 +767,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TFun(a,b,t) -> TFun(f a,f b,t)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
         | TModule a -> TModule(Map.map (fun _ -> f) a)
-        | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ -> f) a,b))
+        | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ (is_gadt,x) -> is_gadt,f x) a,b))
         | TApply(r,a,b) -> TApply(r,f a,f b)
         | TTerm(r,a) -> TTerm(r,term env_rec env a)
         | TMacro(r,a) ->
@@ -961,7 +963,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTFun(r,a,b,t) -> TFun(f a,f b,t)
         | RawTExists(r,l,b) -> TExists
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
-        | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
+        | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ (is_gadt,x) -> is_gadt,f x) a,b))
         | RawTSymbol(r,a) -> TSymbol(p r,a)
         | RawTApply(r,a,b) ->
             match f a, f b with
@@ -973,7 +975,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTPrim(r,a) -> TPrim(a)
         | RawTTerm(r,a) -> TTerm(p r,term env a)
         | RawTMacro(r,l) -> 
-            let f = function 
+            let f = function
                 | RawMacroText(r,a) -> TMText a
                 | RawMacroType(r,a) -> TMType(f a)
                 | RawMacroTypeLit(r,a) -> TMLitType(f a)
@@ -1081,12 +1083,15 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
         match body with
         | RawTUnion(_,l,_) -> 
-            Map.fold (fun term name body ->
-                let body =
-                    match body with
-                    | RawTB _ -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t)
-                    | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(bodyt,t,FT_Vanilla)))
-                Map.add name (wrap_foralls i body) term
+            Map.fold (fun term name (is_gadt,body) ->
+                if is_gadt then
+                    
+                else
+                    let body =
+                        match body with
+                        | RawTB _ -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t)
+                        | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(bodyt,t,FT_Vanilla)))
+                    Map.add name (wrap_foralls i body) term
                 ) term l
         | _ ->
             let body =

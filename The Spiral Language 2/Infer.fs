@@ -672,6 +672,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let module_type_apply_args = Dictionary(HashIdentity.Reference)
     let annotations = Dictionary<obj,_>(HashIdentity.Reference)
     let exists_vars = Dictionary<obj,_>(HashIdentity.Reference)
+    let gadt_typecases = Dictionary<obj,_>(HashIdentity.Reference)
     let mutable autogened_forallvar_count = 0
     let hover_types = ResizeArray()
 
@@ -679,7 +680,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     /// Dealing with recursive statement type applies requires some special consideration.
     let fill r rec_term expr =
         assert (0 = errors.Count)
-        let t_to_rawtexpr r expr =
+        let t_to_rawtexpr r vars_to_metavars expr =
             let rec f x = 
                 match visit_t x with
                 | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
@@ -696,18 +697,25 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyNominal i -> RawTFilledNominal(r,i)
                 | TyUnion(a,b) -> RawTUnion(r,Map.map (fun _ (is_gadt,body) -> is_gadt, f body) a,b)
                 | TyApply(a,b,_) -> RawTApply(r,f a,f b)
-                | TyVar (a,_) -> RawTVar(r,a.name)
+                | TyVar (a,_) -> 
+                    let is_typecase_metavar = List.tryFind (function TyVar(b,_) -> a = b | _ -> failwith "Compiler error: Expected a TyVar.") vars_to_metavars |> Option.isSome
+                    if is_typecase_metavar then RawTMetaVar(r,a.name) else RawTVar(r,a.name)
                 | TyMacro l -> l |> List.map (function TMText x -> RawMacroText(r,x) | TMVar x -> RawMacroType(r,f x) | TMLitVar x -> RawMacroTypeLit(r,f x)) |> fun l -> RawTMacro(r,l)
                 | TyLayout(a,b) -> RawTLayout(r,f a,b)
             f expr
-        let annot r x = t_to_rawtexpr r (snd annotations.[x])
+        let fill_typecases x =
+            Seq.foldBack (fun (typecase_cond,forall_vars,typecase_constructor) typecase_body ->
+                let r = range_of_expr typecase_body
+                RawTypecase(r, t_to_rawtexpr r [] typecase_cond, [t_to_rawtexpr r forall_vars typecase_constructor, typecase_body])
+                ) gadt_typecases.[x] x
+        let annot r x = t_to_rawtexpr r [] (snd annotations.[x])
         let rec fill_foralls r rec_term body = 
             let _,body = foralls_get body
             let l,_ = foralls_ty_get generalized_statements.[body]
             List.foldBack (fun (x : Var) s -> RawFilledForall(r,x.name,s)) l (term rec_term body)
         and term rec_term x = 
             let f = term rec_term
-            let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
+            let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,fill_typecases (term rec_term b)) l
             match x with
             | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
             | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
@@ -718,16 +726,16 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     match Map.tryFind n rec_term with
                     | None -> fst type_apply_args
                     | Some t -> t |> snd type_apply_args
-                    |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
+                    |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r [] x))) x
                 | _ -> x
             | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
             | RawForall(r,a,b) -> RawForall(r,a,f b)
             | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
                 let _,body = foralls_get body
-                RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
+                RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), fill_typecases (term (Map.remove name rec_term) on_succ)])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
             | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
-            | RawExists(r,a,b) -> RawExists(r,Some(Option.defaultWith (fun () -> List.map (t_to_rawtexpr r) exists_vars.[x]) a),f b)
+            | RawExists(r,a,b) -> RawExists(r,Some(Option.defaultWith (fun () -> List.map (t_to_rawtexpr r []) exists_vars.[x]) a),f b)
             | RawRecBlock(r,l,on_succ) ->
                 let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
                 if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
@@ -753,7 +761,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawApply(r,a,b) ->
                 let q = RawApply(r,f a,f b)
                 match module_type_apply_args.TryGetValue(x) with
-                | true, typevars -> List.fold (fun a b -> RawApply(r,a,RawType(r,t_to_rawtexpr r b))) q typevars
+                | true, typevars -> List.fold (fun a b -> RawApply(r,a,RawType(r,t_to_rawtexpr r [] b))) q typevars
                 | _ -> q
             | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,f a,f b,f c)
             | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
@@ -1260,10 +1268,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyFun(q,w,FT_Vanilla))
             List.iter (fun (a,b) -> 
-                let gadt_links, gadt_typecases, (scope, env) = pattern scope env q a
+                let gadt_links, gadt_typecases' , (scope, env) = pattern scope env q a
                 term scope env w b
                 dispose_gadt_links gadt_links
-
+                gadt_typecases.Add(b,gadt_typecases')
                 ) l
         | RawForall _ -> failwith "Compiler error: Should be handled in let statements."
         | RawMatch(_,(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) -> term scope (inl scope env ((r, name), body)) s on_succ
@@ -1272,7 +1280,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let body_var = fresh_var scope
             f body_var body
             let l = List.map (fun (a,on_succ) -> pattern scope env body_var a, on_succ) l
-            List.iter (fun ((gadt_links,(scope,env)),on_succ) -> term scope env s on_succ; dispose_gadt_links gadt_links) l
+            List.iter (fun ((gadt_links,gadt_typecases',(scope,env)),on_succ) -> 
+                term scope env s on_succ
+                dispose_gadt_links gadt_links
+                gadt_typecases.Add(on_succ,gadt_typecases')
+                ) l
         | RawMissingBody r -> errors.Add(r,MissingBody)
         | RawMacro(r,a) ->
             annotations.Add(x,(r,s))
@@ -1659,7 +1671,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let rec assert_union_non_recursive v =
                     let f = assert_union_non_recursive
                     match visit_t v with
-                    | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr body, IncorrectRecursiveUnion)
+                    | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr_gadt_body body, IncorrectRecursiveUnion)
                     | TyMetavar _ | TyVar _ -> ()
                     | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
                     | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
@@ -1671,22 +1683,22 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
                 // Makes sure that the GADT constructor is resulting in its own type.
                 let rec assert_gadt_has_proper_specialized_constructor = function
-                    | TyNominal global_id' as a -> if global_id <> global_id' then errors.Add(range_of_texpr body, IncorrectGADTConstructorType)
+                    | TyNominal global_id' -> if global_id <> global_id' then errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
                     | TyApply(a,_,_) -> assert_gadt_has_proper_specialized_constructor a
-                    | a -> errors.Add(range_of_texpr body, IncorrectGADTConstructorType)
+                    | _ -> errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
 
                 let assert_union_is_valid is_stack is_gadt v =
                     let rec find_gadt_constructor = function
                         | TyForall(_,t) -> find_gadt_constructor t
                         | TyFun(a,b,_) -> 
                             if is_stack then assert_union_non_recursive a
-                            if is_gadt then 
+                            if is_gadt then
                                 assert_gadt_has_proper_specialized_constructor b
-                                assert_foralls_used (range_of_texpr body) b
-                        | b -> 
-                            if is_gadt then 
+                                assert_foralls_used (range_of_texpr_gadt_constructor body) b
+                        | b ->
+                            if is_gadt then
                                 assert_gadt_has_proper_specialized_constructor b
-                                assert_foralls_used (range_of_texpr body) b
+                                assert_foralls_used (range_of_texpr_gadt_constructor body) b
                     if is_stack || is_gadt then
                         find_gadt_constructor v
 
