@@ -79,8 +79,9 @@ and [<ReferenceEquality>] E =
     | ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
     | EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
     | ETypecase of Range * T * (T * E) list
-
 and [<ReferenceEquality>] T =
+    | TForall' of Range * Scope * Id * T
+    | TForall of Range * Id * T
     | TArrow' of Scope * Id * T
     | TArrow of Id * T
     | TExists
@@ -178,6 +179,8 @@ module Printable =
         | ETypecase of PT * (PT * PE) list
         | EOmmitedRecursive
     and [<ReferenceEquality>] PT =
+        | TForall' of Scope * Id * PT
+        | TForall of Id * PT
         | TArrow' of Scope * Id * PT
         | TArrow of Id * PT
         | TExists
@@ -292,6 +295,8 @@ module Printable =
             | E.EDefaultLitTest(_,a,b,c,d,e) -> EDefaultLitTest(a,ty b,c,term d,term e)
         and ty = function
             | T.TPatternRef a -> ty !a
+            | T.TForall'(_,a,b,c) -> TForall'(a,b,ty c)
+            | T.TForall(_,a,b) -> TForall(a,ty b)
             | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
             | T.TArrow(a,b) -> TArrow(a,ty b)
             | T.TExists -> TExists
@@ -451,7 +456,7 @@ let propagate x =
                 s + a + b
                 ) (ty a) b
     and ty = function
-        | TExists | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
+        | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
         | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
         | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
@@ -460,7 +465,7 @@ let propagate x =
         | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
-        | TArrow(i,a) as x -> scope x (ty a -. i)
+        | TForall(_,i,a) | TArrow(i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(a) | TLayout(a,_) -> ty a
     
@@ -550,8 +555,9 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TExists | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
+        | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
         | TPatternRef a -> f !a
+        | TForall(_,_,a)
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(a,b,_) | TPair(_,a,b) -> f a; f b
         | TUnion(_,(a,_)) -> Map.iter (fun _ (_,x) -> f x) a
@@ -753,11 +759,15 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty' case_tmetav env_rec env
         match x with
         | TMetaV i -> case_tmetav i
-        | TExists | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
+        | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
         | TPatternRef a -> f !a
         | TJoinPoint(r,a) as x ->
             let scope, env = scope env x
             TJoinPoint'(r,scope,ty env_rec env a)
+        | TForall(r,a,b) as x ->  
+            let scope, env = scope env x
+            let a, env = adj_ty env a
+            TForall'(r,scope,a,ty env_rec env b)
         | TArrow(a,b) as x ->  
             let scope, env = scope env x
             let a, env = adj_ty env a
@@ -955,7 +965,9 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         match x with
         | RawTMetaVar(_,name) -> case_metavar (Some name)
         | RawTWildcard _ -> case_metavar None
-        | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
+        | RawTForall(r,a,b) ->
+            let id, env = add_ty_var env (typevar_name a)
+            TForall(p r,id,ty env b)
         | RawTB r -> TB (p r)
         | RawTLit (r, x) -> TLit(p r,x)
         | RawTVar(r,a) -> v_ty env a
@@ -1089,7 +1101,12 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     | TUnion(_,(l,_)) -> snd l.[name]
                     | _ -> failwith "Compiler error: Expected TUnion in the bodyt."
                 if is_gadt then
-                    failwith "TODO"
+                    let rec loop = function
+                        | TForall _ -> failwith "Compiler error: Expected the forall to be processed."
+                        | TForall'(r,scope,id,body) -> EForall'(r,scope,id,loop body)
+                        | TFun(bodyt,t,fun_ty) -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(bodyt,t,fun_ty))) |> process_term
+                        | t -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t) |> process_term
+                    Map.add name (loop bodyt) term
                 else
                     let body =
                         match body with
@@ -1160,7 +1177,8 @@ let top_env_default default_env =
     let convert_infer_to_prepass x = 
         let m = Dictionary(HashIdentity.Reference)
         let rec f = function
-            | TyVar x -> TV m.[x.name] 
+            | TyVar (_,{contents=Some x}) -> f x
+            | TyVar (x,_) -> TV m.[x.name] 
             | TyPrim x -> TPrim x
             | TyArray x -> TArray (f x)
             | TyLayout(a,b) -> TLayout(f a,b)

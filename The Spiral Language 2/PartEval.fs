@@ -642,7 +642,8 @@ let peval (env : TopEnv) (x : E) =
     and ty s x =
         match x with
         | TPatternRef _ -> failwith "Compiler error: TPatternRef should have been eliminated during the prepass."
-        | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TForall _ | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TForall' _ -> raise_type_error s "Type level foralls are not allowed in the partial evaluation pass."
         | TMetaV i -> YMetavar i
         | TArrow'(scope,i,body) -> 
             assert (i = scope.ty.free_vars.Length)
