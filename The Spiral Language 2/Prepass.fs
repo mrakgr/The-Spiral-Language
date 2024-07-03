@@ -1084,8 +1084,12 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         match body with
         | RawTUnion(_,l,_) -> 
             Map.fold (fun term name (is_gadt,body) ->
+                let bodyt =
+                    match bodyt with
+                    | TUnion(_,(l,_)) -> snd l.[name]
+                    | _ -> failwith "Compiler error: Expected TUnion in the bodyt."
                 if is_gadt then
-                    
+                    failwith "TODO"
                 else
                     let body =
                         match body with

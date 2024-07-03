@@ -1,3 +1,15 @@
+2.12.0 (WIP)
+
+Added GADTs to the language.
+
+* Fixed the bug where the union constructor was given the wrong annotation in the prepass.
+* Fixed the crash bug related to the exists term level optional type arguments in the inferencer.
+* Changed how BackendSwitch works in the partial evaluator to fix it being unsound and removed the top down restrictions.
+* Fixed `pattern` being called incorrectly in a few places instead of `loop` in the inference module.
+* Fixed the shadowing of existential variables in the pattern inferencer.
+* Made sure the existential type variables are being reused between the or patterns.
+* Fixed the pattern validator in parsing not recursing on existential patterns.
+
 2.11.4 (6/24/2024)
 
 * Changed `long` to `int` in the Cuda backend as longs are 8 byte on some systems.
