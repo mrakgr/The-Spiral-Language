@@ -80,6 +80,7 @@ type TypeError =
     | ExpectedExistentialInTerm of T
     | ExpectedExistentialInPattern of T
     | UnexpectedNumberOfArgumentsInExistsPattern of got: int * expected: int
+    | UnexpectedNumberOfArgumentsInExistsBody of got: int * expected: int
     | ExistsShouldntHaveMetavars of T list
     | ExpectedRecordInsideALayout of T
     | UnionsCannotBeApplied
@@ -546,6 +547,7 @@ let show_type_error (env : TopEnv) x =
     | ExistsShouldntHaveMetavars a -> sprintf "The variables of the exists body shouldn't have metavariables left over in them.\nGot: [%s]"  (List.map f a |> String.concat ", ")
     | ExpectedExistentialInPattern a -> sprintf "The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | UnexpectedNumberOfArgumentsInExistsPattern(got,exp) -> sprintf "The number of arguments in the existential pattern doesn't match the one in the type.\nGot: %i\nExpected: %i" got exp
+    | UnexpectedNumberOfArgumentsInExistsBody(got,exp) -> sprintf "The number of arguments in the existential body doesn't match the one in the type.\nGot: %i\nExpected: %i" got exp
     | ExpectedExistentialInTerm a -> sprintf "The body of `expects` need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | UnionsCannotBeApplied -> "Unions cannot be applied."
     | ExpectedNominalInApply a -> sprintf "Expected a nominal.\nGot: %s" (f a)
@@ -670,7 +672,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let module_type_apply_args = Dictionary(HashIdentity.Reference)
     let annotations = Dictionary<obj,_>(HashIdentity.Reference)
     let exists_vars = Dictionary<obj,_>(HashIdentity.Reference)
-    let type_ranges = Dictionary<T,VSCRange>(HashIdentity.Reference)
+    let mutable autogened_forallvar_count = 0
+    let hover_types = ResizeArray()
 
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
     /// Dealing with recursive statement type applies requires some special consideration.
@@ -790,10 +793,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         assert (0 = errors.Count)
         x
 
-    let mutable autogened_forallvar_count = 0
-
-    let hover_types = ResizeArray()
-
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
     let fresh_var' scope kind = fresh_var'' {scope=scope; constraints=Set.empty; kind=kind}
@@ -875,7 +874,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         x
 
     let gadt_extract scope (v : T) =
-        let scope = scope + 1
         let forall_subst_all_gadt x =
             let rec loop m x = 
                 match visit_t x with
@@ -888,8 +886,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             loop [] x
         let forall_vars,v = forall_subst_all_gadt v
         match v with
-        | TyFun(a,b,_) -> scope,forall_vars,a,b
-        | b -> scope,forall_vars,TyB,b
+        | TyFun(a,b,_) -> forall_vars,a,b
+        | b -> forall_vars,TyB,b
 
     let inline unify_kind' er r got expected =
         let rec loop (a'',b'') =
@@ -1248,7 +1246,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match visit_t s with
             | TyExists(type_vars,type_body) ->
                 let vars, s = exists_subst_term scope (type_vars,type_body)
-                Option.iter (List.iter2 (ty scope env) vars) l
+                l |> Option.iter (fun l ->
+                    let l1,l2 = vars.Length, l.Length
+                    if l1 = l2 then List.iter2 (ty scope env) vars l
+                    else errors.Add(range_of_expr x, UnexpectedNumberOfArgumentsInExistsBody(l1,l2))
+                    )
                 term scope env s body
                 assert_exists_hasnt_metavars (range_of_expr x) vars
                 exists_vars.Add(x,vars)
@@ -1258,9 +1260,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyFun(q,w,FT_Vanilla))
             List.iter (fun (a,b) -> 
-                let gadt_links, (scope, env) = pattern scope env q a
+                let gadt_links, gadt_typecases, (scope, env) = pattern scope env q a
                 term scope env w b
                 dispose_gadt_links gadt_links
+
                 ) l
         | RawForall _ -> failwith "Compiler error: Should be handled in let statements."
         | RawMatch(_,(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) -> term scope (inl scope env ((r, name), body)) s on_succ
@@ -1452,8 +1455,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             f v a
         | RawTFilledNominal _ -> failwith "Compiler error: RawTNominal should be filled in by the inferencer."
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
-    and pattern (scope : Scope) (env : Env) s a : T option ref ResizeArray * (Scope * Env) = 
+    and pattern (scope : Scope) (env : Env) s a : T option ref ResizeArray * (T * T list * T) ResizeArray * (Scope * Env) = 
         let gadt_links = ResizeArray()
+        let gadt_typecases = ResizeArray()
         //let is_first = System.Collections.Generic.HashSet() // This is here so the variables already in the env aren't being unified with new pattern vars.
         let term_vars = Dictionary(HashIdentity.Structural)
         let ty_vars = Dictionary(HashIdentity.Structural)
@@ -1555,10 +1559,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match Map.tryFind name cases with
                         | Some (is_gadt, v) -> 
                             if is_gadt then 
-                                f (subst m v) a 
+                                f (subst m v) a
                             else
-                                let scope,forall_vars,body,specialized_constructor = gadt_extract scope v
-                                // typecase s with specialiazed_constructor => ...
+                                scope <- scope + 1
+                                let forall_vars,body,specialized_constructor = gadt_extract scope v
+                                gadt_typecases.Add(s, forall_vars, specialized_constructor)
                                 loop body a
                                 unify_gadt (Some gadt_links) r s specialized_constructor
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
@@ -1598,7 +1603,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let v = fresh_var scope
                 unify r s (TyArray v)
                 List.iter (fun x -> loop v x) a
-        gadt_links, update_env()
+        gadt_links, gadt_typecases, update_env()
 
     let nominal_term global_id tt name vars v =
         let constructor body =
