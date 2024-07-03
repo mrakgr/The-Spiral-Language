@@ -1094,7 +1094,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
         let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
         match body with
-        | RawTUnion(_,l,_) -> 
+        | RawTUnion(_,l,_) ->
             Map.fold (fun term name (is_gadt,body) ->
                 let bodyt =
                     match bodyt with

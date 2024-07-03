@@ -688,13 +688,16 @@ let peval (env : TopEnv) (x : E) =
             let tag_cases = Array.zeroCreate (Map.count a)
             let mutable is_degenerate = true
             let cases = 
-                Map.map (fun k v -> 
-                    let v = ty s v
-                    is_degenerate <- is_degenerate && match v with YB -> true | _ -> false
-                    let i = tags.Count
-                    tags.[k] <- i
-                    tag_cases.[i] <- (k,v)
-                    v
+                Map.map (fun k (is_gadt,v) ->
+                    if is_gadt then
+                        failwith "TODO"
+                    else
+                        let v = ty s v
+                        is_degenerate <- is_degenerate && match v with YB -> true | _ -> false
+                        let i = tags.Count
+                        tags.[k] <- i
+                        tag_cases.[i] <- (k,v)
+                        v
                     ) a
             YUnion(H {|cases=cases; layout=b; tags=tags; tag_cases=tag_cases; is_degenerate=is_degenerate|})
         | TSymbol(_,a) -> YSymbol a
