@@ -302,7 +302,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm constraints (term, ty)) l
         | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints (term, ty) x
-        | RawExists(_,a,b) -> Option.iter (List.iter (ctype constraints term ty)) a; cterm constraints (term, ty) b
+        | RawExists(_,(_,a),b) -> Option.iter (List.iter (ctype constraints term ty)) a; cterm constraints (term, ty) b
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
         | RawAnnot(_,RawArray(_,a),b) -> List.iter (cterm constraints (term, ty)) a; ctype constraints term ty b
@@ -795,10 +795,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyLayout(a,b) -> RawTLayout(r,f a,b)
             f expr
         let fill_typecases x =
-            Seq.foldBack (fun (typecase_cond,forall_vars,typecase_constructor) typecase_body ->
-                let r = range_of_expr typecase_body
-                RawTypecase(r, t_to_rawtexpr r [] typecase_cond, [t_to_rawtexpr r forall_vars typecase_constructor, typecase_body])
-                ) gadt_typecases.[x] x
+            match gadt_typecases.TryGetValue(x) with
+            | true, typecase_data ->
+                Seq.foldBack (fun (typecase_cond,forall_vars,typecase_constructor) typecase_body ->
+                    let r = range_of_expr typecase_body
+                    RawTypecase(r, t_to_rawtexpr r [] typecase_cond, [t_to_rawtexpr r forall_vars typecase_constructor, typecase_body])
+                    ) typecase_data x
+            | _ ->
+                x
         let annot r x = t_to_rawtexpr r [] (snd annotations.[x])
         let rec fill_foralls r rec_term body = 
             let _,body = foralls_get body
@@ -826,7 +830,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), fill_typecases (term (Map.remove name rec_term) on_succ)])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
             | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
-            | RawExists(r,a,b) -> RawExists(r,Some(Option.defaultWith (fun () -> List.map (t_to_rawtexpr r []) exists_vars.[x]) a),f b)
+            | RawExists(r,(r',a),b) -> RawExists(r,(r',Some(Option.defaultWith (fun () -> List.map (t_to_rawtexpr r []) exists_vars.[x]) a)),f b)
             | RawRecBlock(r,l,on_succ) ->
                 let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
                 if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
@@ -1313,19 +1317,19 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMetavar _, _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
                 | a,_ -> errors.Add(range_of_expr x, ExpectedRecord a); eval Map.empty
             |> fun v -> if errors.Count = i then unify r (TyRecord v) s
-        | RawExists(_,l,body) ->
+        | RawExists(r,(r',l),body) ->
             match visit_t s with
             | TyExists(type_vars,type_body) ->
                 let vars, s = exists_subst_term scope (type_vars,type_body)
                 l |> Option.iter (fun l ->
                     let l1,l2 = vars.Length, l.Length
                     if l1 = l2 then List.iter2 (ty scope env) vars l
-                    else errors.Add(range_of_expr x, UnexpectedNumberOfArgumentsInExistsBody(l1,l2))
+                    else errors.Add(r', UnexpectedNumberOfArgumentsInExistsBody(l1,l2))
                     )
                 term scope env s body
                 assert_exists_hasnt_metavars (range_of_expr x) vars
                 exists_vars.Add(x,vars)
-            | s -> errors.Add(range_of_expr x, ExpectedExistentialInTerm s); f (fresh_var scope) body
+            | s -> errors.Add(r, ExpectedExistentialInTerm s); f (fresh_var scope) body
         | RawFun(r,l) ->
             annotations.Add(x,(r,s))
             let q,w = fresh_var scope, fresh_var scope

@@ -1132,8 +1132,8 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawSeq(r,a,b) -> ESeq(p r,f a,f b)
         | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(p r,f a,List.map (fun a -> p (range_of_expr a), f a) b,f c)
         | RawReal(r,a) -> f a
-        | RawExists(r,Some a,b) -> EExists(p r, List.map (ty env) a, f b)
-        | RawExists(_,None,_) -> failwith "Compiler error: The exists' vars should have been added during `fill`."
+        | RawExists(r,(_,Some a),b) -> EExists(p r, List.map (ty env) a, f b)
+        | RawExists(_,(_,None),_) -> failwith "Compiler error: The exists' vars should have been added during `fill`."
         | RawMacro _ -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
         | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
@@ -1163,16 +1163,16 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         match body with
         | RawTUnion(_,l,_,_) ->
             Map.fold (fun term name (is_gadt,body) ->
-                let bodyt =
-                    match bodyt with
-                    | TUnion(_,(l,_)) -> fst l.[name]
-                    | _ -> failwith "Compiler error: Expected TUnion in the bodyt."
                 if is_gadt then
                     let rec loop = function
                         | TForall _ -> failwith "Compiler error: Expected the forall to be processed."
                         | TForall'(r,scope,id,body) -> EForall'(r,scope,id,loop body)
                         | TFun(bodyt,t,fun_ty) -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(bodyt,t,fun_ty))) |> process_term
                         | t -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t) |> process_term
+                    let bodyt =
+                        match bodyt with
+                        | TJoinPoint'(_,_,TUnion(_,(l,_))) -> fst l.[name]
+                        | _ -> failwith $"Compiler error: Expected TUnion in the bodyt.\nGot: {bodyt}"
                     Map.add name (loop bodyt) term
                 else
                     let body =

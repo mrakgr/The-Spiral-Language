@@ -309,7 +309,7 @@ and RawExpr =
     | RawMatch of VSCRange * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of VSCRange * (Pattern * RawExpr) list
     | RawForall of VSCRange * TypeVar * RawExpr
-    | RawExists of VSCRange * RawTExpr list option * RawExpr
+    | RawExists of VSCRange * (VSCRange * RawTExpr list option) * RawExpr
     | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawFun or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
@@ -1136,7 +1136,7 @@ and root_term d =
             let sequence_type d = (many (indent (col d) (=) (sepBy1 (root_type root_type_defaults)  (skip_op ";"))) |>> List.concat) d
             ((skip_keyword' SpecExists) .>>. (opt (squares sequence_type)) .>>. next)
              >>= fun ((r,type_vars),body) d -> 
-                if d.is_top_down || Option.isSome type_vars then Ok(RawExists(range_of_expr body,type_vars, body))
+                if d.is_top_down || Option.isSome type_vars then Ok(RawExists(r +. range_of_expr body, (r, type_vars), body))
                 else Error [r, TypeVarsNeedToBeExplicitForExists]
         let case_rounds = 
             range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
