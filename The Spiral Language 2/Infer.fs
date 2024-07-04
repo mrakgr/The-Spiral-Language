@@ -1634,13 +1634,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match Map.tryFind name cases with
                         | Some (is_gadt, v) -> 
                             if is_gadt then 
-                                f (subst m v) a
-                            else
                                 scope <- scope + 1
                                 let forall_vars,body,specialized_constructor = gadt_extract scope v
                                 gadt_typecases.Add(s, forall_vars, specialized_constructor)
                                 loop body a
                                 unify_gadt (Some gadt_links) r s specialized_constructor
+                            else
+                                f (subst m v) a
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
                 match term_subst s |> ho_index with
