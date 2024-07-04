@@ -147,11 +147,21 @@ let inline shorten<'a> (x : 'a) link next =
     let x' : 'a = next x 
     if System.Object.ReferenceEquals(x,x') = false then link := Some x'
     x'
-let rec visit_t = function
-    | TyComment(_,a) -> visit_t a
-    | TyMetavar(_,{contents=Some x} & link) -> shorten x link visit_t
-    | TyVar(_,{contents=Some x}) -> visit_t x
+let rec visit_t_mvar = function
+    | TyComment(_,a) -> visit_t_mvar a
+    | TyMetavar(_,{contents=Some x} & link) -> shorten x link visit_t_mvar
     | a -> a
+
+let rec visit_t x = 
+    match visit_t_mvar x with
+    | TyVar(_,{contents=Some x}) -> visit_t x
+    | x -> x
+
+// mvar1 = mvar2 = mvar3 = int => int
+// mvar1 = int
+// mvar1 = mvar2 = mvar3 = int => tvar1 = tvar2 = int => int
+// mvar1 = int
+
 
 exception TypeErrorException of (VSCRange * TypeError) list
 
@@ -492,9 +502,8 @@ let show_t (env : TopEnv) x =
     let rec f prec x =
         let p = p prec
         match x with
-        | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> f prec x
+        | TyVar (_, {contents=Some x}) | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "_"
-        | TyVar (_, {contents=Some x}) -> f prec x
         | TyVar (a, _) -> a.name
         | TyNominal i -> 
             match Map.tryFind i env.nominals_aux with

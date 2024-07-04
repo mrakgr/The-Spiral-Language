@@ -1,5 +1,0 @@
-// Binary greater-than-or-equals.
-inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
-
-// Returns the maximum of the two terms.
-inl max (a : _) (b : _) = if a >= b then a else b

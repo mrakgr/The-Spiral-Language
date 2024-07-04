@@ -1,9 +1,22 @@
 // Do the GADTs work?
 
 union t y =
-    | A :: forall x. (exists a. a -> x) -> t x
+    | A :: t int
     | B :: t float
+    | C :: t string
 
-inl main() : () = real
-    typecase int with
-    | ~a * ~a => ()
+inl f forall y. (x : t y) =
+    match x with
+    | A =>
+        inl x = x
+        ()
+    // | B => ()
+    // | C => ()
+
+
+inl main() : () = 
+    inl x = A
+    match x with
+    | A => ()
+    // | B => ()
+    ()
