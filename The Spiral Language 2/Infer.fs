@@ -74,6 +74,7 @@ type TypeError =
     | ModuleIndexFailedInOpen
     | TermError of T * T
     | TypeVarScopeError of string * T * T
+    | RecursiveMetavarsNotAllowed of T * T
     | ForallVarConstraintError of string * Constraint Set * Constraint Set
     | MetavarsNotAllowedInRecordWith
     | ExpectedRecord of T
@@ -564,6 +565,7 @@ let show_type_error (env : TopEnv) x =
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | KindErrorInConstraint(a,b) -> sprintf "Kind unification failure when propagating them from constraints.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
+    | RecursiveMetavarsNotAllowed(a,b) -> sprintf "Recursive metavariables are not allowed. A metavar cannot be unified with a type that has itself.\nGot:      %s\nExpected: %s" (f a) (f b)
     | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
     | ExpectedSymbolAsModuleKey a -> sprintf "Expected symbol as a module key.\nGot: %s" (f a)
     | UnboundVariable x -> sprintf "Unbound variable: %s." x
@@ -1018,17 +1020,18 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyUnion(l,_) -> Map.iter (fun _ -> snd >> f) l
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyVar(b,_) -> if i.scope < b.scope then raise (TypeErrorException [r,TypeVarScopeError(b.name,got,expected)])
-            | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
+            | TyMetavar(x,_) -> if i = x then raise (TypeErrorException [r,RecursiveMetavarsNotAllowed(got,expected)]) elif i.scope < x.scope then x.scope <- i.scope
             | TyLayout(a,_) -> f a
 
         let rec loop (a'',b'') = 
             match visit_t a'', visit_t b'' with
             | TyComment(_,a), b | a, TyComment(_,b) -> loop (a,b)
-            | TyMetavar(a,link), TyMetavar(b,_) & b' when a <> b ->
-                unify_kind a.kind b.kind
-                b.scope <- min a.scope b.scope
-                b.constraints <- a.constraints + b.constraints
-                link := Some b'
+            | TyMetavar(a,link), TyMetavar(b,_) & b' ->
+                if a <> b then
+                    unify_kind a.kind b.kind
+                    b.scope <- min a.scope b.scope
+                    b.constraints <- a.constraints + b.constraints
+                    link := Some b'
             | TyMetavar(a,link), b | b, TyMetavar(a,link) ->
                 validate_unification a b
                 unify_kind a.kind (tt top_env b)
@@ -1531,7 +1534,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     and pattern (scope : Scope) (env : Env) s a : T option ref ResizeArray * (T * T list * T) ResizeArray * (Scope * Env) = 
         let gadt_links = ResizeArray()
         let gadt_typecases = ResizeArray()
-        //let is_first = System.Collections.Generic.HashSet() // This is here so the variables already in the env aren't being unified with new pattern vars.
         let term_vars = Dictionary(HashIdentity.Structural)
         let ty_vars = Dictionary(HashIdentity.Structural)
         let mutable scope = scope
@@ -1676,6 +1678,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let v = fresh_var scope
                 unify r s (TyArray v)
                 List.iter (fun x -> loop v x) a
+        loop s a
         gadt_links, gadt_typecases, update_env()
 
     let nominal_term global_id tt name vars v =
