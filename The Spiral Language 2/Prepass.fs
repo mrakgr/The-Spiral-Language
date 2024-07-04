@@ -95,7 +95,7 @@ and [<ReferenceEquality>] T =
     | TFun of T * T * BlockParsing.FunType
     | TRecord of Range * Map<string,T>
     | TModule of Map<string,T>
-    | TUnion of Range * (Map<string,bool * T> * BlockParsing.UnionLayout)
+    | TUnion of Range * (Map<string,T * T option> * BlockParsing.UnionLayout)
     | TSymbol of Range * string
     | TApply of Range * T * T
     | TPrim of Startup.PrimitiveType
@@ -105,6 +105,7 @@ and [<ReferenceEquality>] T =
     | TArray of T
     | TLayout of T * BlockParsing.Layout
     | TMetaV of Id
+    | TTypecase of Range * T * (T * T) list
 
 module Printable =
     type PMacro =
@@ -179,6 +180,7 @@ module Printable =
         | ETypecase of PT * (PT * PE) list
         | EOmmitedRecursive
     and [<ReferenceEquality>] PT =
+        | TTypecase of PT * (PT * PT) list
         | TForall' of Scope * Id * PT
         | TForall of Id * PT
         | TArrow' of Scope * Id * PT
@@ -195,7 +197,7 @@ module Printable =
         | TFunPtr of PT * PT
         | TRecord of Map<string,PT>
         | TModule of Map<string,PT>
-        | TUnion of Map<string,bool * PT> * BlockParsing.UnionLayout
+        | TUnion of Map<string,PT> * BlockParsing.UnionLayout
         | TSymbol of string
         | TApply of PT * PT
         | TPrim of Startup.PrimitiveType
@@ -294,6 +296,7 @@ module Printable =
             | E.ELitTest(_,a,b,c,d) -> ELitTest(a,b,term c,term d)
             | E.EDefaultLitTest(_,a,b,c,d,e) -> EDefaultLitTest(a,ty b,c,term d,term e)
         and ty = function
+            | T.TTypecase(_,a,b) -> TTypecase(ty a,List.map (fun (a,b) -> ty a, ty b) b)
             | T.TPatternRef a -> ty !a
             | T.TForall'(_,a,b,c) -> TForall'(a,b,ty c)
             | T.TForall(_,a,b) -> TForall(a,ty b)
@@ -310,7 +313,7 @@ module Printable =
             | T.TFun(a,b,t) -> TFun(ty a,ty b,t)
             | T.TRecord(_,a) -> TRecord(Map.map (fun _ -> ty) a)
             | T.TModule a -> TModule(Map.map (fun _ -> ty) a)
-            | T.TUnion(_,(a,b)) -> TUnion(Map.map (fun _ (is_gadt, x) -> is_gadt, ty x) a,b)
+            | T.TUnion(_,(a,b)) -> TUnion(Map.map (fun _ x -> ty (fst x)) a,b)
             | T.TSymbol(_,a) -> TSymbol a
             | T.TApply(_,a,b) -> TApply(ty a, ty b)
             | T.TPrim a -> TPrim a
@@ -457,11 +460,20 @@ let propagate x =
                 ) (ty a) b
     and ty = function
         | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
+        | TTypecase(_,a,b) -> 
+            List.fold (fun s (a,b) -> 
+                let a = ty a
+                let mutable b = ty b
+                match a.ty.range with
+                | Some(a,a') -> for i=a to a' do b <- b -. i
+                | None -> ()
+                s + a + b
+                ) (ty a) b
         | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
         | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
         | TApply(_,a,b) | TPair(_,a,b) | TFun(a,b,_) -> ty a + ty b
-        | TUnion(_,(a,_)) -> Map.fold (fun s k (_,v) -> s + ty v) empty a
+        | TUnion(_,(a,_)) -> a |> Map.fold (fun s k (a,b) -> s + ty a + (Option.map ty b |> Option.defaultValue empty)) empty
         | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
@@ -556,11 +568,12 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env
         match x with
         | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
+        | TTypecase(_,a,b) -> ty env a; b |> List.iter (fun (a,b) -> ty env a; ty env b)
         | TPatternRef a -> f !a
         | TForall(_,_,a)
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(a,b,_) | TPair(_,a,b) -> f a; f b
-        | TUnion(_,(a,_)) -> Map.iter (fun _ (_,x) -> f x) a
+        | TUnion(_,(a,_)) -> a |> Map.iter (fun _ (a,b) -> f a; Option.iter f b)
         | TRecord(_,a) | TModule a -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMLitType a | TMType a -> f a)
@@ -760,6 +773,19 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         match x with
         | TMetaV i -> case_tmetav i
         | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
+        | TTypecase(r,a,b) -> 
+            let b = b |> List.map (fun (a,b) -> 
+                let metavars = Dictionary()
+                let mutable env_case = env
+                let a = 
+                    ty' (Utils.memoize metavars (fun i ->
+                        let i, env = adj_ty env_case i
+                        env_case <- env
+                        TMetaV i
+                        )) env_rec env_case a
+                a, ty env_rec env_case b
+                )
+            TTypecase(r,ty env_rec env a,b)
         | TPatternRef a -> f !a
         | TJoinPoint(r,a) as x ->
             let scope, env = scope env x
@@ -777,7 +803,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TFun(a,b,t) -> TFun(f a,f b,t)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
         | TModule a -> TModule(Map.map (fun _ -> f) a)
-        | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ (is_gadt,x) -> is_gadt,f x) a,b))
+        | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ (a,b) -> f a, Option.map f b) a,b))
         | TApply(r,a,b) -> TApply(r,f a,f b)
         | TTerm(r,a) -> TTerm(r,term env_rec env a)
         | TMacro(r,a) ->
@@ -975,7 +1001,48 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTFun(r,a,b,t) -> TFun(f a,f b,t)
         | RawTExists(r,l,b) -> TExists
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
-        | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ (is_gadt,x) -> is_gadt,f x) a,b))
+        | RawTUnion(r,a,b,this) -> 
+            let rec subst_vars_with_metavars vars a =
+                let f = subst_vars_with_metavars vars
+                match a with
+                | RawTTypecase _ | RawTUnion _ -> failwith "Compiler error: Not expecting typecase or union here."
+                | RawTVar(r,n) -> if List.contains n vars then RawTMetaVar(r,n) else a
+                | RawTPrim _ | RawTFilledNominal _ | RawTTerm _ | RawTSymbol _ | RawTLit _ | RawTMetaVar _ | RawTB _ | RawTWildcard _ -> a
+                | RawTPair(r,a,b) -> RawTPair(r,f a,f b)
+                | RawTFun(r,a,b,c) -> RawTFun(r,f a,f b,c)
+                | RawTArray(r,a) -> RawTArray(r,f a)
+                | RawTRecord(r,a) -> RawTRecord(r,Map.map (fun _ -> f) a)
+                | RawTApply(r,a,b) -> RawTApply(r,f a,f b)
+                | RawTForall(r,a,b) -> RawTForall(r,a,subst_vars_with_metavars (List.removeAt (List.findIndex ((=) (typevar_name a)) vars) vars) b)
+                | RawTExists(r,a,b) -> 
+                    let f vars a = List.removeAt (List.findIndex ((=) (typevar_name a)) vars) vars
+                    RawTExists(r,a,subst_vars_with_metavars (List.fold f vars a) b)
+                | RawTMacro(r,a) -> 
+                    let f = function (RawMacroText _ | RawMacroTerm _ | RawMacroTypeLit _) as a -> a | RawMacroType(r,a) -> RawMacroType(r,f a)
+                    RawTMacro(r, List.map f a)
+                | RawTLayout(r,a,b) -> RawTLayout(r,f a,b)
+
+            let make_typecase x =
+                let rec loop vars x =
+                    match x with
+                    | RawTForall(_,a,b) -> loop (typevar_name a :: vars) b
+                    | RawTFun(r,a,b,_) -> RawTTypecase(r,this,[b,subst_vars_with_metavars vars a]) |> f
+                    | b -> let r = range_of_texpr b in RawTTypecase(r,this,[b,RawTB r]) |> f
+                loop [] x
+            TUnion(p r,(Map.map (fun _ (is_gadt,x) -> f x, if is_gadt then Some (make_typecase x) else None) a,b))
+        | RawTTypecase(r,a,b) ->
+            let b = b |> List.map (fun (t,e) ->
+                let metavars = Dictionary()
+                let mutable env_case = env
+                let t = 
+                    let f (id,env) = env_case <- env; TMetaV id
+                    ty' (function
+                        | None -> add_ty_wildcard env_case |> f
+                        | Some name -> Utils.memoize metavars (add_ty_var env_case >> f) name
+                        ) env t
+                t, ty env_case e
+                )
+            TTypecase(p r,ty env a,b)
         | RawTSymbol(r,a) -> TSymbol(p r,a)
         | RawTApply(r,a,b) ->
             match f a, f b with
@@ -1094,11 +1161,11 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
         let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
         match body with
-        | RawTUnion(_,l,_) ->
+        | RawTUnion(_,l,_,_) ->
             Map.fold (fun term name (is_gadt,body) ->
                 let bodyt =
                     match bodyt with
-                    | TUnion(_,(l,_)) -> snd l.[name]
+                    | TUnion(_,(l,_)) -> fst l.[name]
                     | _ -> failwith "Compiler error: Expected TUnion in the bodyt."
                 if is_gadt then
                     let rec loop = function

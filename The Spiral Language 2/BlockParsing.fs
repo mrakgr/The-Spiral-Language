@@ -345,14 +345,16 @@ and RawTExpr =
     | RawTPrim of VSCRange * PrimitiveType
     | RawTTerm of VSCRange * RawExpr
     | RawTMacro of VSCRange * RawMacro list
-    | RawTUnion of VSCRange * Map<string,bool * RawTExpr> * UnionLayout // The boolean arg determines whether the union case is generalized
+    | RawTUnion of VSCRange * Map<string,bool * RawTExpr> * UnionLayout * this: RawTExpr  // The boolean arg determines whether the union case is generalized. `this` is the self type.
     | RawTLayout of VSCRange * RawTExpr * Layout
+    | RawTTypecase of VSCRange * RawTExpr * (RawTExpr * RawTExpr) list
     | RawTFilledNominal of VSCRange * GlobalId // Filled in by the inferencer.
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
 let range_of_typevar ((x,_) : TypeVar) = range_of_hovar x
-let typevar_name (((_,(name,_)),_) : TypeVar) = name
+let hovar_name ((_,(name,_)) : HoVar) = name
+let typevar_name ((h,_) : TypeVar) = hovar_name h
 let range_of_record_with = function
     | RawRecordWithSymbol((r,_),_)
     | RawRecordWithSymbolModify((r,_),_)
@@ -422,7 +424,7 @@ let range_of_texpr = function
     | RawTVar(r,_)
     | RawTArray(r,_)
     | RawTRecord(r,_)
-    | RawTUnion(r,_,_)
+    | RawTUnion(r,_,_,_)
     | RawTSymbol(r,_)
     | RawTPrim(r,_)
     | RawTTerm(r,_)
@@ -432,6 +434,7 @@ let range_of_texpr = function
     | RawTApply(r,_,_)
     | RawTLayout(r,_,_)
     | RawTExists(r,_,_)
+    | RawTTypecase(r,_,_)
     | RawTForall(r,_,_) -> r
 
 let rec range_of_texpr_gadt_constructor = function
@@ -967,7 +970,7 @@ let typecase_validate x _ =
     let vars = Collections.Generic.HashSet()
     let errors = ResizeArray()
     let rec f = function
-        | RawTFilledNominal _ | RawTTerm _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTFilledNominal _ | RawTTerm _ | RawTTypecase _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
         | RawTForall(r,_,_) -> errors.Add(r,ForallNotAllowedInTypecase)
         | RawTExists(r,_,_) -> errors.Add(r,ExistsNotAllowedInTypecase)
         | RawTLit _ | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
@@ -975,7 +978,7 @@ let typecase_validate x _ =
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
         | RawTApply(_,a,b) | RawTFun(_,a,b,_) | RawTPair(_,a,b) -> f a; f b
         | RawTLayout(_,a,_) | RawTArray(_,a) -> f a
-        | RawTUnion(_,a,_) -> Map.iter (fun _ x -> f (snd x)) a 
+        | RawTUnion(_,a,_,_) -> Map.iter (fun _ x -> f (snd x)) a 
         | RawTRecord(_,a) -> Map.iter (fun _ -> f) a
         | RawTMacro(_,a) -> a |> List.iter (function RawMacroType(_,a) -> f a | _ -> ())
     f x
@@ -1404,9 +1407,10 @@ let top_inl_or_let_process comments is_top_down = function
 let top_inl_or_let d = ((comments .>>. inl_or_let root_term root_pattern_pair root_type_annot) >>= fun (comments,x) d -> top_inl_or_let_process comments d.is_top_down x) d
 
 let process_union (r,(layout,n,a,(r',b))) _ =
+    let this = (RawTVar n,a) ||> List.fold (fun s x -> RawTApply(r',s,RawTVar(r',hovar_name x)))
     match layout with
-    | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',b,layout)))
-    | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',b,layout)))
+    | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',b,layout,this)))
+    | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',b,layout,this)))
 
 let union_clauses d = root_type_union root_type_defaults d
 let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. ((skip_keyword SpecRec >>% UHeap) <|>% UStack)) read_small_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d

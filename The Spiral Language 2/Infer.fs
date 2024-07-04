@@ -155,11 +155,12 @@ let rec visit_t = function
 exception TypeErrorException of (VSCRange * TypeError) list
 
 let rec metavars = function
-    | RawTExists _ | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTTypecase _ | RawTExists _ | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ 
+    | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTArray(_,a) | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b,_) -> metavars a + metavars b
-    | RawTUnion(_,l,_) -> Map.fold (fun s _ (_,v) -> s + metavars v) Set.empty l
+    | RawTUnion(_,l,_,this) -> Map.fold (fun s _ (_,v) -> s + metavars v) (metavars this) l
     | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
 type TopEnv = {
@@ -331,10 +332,16 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     and ctype constraints term ty x =
         match x with
         | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
+        | RawTTypecase(_,a,b) -> 
+            ctype constraints term ty a
+            List.iter (fun (a,b) -> 
+                ctype constraints term ty a
+                ctype constraints term (ty + metavars a) b
+                ) b
         | RawTVar(a,b) -> check_ty ty (a,b)
         | RawTArray(_,a) | RawTLayout(_,a,_) -> ctype constraints term ty a
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b,_) -> ctype constraints term ty a; ctype constraints term ty b
-        | RawTUnion(_,l,_) -> Map.iter (fun _ (_,x) -> ctype constraints term ty x) l
+        | RawTUnion(_,l,_,this) -> Map.iter (fun _ (_,x) -> ctype constraints term ty x) l; ctype constraints term ty this
         | RawTRecord(_,l) -> Map.iter (fun _ -> ctype constraints term ty) l
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; ctype constraints term (Set.add a ty) b
         | RawTExists(_,a,b) -> 
@@ -681,10 +688,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let fill r rec_term expr =
         assert (0 = errors.Count)
         let t_to_rawtexpr r vars_to_metavars expr =
-            // TODO: Should we be removing the vars from the list?
             let rec f x = 
                 match visit_t x with
-                | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
+                | TyUnion _ | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
                 | TyComment(_,x) -> f x
                 | TyB -> RawTB r
                 | TyLit x -> RawTLit(r,x)
@@ -696,7 +702,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyExists(a,b) -> RawTExists(r,a |> List.map (fun n -> (r,(n.name,RawKindWildcard)),[]), f b)
                 | TyArray a -> RawTArray(r,f a)
                 | TyNominal i -> RawTFilledNominal(r,i)
-                | TyUnion(a,b) -> RawTUnion(r,Map.map (fun _ (is_gadt,body) -> is_gadt, f body) a,b)
                 | TyApply(a,b,_) -> RawTApply(r,f a,f b)
                 | TyVar (a,_) -> 
                     let is_typecase_metavar = List.tryFind (function TyVar(b,_) -> a = b | _ -> failwith "Compiler error: Expected a TyVar.") vars_to_metavars |> Option.isSome
@@ -1385,6 +1390,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     and ty' scope is_in_left_apply (env : Env) s x =
         let f s x = ty scope env s x
         match x with
+        | RawTTypecase _ -> failwith "Compiler error: Type level typecase should not appear in the top down segment."
         | RawTWildcard r -> hover_types.Add(r,(s,""))
         | RawTArray(r,a) -> 
             let v = fresh_var scope
@@ -1411,7 +1417,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let l' = Map.map (fun _ _ -> fresh_var scope) l
             unify r s (TyRecord l')
             Map.iter (fun k s -> f s l.[k]) l'
-        | RawTUnion(r,l,lay) ->
+        | RawTUnion(r,l,lay,_) ->
             let l' = Map.map (fun _ (is_gadt,_) -> is_gadt, fresh_var scope) l
             unify r s (TyUnion(l',lay))
             Map.iter (fun k (is_gadt,s) -> f s (snd l.[k])) l'
@@ -1729,7 +1735,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let h = HashSet()
             l |> List.iter (fun (_,_,_,x) ->
                 match x with
-                | RawTUnion(_,l,_) -> l |> Map.iter (fun k v -> if h.Add k = false then errors.Add(range_of_texpr (snd v),DuplicateKeyInRecUnion))
+                | RawTUnion(_,l,_,_) -> l |> Map.iter (fun k v -> if h.Add k = false then errors.Add(range_of_texpr (snd v),DuplicateKeyInRecUnion))
                 | _ -> ()
                 )
         let x = bundle_nominal_rec l
