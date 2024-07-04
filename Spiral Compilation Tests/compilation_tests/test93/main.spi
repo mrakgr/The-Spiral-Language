@@ -1,0 +1,9 @@
+// Do the GADTs work?
+
+union t y =
+    | A :: forall x. (exists a. a -> x) -> t x
+    | B :: t float
+
+inl main() : () = real
+    typecase int with
+    | ~a * ~a => ()

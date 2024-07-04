@@ -439,11 +439,11 @@ let range_of_texpr = function
 
 let rec range_of_texpr_gadt_constructor = function
     | RawTForall(_,_,x) -> range_of_texpr_gadt_constructor x
-    | RawTFun(_,x,_,_) | x -> range_of_texpr x
+    | RawTFun(_,_,x,_) | x -> range_of_texpr x
 
 let rec range_of_texpr_gadt_body = function
     | RawTForall(_,_,x) -> range_of_texpr_gadt_body x
-    | RawTFun(_,_,x,_) | x -> range_of_texpr x
+    | RawTFun(_,x,_,_) | x -> range_of_texpr x
 
 type VectorCord = {|row : int; col : int|}
 type Env = {
@@ -933,14 +933,12 @@ type RootTypeFlags = {
     allow_typecase_metavars : bool
     allow_term : bool
     allow_wildcard : bool
-    allow_forall : bool
     }
 
 let root_type_defaults = {
     allow_typecase_metavars = false
     allow_term = false
     allow_wildcard = false
-    allow_forall = false
     }
 
 let bottom_up_number (default_env : Startup.DefaultEnv) (r : VSCRange,x : string) =
@@ -1081,7 +1079,11 @@ and root_type_record (flags : RootTypeFlags) d =
 and root_type_union (flags : RootTypeFlags) d =
     let bar = bar (col d)
     let vanilla = skip_op ":" >>. root_type flags |>> fun x -> Some (false, x)
-    let gadt = skip_op "::" >>. root_type {flags with allow_forall=true} |>> fun x -> Some (true, x)
+    let gadt = 
+        skip_op "::" 
+        >>. pipe2 (opt forall) (root_type flags) (Option.foldBack (List.foldBack (fun a b -> RawTForall(range_of_typevar a +. range_of_texpr b,a,b))))
+        |>> fun x -> Some (true, x)
+
     let body = vanilla <|> gadt <|>% None
     (range (optional bar >>. sepBy1 (range read_big_var_as_symbol .>>. body) bar)
     >>= fun (r,x) _ ->
@@ -1123,11 +1125,7 @@ and root_type (flags : RootTypeFlags) d =
     
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b,FT_Vanilla))
-    let forall d = // Currently (as of 6/30/2024) the type foralls are only allowed in GADT (generalized) union cases.
-        if flags.allow_forall then pipe2 forall functions (List.foldBack (fun a b -> RawTForall(range_of_typevar a +. range_of_texpr b,a,b))) d
-        else functions d
-
-    forall d
+    functions d
 
 and root_term d =
     let rec expressions d =

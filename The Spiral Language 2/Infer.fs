@@ -669,6 +669,89 @@ type [<ReferenceEquality>] InferResult = {
 
 let dispose_gadt_links gadt_links = Seq.iter (fun x -> x := None) gadt_links
 
+let assert_foralls_used' outside_foralls (errors : (VSCRange * TypeError) ResizeArray) r x =
+    let h = HashSet()
+    let rec f = function
+        | TyVar (_,{contents=Some x}) -> f x
+        | TyVar (v,_) -> Set.singleton v.name
+        | TyExists(v,a) ->
+            List.fold (fun a v -> 
+                if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
+                else Set.remove v.name a
+                ) (f a) v
+        | TyForall(v,a) ->
+            let a = f a
+            if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
+            else Set.remove v.name a
+        | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
+        | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a + f b
+        | TyUnion(a,_) -> Map.fold (fun s _ (_,x) -> Set.union s (f x)) Set.empty a
+        | TyRecord a -> Map.fold (fun s _ x -> Set.union s (f x)) Set.empty a
+        | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
+        | TyMacro a -> 
+            List.fold (fun s x ->
+                match x with
+                | TMLitVar a | TMVar a -> f a 
+                | TMText _ -> Set.empty
+                ) Set.empty a
+    let used_vars = f x
+    Seq.iter (h.Add >> ignore) (outside_foralls - used_vars)
+    if 0 < h.Count then
+        errors.Add(r, UnusedTypeVariable (Seq.toList h))
+
+let assert_foralls_used (errors : _ ResizeArray) r x = assert_foralls_used' Set.empty errors r x
+
+let validate_union (errors : _ ResizeArray) global_id body v =
+    match v with // Validates the union type.
+    | TyUnion(a,b) ->
+        a |> Map.iter (fun name (is_gadt, v) -> 
+            let body =
+                match body with
+                | RawTUnion(_,a,_,_) -> Map.find name a |> snd
+                | _ -> failwith "Compiler error: Expected an union."
+
+            // Stack union types must not be recursive.
+            // Unlike in the previous version of Spiral which simply didn't put the union type in the environment
+            // this one has to do it becaus the GADT constructors need access to it.
+            let rec assert_union_non_recursive v =
+                let f = assert_union_non_recursive
+                match visit_t v with
+                | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr_gadt_body body, IncorrectRecursiveUnion)
+                | TyMetavar _ | TyVar _ -> ()
+                | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+                | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
+                | TyUnion(a,_) -> Map.iter (fun _ -> snd >> f) a
+                | TyRecord a -> Map.iter (fun _ -> f) a
+                | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+                | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
+                | TyModule _ -> ()
+
+            // Makes sure that the GADT constructor is resulting in its own type.
+            let rec assert_gadt_has_proper_specialized_constructor = function
+                | TyNominal global_id' -> if global_id <> global_id' then errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
+                | TyApply(a,_,_) -> assert_gadt_has_proper_specialized_constructor a
+                | _ -> errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
+
+            let assert_union_is_valid is_stack v =
+                let rec find_gadt_constructor outside_foralls = function
+                    | TyForall(n,t) -> find_gadt_constructor (Set.add n.name outside_foralls) t
+                    | TyFun(a,b,_) -> 
+                        if is_stack then assert_union_non_recursive a
+                        if is_gadt then 
+                            assert_gadt_has_proper_specialized_constructor b
+                            assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
+                    | b ->
+                        if is_gadt then 
+                            assert_gadt_has_proper_specialized_constructor b
+                            assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
+                        
+                if is_stack || is_gadt then
+                    find_gadt_constructor Set.empty v
+            assert_union_is_valid (b = UStack) v
+            )
+    | _ -> ()
+
+
 open Spiral.BlockBundling
 let infer package_id module_id (top_env' : TopEnv) expr =
     let at_tag i = {package_id=package_id; module_id=module_id; tag=i}
@@ -828,35 +911,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let assert_exists_hasnt_metavars r vars =
         if List.exists has_metavars vars then errors.Add(r, ExistsShouldntHaveMetavars vars)
 
-    let assert_foralls_used r x =
-        let h = HashSet()
-        let rec f = function
-            | TyVar (_,{contents=Some x}) -> f x
-            | TyVar (v,_) -> Set.singleton v.name
-            | TyExists(v,a) ->
-                List.fold (fun a v -> 
-                    if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
-                    else Set.remove v.name a
-                    ) (f a) v
-            | TyForall(v,a) ->
-                let a = f a
-                if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
-                else Set.remove v.name a
-            | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
-            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a + f b
-            | TyUnion(a,_) -> Map.fold (fun s _ (_,x) -> Set.union s (f x)) Set.empty a
-            | TyRecord a -> Map.fold (fun s _ x -> Set.union s (f x)) Set.empty a
-            | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
-            | TyMacro a -> 
-                List.fold (fun s x ->
-                    match x with
-                    | TMLitVar a | TMVar a -> f a 
-                    | TMText _ -> Set.empty
-                    ) Set.empty a
-        let _ = f x
-        if 0 < h.Count then
-            errors.Add(r, UnusedTypeVariable (Seq.toList h))
-
     let generalize r scope (forall_vars : Var list) (body : T) =
         let h = HashSet(HashIdentity.Reference)
         List.iter (h.Add >> ignore) forall_vars
@@ -884,7 +938,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let f x s = TyForall(x,s)
         replace_metavars body
         let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst
-        if List.isEmpty forall_vars = false then assert_foralls_used r x
+        if List.isEmpty forall_vars = false then assert_foralls_used errors r x
         x
 
     let gadt_extract scope (v : T) =
@@ -1420,7 +1474,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTUnion(r,l,lay,_) ->
             let l' = Map.map (fun _ (is_gadt,_) -> is_gadt, fresh_var scope) l
             unify r s (TyUnion(l',lay))
-            Map.iter (fun k (is_gadt,s) -> f s (snd l.[k])) l'
+            Map.iter (fun k (is_gadt,s) -> let x = snd l.[k] in if is_gadt then ty scope {env with ty = Map.empty} s x else f s x) l'
         | RawTExists(r,a,b) ->
             let a = List.map (typevar_to_var scope env.constraints) a
             let body_var = fresh_var scope
@@ -1662,58 +1716,18 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) l KindType
                 (at_tag i,name,l,env,tt,body), i+1
                 ) top_env.nominals_next_tag l'
+
         top_env <-
-            let f s (i,(_,name),l,env,tt,body) = Map.add i {|name=name; kind=tt|} s
-            {top_env with nominals_aux = List.fold f top_env.nominals_aux l}
-        let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env.ty l
-        List.fold (fun top_env (global_id,(r,name),vars,env_ty',tt,body) ->
+            {top_env with 
+                nominals_aux = (top_env.nominals_aux, l) ||> List.fold (fun s (i,(_,name),_,_,tt,_) -> Map.add i {|name=name; kind=tt|} s)
+                ty = (top_env.ty, l) ||> List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) 
+                }
+        
+        List.fold (fun top_env (global_id,(r,name),vars,env_ty,tt,body) ->
             let v = fresh_var scope
-            // TODO: Not correct. The GADT cases have to be taken care of without the top level hovars being inserted into the dict.
-            ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body
+            ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v body
             let v = term_subst v
-            match v with // Validates the union type.
-            | TyUnion(a,b) ->
-                // Stack union types must not be recursive.
-                // Unlike in the previous version of Spiral which simply didn't put the union type in the environment
-                // this one has to do it becaus the GADT constructors need access to it.
-                let rec assert_union_non_recursive v =
-                    let f = assert_union_non_recursive
-                    match visit_t v with
-                    | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr_gadt_body body, IncorrectRecursiveUnion)
-                    | TyMetavar _ | TyVar _ -> ()
-                    | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
-                    | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
-                    | TyUnion(a,_) -> Map.iter (fun _ -> snd >> f) a
-                    | TyRecord a -> Map.iter (fun _ -> f) a
-                    | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-                    | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
-                    | TyModule _ -> ()
-
-                // Makes sure that the GADT constructor is resulting in its own type.
-                let rec assert_gadt_has_proper_specialized_constructor = function
-                    | TyNominal global_id' -> if global_id <> global_id' then errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
-                    | TyApply(a,_,_) -> assert_gadt_has_proper_specialized_constructor a
-                    | _ -> errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
-
-                let assert_union_is_valid is_stack is_gadt v =
-                    let rec find_gadt_constructor = function
-                        | TyForall(_,t) -> find_gadt_constructor t
-                        | TyFun(a,b,_) -> 
-                            if is_stack then assert_union_non_recursive a
-                            if is_gadt then
-                                assert_gadt_has_proper_specialized_constructor b
-                                assert_foralls_used (range_of_texpr_gadt_constructor body) b
-                        | b ->
-                            if is_gadt then
-                                assert_gadt_has_proper_specialized_constructor b
-                                assert_foralls_used (range_of_texpr_gadt_constructor body) b
-                    if is_stack || is_gadt then
-                        find_gadt_constructor v
-
-                a |> Map.iter (fun _ (is_gadt, v) -> 
-                    assert_union_is_valid (b = UStack) is_gadt v
-                    )
-            | _ -> failwith "Compiler error: Expected a TyUnion."
+            validate_union errors global_id body v
             top_env_nominal top_env global_id tt name vars v
             ) top_env_empty l
 
@@ -1753,7 +1767,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        if 0 = errors.Count && (assert_foralls_used r' body; 0 = errors.Count) then
+        if 0 = errors.Count && (assert_foralls_used errors r' body; 0 = errors.Count) then
             let x =
                 { top_env_empty with
                     prototypes_next_tag = i.tag + 1
