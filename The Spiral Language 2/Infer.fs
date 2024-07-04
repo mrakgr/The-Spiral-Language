@@ -157,12 +157,6 @@ let rec visit_t x =
     | TyVar(_,{contents=Some x}) -> visit_t x
     | x -> x
 
-// mvar1 = mvar2 = mvar3 = int => int
-// mvar1 = int
-// mvar1 = mvar2 = mvar3 = int => tvar1 = tvar2 = int => int
-// mvar1 = int
-
-
 exception TypeErrorException of (VSCRange * TypeError) list
 
 let rec metavars = function
@@ -434,12 +428,13 @@ let rec kind_subst = function
     | KindMetavar _ | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
 
-// Shortens the metavars for the entire type.
-let rec term_subst x = 
-    let f = term_subst
-    match x with
-    | TyMetavar(_,{contents=Some x} & link) -> shorten x link f
-    | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
+// Eliminates the metavars in the type.
+let rec term_subst' is_type_hover a = 
+    let f = term_subst' is_type_hover
+    match a with
+    | TyMetavar(_,{contents=Some x} & link) -> if is_type_hover then f x else shorten x link f
+    | TyVar(_,{contents=Some x} & link) -> if is_type_hover then f x else a
+    | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
     | TyComment(a,b) -> TyComment(a,f b)
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
@@ -453,6 +448,8 @@ let rec term_subst x =
     | TyInl(a,b) -> TyInl(a,f b)
     | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
     | TyLayout(a,b) -> TyLayout(f a,b)
+
+let term_subst a = a |> term_subst' true
 
 let rec foralls_get = function
     | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
@@ -952,7 +949,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
         let f x s = TyForall(x,s)
         replace_metavars body
-        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst
+        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst true
         if List.isEmpty forall_vars = false then assert_foralls_used errors r x
         x
 
@@ -1160,6 +1157,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let f a = let l,v = forall_subst_all scope a in unify r s v; l
                 let l = f a
                 type_apply_args.Add(name,(l,f))
+        let match_clause (q,w) (a,b) =
+            let gadt_links, gadt_typecases', (scope, env) = pattern scope env q a
+            term scope env w b
+            dispose_gadt_links gadt_links
+            gadt_typecases.Add(b,gadt_typecases')
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a) -> rawv (r,a)
@@ -1343,24 +1345,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             annotations.Add(x,(r,s))
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyFun(q,w,FT_Vanilla))
-            List.iter (fun (a,b) -> 
-                let gadt_links, gadt_typecases' , (scope, env) = pattern scope env q a
-                term scope env w b
-                dispose_gadt_links gadt_links
-                gadt_typecases.Add(b,gadt_typecases')
-                ) l
+            List.iter (match_clause (q,w)) l
         | RawForall _ -> failwith "Compiler error: Should be handled in let statements."
         | RawMatch(_,(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) -> term scope (inl scope env ((r, name), body)) s on_succ
         | RawRecBlock(_,l',on_succ) -> term scope (rec_block scope env l') s on_succ
         | RawMatch(_,body,l) ->
             let body_var = fresh_var scope
             f body_var body
-            let l = List.map (fun (a,on_succ) -> pattern scope env body_var a, on_succ) l
-            List.iter (fun ((gadt_links,gadt_typecases',(scope,env)),on_succ) -> 
-                term scope env s on_succ
-                dispose_gadt_links gadt_links
-                gadt_typecases.Add(on_succ,gadt_typecases')
-                ) l
+            List.iter (match_clause (body_var,s)) l
         | RawMissingBody r -> errors.Add(r,MissingBody)
         | RawMacro(r,a) ->
             annotations.Add(x,(r,s))
@@ -1447,7 +1439,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let i = errors.Count
             let v = fresh_var scope
             ty scope env v t
-            let v = term_subst v
+            let v = term_subst true v
             if i = errors.Count && has_metavars v then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
             v
         match x with
@@ -1656,12 +1648,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                                 f (subst m v) a
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
-                match term_subst s |> ho_index with
+                match term_subst false s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
                     match v_term env name with
                     | Some (_,x) -> 
-                        match term_subst x |> ho_fun with
+                        match term_subst false x |> ho_fun with
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a
@@ -1742,7 +1734,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         List.fold (fun top_env (global_id,(r,name),vars,env_ty,tt,body) ->
             let v = fresh_var scope
             ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v body
-            let v = term_subst v
+            let v = term_subst true v
             validate_union errors global_id body v
             top_env_nominal top_env global_id tt name vars v
             ) top_env_empty l
@@ -1752,7 +1744,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars,env_ty = hovars vars'
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
+        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst true v)
         hover_types.Add(r,(t,""))
         if 0 = errors.Count then psucc (fun () -> FType(q,(r,name),vars',expr)), AInclude {top_env_empty with ty = Map.add name t Map.empty}
         else pfail, AInclude top_env_empty
@@ -1782,7 +1774,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars = v' :: vars
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
+        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst true v)
         if 0 = errors.Count && (assert_foralls_used errors r' body; 0 = errors.Count) then
             let x =
                 { top_env_empty with

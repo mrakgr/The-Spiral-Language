@@ -10,13 +10,20 @@ inl f forall y. (x : t y) =
     | A =>
         inl x = x
         ()
-    // | B => ()
+    | B =>
+        inl x = x
+        ()
     // | C => ()
-
-
-inl main() : () = 
-    inl x = A
-    match x with
-    | A => ()
-    // | B => ()
+    // match x with
+    // | B =>
+    //     inl x = x
+    //     ()
     ()
+
+
+// inl main() : () = 
+//     inl x = A
+//     match x with
+//     | A => ()
+//     // | B => ()
+//     ()
