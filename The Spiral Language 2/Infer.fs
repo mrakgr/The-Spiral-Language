@@ -256,7 +256,31 @@ let rec tt (env : TopEnv) = function
     | TyExists _ | TyLit _ | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
 
-let module_open (hover_types : ResizeArray<VSCRange * (T * Comments)>) (top_env : Env) (r : VSCRange) b l =
+// Eliminates the metavars in the type if possible.
+let rec term_subst a = 
+    let f = term_subst
+    match visit_t a with
+    | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
+    | TyComment(a,b) -> TyComment(a,f b)
+    | TyPair(a,b) -> TyPair(f a, f b)
+    | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
+    | TyModule a -> TyModule(Map.map (fun _ -> f) a)
+    | TyUnion(a,b) -> TyUnion(Map.map (fun _ (is_gadt, x) -> is_gadt, f x) a,b)
+    | TyFun(a,b,t) -> TyFun(f a, f b, t)
+    | TyForall(a,b) -> TyForall(a,f b)
+    | TyExists(a,b) -> TyExists(a,f b)
+    | TyArray a -> TyArray(f a)
+    | TyApply(a,b,c) -> TyApply(f a, f b, c)
+    | TyInl(a,b) -> TyInl(a,f b)
+    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
+    | TyLayout(a,b) -> TyLayout(f a,b)
+
+type HoverTypes() =
+    let hover_types = ResizeArray()
+    member _.AddHover(r,(x,com)) = hover_types.Add(r,(term_subst x,com))
+    member _.ToArray() = hover_types.ToArray()
+
+let module_open (hover_types : HoverTypes option) (top_env : Env) (r : VSCRange) b l =
     let tryFind env x =
         match Map.tryFind x env.term, Map.tryFind x env.ty, Map.tryFind x env.constraints with
         | Some (TyModule a), Some (TyModule b), Some (M c) -> ValueSome {term=a; ty=b; constraints=c}
@@ -264,12 +288,12 @@ let module_open (hover_types : ResizeArray<VSCRange * (T * Comments)>) (top_env 
     match tryFind top_env b with
     | ValueNone -> Error(r, UnboundModule)
     | ValueSome env ->
-        if hover_types <> null then hover_types.Add(r,(TyModule env.term,""))
+        hover_types |> Option.iter (fun hover_types -> hover_types.AddHover(r,(TyModule env.term,"")))
         let rec loop env = function
             | (r,x) :: x' ->
                 match tryFind env x with
                 | ValueSome env -> 
-                    if hover_types <> null then hover_types.Add(r,(TyModule env.term,""))
+                    hover_types |> Option.iter (fun hover_types -> hover_types.AddHover(r,(TyModule env.term,"")))
                     loop env x'
                 | _ -> Error(r, ModuleIndexFailedInOpen)
             | [] -> Ok env
@@ -319,7 +343,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 cterm constraints (term, ty + metavars a) b
                 ) b
         | RawOpen(_,(a,b),l,on_succ) ->
-            match module_open null top_env a b l with
+            match module_open None top_env a b l with
             | Ok x ->
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
                 cterm (Map.foldBack Map.add x.constraints constraints) (combine term x.term, combine ty x.ty) on_succ
@@ -427,29 +451,6 @@ let rec kind_subst = function
     | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
     | KindMetavar _ | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
-
-// Eliminates the metavars in the type.
-let rec term_subst' is_type_hover a = 
-    let f = term_subst' is_type_hover
-    match a with
-    | TyMetavar(_,{contents=Some x} & link) -> if is_type_hover then f x else shorten x link f
-    | TyVar(_,{contents=Some x} & link) -> if is_type_hover then f x else a
-    | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
-    | TyComment(a,b) -> TyComment(a,f b)
-    | TyPair(a,b) -> TyPair(f a, f b)
-    | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
-    | TyModule a -> TyModule(Map.map (fun _ -> f) a)
-    | TyUnion(a,b) -> TyUnion(Map.map (fun _ (is_gadt, x) -> is_gadt, f x) a,b)
-    | TyFun(a,b,t) -> TyFun(f a, f b, t)
-    | TyForall(a,b) -> TyForall(a,f b)
-    | TyExists(a,b) -> TyExists(a,f b)
-    | TyArray a -> TyArray(f a)
-    | TyApply(a,b,c) -> TyApply(f a, f b, c)
-    | TyInl(a,b) -> TyInl(a,f b)
-    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
-    | TyLayout(a,b) -> TyLayout(f a,b)
-
-let term_subst a = a |> term_subst' true
 
 let rec foralls_get = function
     | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
@@ -759,7 +760,6 @@ let validate_union (errors : _ ResizeArray) global_id body v =
             )
     | _ -> ()
 
-
 open Spiral.BlockBundling
 let infer package_id module_id (top_env' : TopEnv) expr =
     let at_tag i = {package_id=package_id; module_id=module_id; tag=i}
@@ -772,7 +772,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let exists_vars = Dictionary<obj,_>(HashIdentity.Reference)
     let gadt_typecases = Dictionary<obj,_>(HashIdentity.Reference)
     let mutable autogened_forallvar_count = 0
-    let hover_types = ResizeArray()
+    let hover_types = HoverTypes()
 
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
     /// Dealing with recursive statement type applies requires some special consideration.
@@ -949,7 +949,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
         let f x s = TyForall(x,s)
         replace_metavars body
-        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst true
+        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst // TODO: Potentially unsafe use of term_subst
         if List.isEmpty forall_vars = false then assert_foralls_used errors r x
         x
 
@@ -1101,7 +1101,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match Map.tryFind x l with
             | Some x -> 
                 let com = match x with TyComment(com,_) -> com | _ -> ""
-                hover_types.Add(r,(x,com))
+                hover_types.AddHover (r,(x,com))
                 unify r s x
             | None -> errors.Add(r,RecordIndexFailed x)
         | x -> errors.Add(r,ExpectedSymbolAsRecordKey x)
@@ -1149,11 +1149,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | None -> errors.Add(r,UnboundVariable name)
             | Some (_,TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some (com,TyModule _ & m) when is_in_left_apply = false -> 
-                hover_types.Add(r,(m,com))
+                hover_types.AddHover(r,(m,com))
                 errors.Add(r,ModuleMustBeImmediatelyApplied)
             | Some (com,a) -> 
                 match a with TyForall _ -> annotations.Add(x,(r,s)) | _ -> ()
-                hover_types.Add(r,(s,com))
+                hover_types.AddHover(r,(s,com)) // TODO: What's wrong with this?
                 let f a = let l,v = forall_subst_all scope a in unify r s v; l
                 let l = f a
                 type_apply_args.Add(name,(l,f))
@@ -1165,7 +1165,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a) -> rawv (r,a)
-        | RawDefaultLit(r,_) -> hover_types.Add(r,(s,"")); annotations.Add(x,(r,s)); unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
+        | RawDefaultLit(r,_) -> hover_types.AddHover(r,(s,"")); annotations.Add(x,(r,s)); unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbol(r,x) -> unify r s (TySymbol x)
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
@@ -1207,7 +1207,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match Map.tryFind n l with
                         | Some (TyModule _ as a) ->
                             match b with 
-                            | RawSymbol(r,_) -> hover_types.Add(r,(a,""))
+                            | RawSymbol(r,_) -> hover_types.AddHover(r,(a,""))
                             | _ -> ()
                             if is_in_left_apply then unify r s a
                             else errors.Add(r,ModuleMustBeImmediatelyApplied)
@@ -1219,7 +1219,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             match b with 
                             | RawSymbol(r,_) -> 
                                 let com = match a' with TyComment(com,_) -> com | _ -> ""
-                                hover_types.Add(r,(a,com))
+                                hover_types.AddHover(r,(a,com))
                             | _ -> ()
                             unify r s a
                         | None -> errors.Add(r,ModuleIndexFailed n)
@@ -1229,7 +1229,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             loop (f'' a')
         | RawAnnot(_,a,b) -> ty scope env s b; f s a
         | RawOpen(_,(r,a),l,on_succ) ->
-            match module_open hover_types (loc_env top_env) r a l with
+            match module_open (Some hover_types) (loc_env top_env) r a l with
             | Ok x ->
                 let combine big small = Map.foldBack Map.add small big
                 term scope {term = combine env.term x.term; ty = combine env.ty x.ty; constraints = combine env.constraints x.constraints} s on_succ
@@ -1242,7 +1242,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     | RawRecordWithoutSymbol(r,a) -> {|range=r; symbol = a|} :: l, Set.add a s
                     | RawRecordWithoutInjectVar(r,a) ->
                         match v_term env a with
-                        | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); {|range=r; symbol = a|} :: l, Set.add a s
+                        | Some (com, TySymbol a & x) -> hover_types.AddHover(r,(x,com)); {|range=r; symbol = a|} :: l, Set.add a s
                         | Some (_,x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); state
                         | None -> errors.Add(r, UnboundVariable a); state
                     ) withouts ([],Set.empty)
@@ -1252,7 +1252,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let with_symbol_modify ((r,a),b) = {|range=r; symbol = a; is_blocked=Set.contains a s; is_modify=true; var=TyFun(fresh_var scope,fresh_var scope,FT_Vanilla); body=b|} :: l, Set.add a s
                     let inline with_inject next ((r,a),b) =
                         match v_term env a with
-                        | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); next ((r,a),b)
+                        | Some (com, TySymbol a & x) -> hover_types.AddHover(r,(x,com)); next ((r,a),b)
                         | Some (_, x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); f' b |> ignore; state
                         | None -> errors.Add(r, UnboundVariable a); f' b |> ignore; state
                     match x with
@@ -1398,7 +1398,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         term scope {env with ty = env_ty} body_var body
         let t = generalize r scope vars body_var
         generalized_statements.Add(body,t)
-        hover_types.Add(r,(t,""))
+        hover_types.AddHover(r,(t,""))
         {env with term = Map.add name t env.term }
     and rec_block scope env l' =
         let scope = scope + 1
@@ -1416,7 +1416,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         generalized_statements.Add(body,t)
                         {env with term = Map.add name t env.term}
                     let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
-                    hover_types.Add(r,(ty,""))
+                    hover_types.AddHover(r,(ty,""))
                     (term, gen), Map.add name ty s
                     ) env.term l'
             else 
@@ -1426,7 +1426,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let gen env : Env = 
                         let t = generalize r scope [] body_var
                         generalized_statements.Add(body,t)
-                        hover_types.Add(r,(t,""))
+                        hover_types.AddHover(r,(t,""))
                         {env with term = Map.add name t env.term}
                     (term, gen), Map.add name body_var s
                     ) env.term l'
@@ -1439,7 +1439,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let i = errors.Count
             let v = fresh_var scope
             ty scope env v t
-            let v = term_subst true v
+            let v = term_subst v
             if i = errors.Count && has_metavars v then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
             v
         match x with
@@ -1453,15 +1453,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let f s x = ty scope env s x
         match x with
         | RawTTypecase _ -> failwith "Compiler error: Type level typecase should not appear in the top down segment."
-        | RawTWildcard r -> hover_types.Add(r,(s,""))
+        | RawTWildcard r -> hover_types.AddHover(r,(s,""))
         | RawTArray(r,a) -> 
             let v = fresh_var scope
             unify r s (TyArray v)
             f v a
         | RawTVar(r,x) ->
             match v_ty env x with
-            | Some (TyModule _ & m) when is_in_left_apply = false -> hover_types.Add(r,(m,"")); errors.Add(r,ModuleMustBeImmediatelyApplied)
-            | Some x -> hover_types.Add(r,(x,"")); unify r s x
+            | Some (TyModule _ & m) when is_in_left_apply = false -> hover_types.AddHover(r,(m,"")); errors.Add(r,ModuleMustBeImmediatelyApplied)
+            | Some x -> hover_types.AddHover(r,(x,"")); unify r s x
             | None -> errors.Add(r, UnboundVariable x)
         | RawTB r -> unify r s TyB
         | RawTLit(r,x) -> unify r s (TyLit x)
@@ -1502,7 +1502,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     match Map.tryFind x l with
                     | Some (TyModule _ as a) ->
                         match b with 
-                        | RawTSymbol(r,_) -> hover_types.Add(r,(a,""))
+                        | RawTSymbol(r,_) -> hover_types.AddHover(r,(a,""))
                         | _ -> ()
                         if is_in_left_apply then unify r s a
                         else errors.Add(r,ModuleMustBeImmediatelyApplied)
@@ -1510,7 +1510,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match b with 
                         | RawTSymbol(r,_) -> 
                             let com = match a with TyComment(com,_) -> com | _ -> ""
-                            hover_types.Add(r,(a,com))
+                            hover_types.AddHover(r,(a,com))
                         | _ -> ()
                         unify r s a
                     | None -> errors.Add(r,ModuleIndexFailed x)
@@ -1564,9 +1564,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match x with
             | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear during inference."
             | PatB r -> unify r s TyB
-            | PatE r -> hover_types.Add(r,(s,""))
+            | PatE r -> hover_types.AddHover(r,(s,""))
             | PatVar(r,a) ->
-                hover_types.Add(r,(s,""))
+                hover_types.AddHover(r,(s,""))
                 match term_vars.TryGetValue(a) with
                 | true, v -> unify r s v
                 | _ -> term_vars.Add(a,s)
@@ -1584,7 +1584,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | PatOr(_,a,b) | PatAnd(_,a,b) -> loop s a; loop s b
             | PatValue(r,a) -> unify r s (lit a)
             | PatDefaultValue(r,_) -> 
-                hover_types.Add(r,(s,""))
+                hover_types.AddHover(r,(s,""))
                 annotations.Add(x,(r,s))
                 unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
             | PatRecordMembers(r,l) ->
@@ -1593,7 +1593,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         | PatRecordMembersSymbol((r,a),b) -> Some (a,b)
                         | PatRecordMembersInjectVar((r,a),b) ->
                             match v_term env a with
-                            | Some (com,TySymbol a & x) -> hover_types.Add(r,(x,com)); Some (a,b)
+                            | Some (com,TySymbol a & x) -> hover_types.AddHover(r,(x,com)); Some (a,b)
                             | Some (_,x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
                             | None -> errors.Add(r, UnboundVariable a); None
                         ) l
@@ -1633,7 +1633,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let n = top_env.nominals.[i]
                     match n.body with
                     | TyUnion(cases,_) ->
-                        hover_types.Add(r,(s,""))
+                        hover_types.AddHover(r,(s,""))
                         let x,m = ho_make i n.vars
                         unify r s x
                         match Map.tryFind name cases with
@@ -1648,12 +1648,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                                 f (subst m v) a
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
-                match term_subst false s |> ho_index with
+                match term_subst s |> ho_index with // TODO: Dangerous place to use term_subst.
                 | ValueSome i -> assume i
                 | ValueNone ->
                     match v_term env name with
                     | Some (_,x) -> 
-                        match term_subst false x |> ho_fun with
+                        match term_subst x |> ho_fun with // TODO: Dangerous place to use term_subst.
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a
@@ -1734,7 +1734,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         List.fold (fun top_env (global_id,(r,name),vars,env_ty,tt,body) ->
             let v = fresh_var scope
             ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v body
-            let v = term_subst true v
+            let v = term_subst v
             validate_union errors global_id body v
             top_env_nominal top_env global_id tt name vars v
             ) top_env_empty l
@@ -1744,8 +1744,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars,env_ty = hovars vars'
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst true v)
-        hover_types.Add(r,(t,""))
+        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
+        hover_types.AddHover(r,(t,""))
         if 0 = errors.Count then psucc (fun () -> FType(q,(r,name),vars',expr)), AInclude {top_env_empty with ty = Map.add name t Map.empty}
         else pfail, AInclude top_env_empty
     | BundleNominal(q,(r,name),vars',expr) ->
@@ -1774,7 +1774,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars = v' :: vars
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst true v)
+        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
         if 0 = errors.Count && (assert_foralls_used errors r' body; 0 = errors.Count) then
             let x =
                 { top_env_empty with
@@ -1834,7 +1834,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let guard next = if 0 = errors.Count then next () else fail
             let ins_kind = kind_get ins_kind'
             let prototype = top_env.prototypes.[prot_id]
-            hover_types.Add(fst prot, (prototype.signature,"")) // TODO: Add the hover for the instance signature.
+            hover_types.AddHover(fst prot, (prototype.signature,"")) // TODO: Add the hover for the instance signature.
             let prototype_init_forall_kind = prototype_init_forall_kind prototype.signature
             let prot_kind = kind_get prototype_init_forall_kind
             assert_kind_arity prot_kind.arity ins_kind.arity
@@ -1850,7 +1850,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 List.mapFold (fun s (((r,_),_) & x,k) ->
                     let v = {typevar_to_var scope Map.empty x with kind = k}
                     let x = tyvar v
-                    hover_types.Add(r,(x,""))
+                    hover_types.AddHover(r,(x,""))
                     x, Map.add v.name x s
                     ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
             let ins_constraints = ins_vars |> List.map (visit_t >> function TyVar (x,_) -> x.constraints | _ -> failwith "impossible")
@@ -1888,7 +1888,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | Some(C x) -> errors.Add(fst prot, ExpectedPrototypeConstraint x); check_ins fake
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
     | BundleOpen(q,(r,a),b) ->
-        match module_open hover_types (loc_env top_env) r a b with
+        match module_open (Some hover_types) (loc_env top_env) r a b with
         | Ok x -> psucc (fun () -> FOpen(q,(r,a),b)), AOpen {top_env_empty with term=x.term; ty=x.ty; constraints=x.constraints}
         | Error er -> errors.Add(er); pfail, AOpen top_env_empty
     |> fun (filled_top, top_env_additions) -> 

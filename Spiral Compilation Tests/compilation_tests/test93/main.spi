@@ -12,8 +12,12 @@ inl f forall y. (x : t y) =
         ()
     | B =>
         inl x = x
+        inl y = x
+        inl q = y
         ()
-    // | C => ()
+    | C => 
+        inl x = x
+        ()
     // match x with
     // | B =>
     //     inl x = x
