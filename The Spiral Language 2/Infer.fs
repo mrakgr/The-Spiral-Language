@@ -949,7 +949,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
         let f x s = TyForall(x,s)
         replace_metavars body
-        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst // TODO: Potentially unsafe use of term_subst
+        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst
         if List.isEmpty forall_vars = false then assert_foralls_used errors r x
         x
 
@@ -1101,8 +1101,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match Map.tryFind x l with
             | Some x -> 
                 let com = match x with TyComment(com,_) -> com | _ -> ""
-                hover_types.AddHover (r,(x,com))
                 unify r s x
+                hover_types.AddHover (r,(x,com))
             | None -> errors.Add(r,RecordIndexFailed x)
         | x -> errors.Add(r,ExpectedSymbolAsRecordKey x)
 
@@ -1153,9 +1153,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 errors.Add(r,ModuleMustBeImmediatelyApplied)
             | Some (com,a) -> 
                 match a with TyForall _ -> annotations.Add(x,(r,s)) | _ -> ()
-                hover_types.AddHover(r,(s,com)) // TODO: What's wrong with this?
                 let f a = let l,v = forall_subst_all scope a in unify r s v; l
                 let l = f a
+                hover_types.AddHover(r,(s,com))
                 type_apply_args.Add(name,(l,f))
         let match_clause (q,w) (a,b) =
             let gadt_links, gadt_typecases', (scope, env) = pattern scope env q a
@@ -1165,7 +1165,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a) -> rawv (r,a)
-        | RawDefaultLit(r,_) -> hover_types.AddHover(r,(s,"")); annotations.Add(x,(r,s)); unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
+        | RawDefaultLit(r,_) -> unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType); hover_types.AddHover(r,(s,"")); annotations.Add(x,(r,s))
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbol(r,x) -> unify r s (TySymbol x)
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
@@ -1206,22 +1206,21 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     | TySymbol n ->
                         match Map.tryFind n l with
                         | Some (TyModule _ as a) ->
-                            match b with 
-                            | RawSymbol(r,_) -> hover_types.AddHover(r,(a,""))
-                            | _ -> ()
-                            if is_in_left_apply then unify r s a
+                            if is_in_left_apply then 
+                                match b with RawSymbol(r,_) -> hover_types.AddHover(r,(a,"")) | _ -> ()
+                                unify r s a
                             else errors.Add(r,ModuleMustBeImmediatelyApplied)
                         | Some a' -> 
                             let typevars,a = forall_subst_all scope a'
                             if List.isEmpty typevars = false then 
                                 annotations.Add(x,(r,s))
                                 module_type_apply_args.Add(x,typevars)
+                            unify r s a
                             match b with 
                             | RawSymbol(r,_) -> 
                                 let com = match a' with TyComment(com,_) -> com | _ -> ""
                                 hover_types.AddHover(r,(a,com))
                             | _ -> ()
-                            unify r s a
                         | None -> errors.Add(r,ModuleIndexFailed n)
                     | b -> errors.Add(r,ExpectedSymbolAsModuleKey b)
                 | TyFun(domain,range,_) -> unify (range_of_expr a') range s; f domain b
@@ -1414,9 +1413,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let gen env : Env = 
                         let t = generalize r scope vars body_var
                         generalized_statements.Add(body,t)
+                        hover_types.AddHover(r,(t,""))
                         {env with term = Map.add name t env.term}
                     let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
-                    hover_types.AddHover(r,(ty,""))
                     (term, gen), Map.add name ty s
                     ) env.term l'
             else 
@@ -1461,7 +1460,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTVar(r,x) ->
             match v_ty env x with
             | Some (TyModule _ & m) when is_in_left_apply = false -> hover_types.AddHover(r,(m,"")); errors.Add(r,ModuleMustBeImmediatelyApplied)
-            | Some x -> hover_types.AddHover(r,(x,"")); unify r s x
+            | Some x -> unify r s x; hover_types.AddHover(r,(x,""))
             | None -> errors.Add(r, UnboundVariable x)
         | RawTB r -> unify r s TyB
         | RawTLit(r,x) -> unify r s (TyLit x)
@@ -1501,18 +1500,17 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TySymbol x ->
                     match Map.tryFind x l with
                     | Some (TyModule _ as a) ->
-                        match b with 
-                        | RawTSymbol(r,_) -> hover_types.AddHover(r,(a,""))
-                        | _ -> ()
-                        if is_in_left_apply then unify r s a
+                        if is_in_left_apply then 
+                            unify r s a
+                            match b with RawTSymbol(r,_) -> hover_types.AddHover(r,(a,"")) | _ -> ()
                         else errors.Add(r,ModuleMustBeImmediatelyApplied)
                     | Some a -> 
-                        match b with 
+                        unify r s a
+                        match b with
                         | RawTSymbol(r,_) -> 
                             let com = match a with TyComment(com,_) -> com | _ -> ""
                             hover_types.AddHover(r,(a,com))
                         | _ -> ()
-                        unify r s a
                     | None -> errors.Add(r,ModuleIndexFailed x)
                 | b -> errors.Add(r,ExpectedSymbolAsRecordKey b)
             | TyInl(a,body) -> let v = fresh_var' scope a.kind in f v b; unify r s (subst [a,v] body)
@@ -1566,10 +1564,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | PatB r -> unify r s TyB
             | PatE r -> hover_types.AddHover(r,(s,""))
             | PatVar(r,a) ->
-                hover_types.AddHover(r,(s,""))
                 match term_vars.TryGetValue(a) with
                 | true, v -> unify r s v
                 | _ -> term_vars.Add(a,s)
+                hover_types.AddHover(r,(s,""))
             | PatDyn(_,a) -> f s a
             | PatAnnot(_,a,b) -> ty scope env s b; f s a
             | PatWhen(_,a,b) -> 
@@ -1584,9 +1582,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | PatOr(_,a,b) | PatAnd(_,a,b) -> loop s a; loop s b
             | PatValue(r,a) -> unify r s (lit a)
             | PatDefaultValue(r,_) -> 
-                hover_types.AddHover(r,(s,""))
                 annotations.Add(x,(r,s))
                 unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
+                hover_types.AddHover(r,(s,""))
             | PatRecordMembers(r,l) ->
                 let l =
                     List.choose (function
@@ -1633,7 +1631,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let n = top_env.nominals.[i]
                     match n.body with
                     | TyUnion(cases,_) ->
-                        hover_types.AddHover(r,(s,""))
                         let x,m = ho_make i n.vars
                         unify r s x
                         match Map.tryFind name cases with
@@ -1642,10 +1639,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                                 scope <- scope + 1
                                 let forall_vars,body,specialized_constructor = gadt_extract scope v
                                 gadt_typecases.Add(s, forall_vars, specialized_constructor)
-                                loop body a
+                                match a with PatE r' when r = r' -> () | _ -> loop body a // This check for PatE is so the hovers for it don't overwrite the main pattern.
                                 unify_gadt (Some gadt_links) r s specialized_constructor
+                                hover_types.AddHover(r,(s,""))
                             else
-                                f (subst m v) a
+                                match a with PatE r' when r = r' -> () | _ -> f (subst m v) a
+                                hover_types.AddHover(r,(s,""))
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
                 match term_subst s |> ho_index with // TODO: Dangerous place to use term_subst.

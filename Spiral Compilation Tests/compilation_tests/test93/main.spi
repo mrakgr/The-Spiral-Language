@@ -3,7 +3,7 @@
 union t y =
     | A :: t int
     | B :: t float
-    | C :: t string
+    | C :: string -> t string
 
 inl f forall y. (x : t y) =
     match x with
@@ -15,7 +15,7 @@ inl f forall y. (x : t y) =
         inl y = x
         inl q = y
         ()
-    | C => 
+    | C sd => 
         inl x = x
         ()
     // match x with
