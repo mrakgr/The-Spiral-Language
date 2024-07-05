@@ -1,7 +1,7 @@
 // Do the GADTs work?
 
 union t y =
-    | A :: t int
+    | A :: int -> t int
     | B :: t float
     | C :: forall x. bool * x -> t x
     | D :: forall x y. y * x -> t (x * y)
@@ -24,7 +24,7 @@ let f forall y. (x : t y) =
         ()
 
 inl main() : () = 
-    inl x = f A
+    inl x = f (A 2)
     inl x = f B
     inl x = f (C (false, "qwe"))
     inl x = f (C (false, 234u8))

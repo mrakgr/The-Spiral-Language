@@ -53,6 +53,7 @@ from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
 class US0_0(NamedTuple): # A
+    v0 : i32
     tag = 0
 class US0_1(NamedTuple): # C
     v0 : bool
@@ -88,7 +89,7 @@ class US4_1(NamedTuple): # D
 US4 = Union[US4_0, US4_1]
 def method0(v0 : US0) -> None:
     match v0:
-        case US0_0(): # A
+        case US0_0(_): # A
             del v0
             return 
         case US0_1(_, _): # C
@@ -131,28 +132,30 @@ def method4(v0 : US4) -> None:
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
 def main():
-    v0 = US0_0()
-    method0(v0)
+    v0 = 2
+    v1 = US0_0(v0)
     del v0
-    v1 = US1_0()
-    method1(v1)
+    method0(v1)
     del v1
-    v2 = False
-    v3 = "qwe"
-    v4 = US2_0(v2, v3)
-    del v2, v3
-    method2(v4)
-    del v4
-    v5 = False
-    v6 = 234
-    v7 = US3_0(v5, v6)
-    del v5, v6
-    method3(v7)
-    del v7
-    v8 = False
-    v9 = 234
-    v10 = US4_1(v8, v9)
-    del v8, v9
-    return method4(v10)
+    v2 = US1_0()
+    method1(v2)
+    del v2
+    v3 = False
+    v4 = "qwe"
+    v5 = US2_0(v3, v4)
+    del v3, v4
+    method2(v5)
+    del v5
+    v6 = False
+    v7 = 234
+    v8 = US3_0(v6, v7)
+    del v6, v7
+    method3(v8)
+    del v8
+    v9 = False
+    v10 = 234
+    v11 = US4_1(v9, v10)
+    del v9, v10
+    return method4(v11)
 
 if __name__ == '__main__': print(main())
