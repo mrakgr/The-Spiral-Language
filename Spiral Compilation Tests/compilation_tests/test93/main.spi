@@ -5,7 +5,7 @@ union t y =
     | B :: t float
     | C :: string -> t string
 
-inl f forall y. (x : t y) =
+let f forall y. (x : t y) =
     match x with
     | A =>
         inl x = x
@@ -20,8 +20,7 @@ inl f forall y. (x : t y) =
         ()
 
 inl main() : () = 
-    inl ~x = C
-    // match x with
-    // | A => ()
-    // | B => ()
+    inl x = f A
+    inl x = f B
+    inl x = f (C "qwe")
     ()

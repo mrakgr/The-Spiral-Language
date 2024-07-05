@@ -52,17 +52,47 @@ from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
-class US0_0(NamedTuple): # C
-    v0 : string
+class US0_0(NamedTuple): # A
     tag = 0
 US0 = US0_0
-def Closure0():
-    def inner(v0 : string) -> US0:
-        return US0_0(v0)
-    return inner
+class US1_0(NamedTuple): # B
+    tag = 0
+US1 = US1_0
+class US2_0(NamedTuple): # C
+    v0 : string
+    tag = 0
+US2 = US2_0
+def method0(v0 : US0) -> None:
+    match v0:
+        case US0_0(): # A
+            del v0
+            return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method1(v0 : US1) -> None:
+    match v0:
+        case US1_0(): # B
+            del v0
+            return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method2(v0 : US2) -> None:
+    match v0:
+        case US2_0(_): # C
+            del v0
+            return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
 def main():
-    v0 = Closure0()
+    v0 = US0_0()
+    method0(v0)
     del v0
-    return 
+    v1 = US1_0()
+    method1(v1)
+    del v1
+    v2 = "qwe"
+    v3 = US2_0(v2)
+    del v2
+    return method2(v3)
 
 if __name__ == '__main__': print(main())
