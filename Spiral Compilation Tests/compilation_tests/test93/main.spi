@@ -18,16 +18,10 @@ inl f forall y. (x : t y) =
     | C sd => 
         inl x = x
         ()
+
+inl main() : () = 
+    inl ~x = C
     // match x with
-    // | B =>
-    //     inl x = x
-    //     ()
+    // | A => ()
+    // | B => ()
     ()
-
-
-// inl main() : () = 
-//     inl x = A
-//     match x with
-//     | A => ()
-//     // | B => ()
-//     ()

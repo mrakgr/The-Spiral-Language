@@ -133,7 +133,7 @@ type TypeError =
     | UnusedTypeVariable of string list
     | CompilerError of string
     | IncorrectGADTConstructorType
-    | IncorrectRecursiveUnion
+    | IncorrectRecursiveNominal
 
 let inline shorten'<'a> (x : 'a) link next = 
     let x' : 'a = next x
@@ -568,7 +568,7 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
-    | IncorrectRecursiveUnion -> "The non-recursive unions should not use their own type in the clause."
+    | IncorrectRecursiveNominal -> "The non-recursive nominals should not use their own type in the clause."
     | IncorrectGADTConstructorType -> "The GADT case in the union has to result in an instance of the union being constructed. Any type other than the self being in the range of the union is not allowed."
     | ExistsShouldntHaveMetavars a -> sprintf "The variables of the exists body shouldn't have metavariables left over in them.\nGot: [%s]"  (List.map f a |> String.concat ", ")
     | ExpectedExistentialInPattern a -> sprintf "The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
@@ -721,7 +721,22 @@ let assert_foralls_used' outside_foralls (errors : (VSCRange * TypeError) Resize
 
 let assert_foralls_used (errors : _ ResizeArray) r x = assert_foralls_used' Set.empty errors r x
 
-let validate_union (errors : _ ResizeArray) global_id body v =
+let validate_nominal (errors : _ ResizeArray) global_id body v =
+    // Stack union types and regular nominals must not be recursive.
+    // Unlike in the previous version of Spiral which simply didn't put the nominal type in the environment
+    // this one has to do it becaus the GADT constructors need access to it.
+    let rec assert_nominal_non_recursive v =
+        let f = assert_nominal_non_recursive
+        match visit_t v with
+        | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr_gadt_body body, IncorrectRecursiveNominal)
+        | TyMetavar _ | TyVar _ -> ()
+        | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+        | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
+        | TyUnion(a,_) -> Map.iter (fun _ -> snd >> f) a
+        | TyRecord a -> Map.iter (fun _ -> f) a
+        | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+        | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
+        | TyModule _ -> ()
     match v with // Validates the union type.
     | TyUnion(a,b) ->
         a |> Map.iter (fun name (is_gadt, v) -> 
@@ -730,21 +745,6 @@ let validate_union (errors : _ ResizeArray) global_id body v =
                 | RawTUnion(_,a,_,_) -> Map.find name a |> snd
                 | _ -> failwith "Compiler error: Expected an union."
 
-            // Stack union types must not be recursive.
-            // Unlike in the previous version of Spiral which simply didn't put the union type in the environment
-            // this one has to do it becaus the GADT constructors need access to it.
-            let rec assert_union_non_recursive v =
-                let f = assert_union_non_recursive
-                match visit_t v with
-                | TyNominal global_id' -> if global_id = global_id' then errors.Add(range_of_texpr_gadt_body body, IncorrectRecursiveUnion)
-                | TyMetavar _ | TyVar _ -> ()
-                | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
-                | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
-                | TyUnion(a,_) -> Map.iter (fun _ -> snd >> f) a
-                | TyRecord a -> Map.iter (fun _ -> f) a
-                | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-                | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
-                | TyModule _ -> ()
 
             // Makes sure that the GADT constructor is resulting in its own type.
             let rec assert_gadt_has_proper_specialized_constructor = function
@@ -756,7 +756,7 @@ let validate_union (errors : _ ResizeArray) global_id body v =
                 let rec find_gadt_constructor outside_foralls = function
                     | TyForall(n,t) -> find_gadt_constructor (Set.add n.name outside_foralls) t
                     | TyFun(a,b,_) -> 
-                        if is_stack then assert_union_non_recursive a
+                        if is_stack then assert_nominal_non_recursive a
                         if is_gadt then 
                             assert_gadt_has_proper_specialized_constructor b
                             assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
@@ -769,7 +769,8 @@ let validate_union (errors : _ ResizeArray) global_id body v =
                     find_gadt_constructor Set.empty v
             assert_union_is_valid (b = UStack) v
             )
-    | _ -> ()
+    | _ ->
+        assert_nominal_non_recursive v
 
 open Spiral.BlockBundling
 let infer package_id module_id (top_env' : TopEnv) expr =
@@ -1745,7 +1746,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let v = fresh_var scope
             ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v body
             let v = term_subst v
-            validate_union errors global_id body v
+            validate_nominal errors global_id body v
             top_env_nominal top_env global_id tt name vars v
             ) top_env_empty l
 
