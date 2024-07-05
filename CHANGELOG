@@ -4,7 +4,7 @@ Added GADTs to the language.
 
 * Fixed the bug where the union constructor was given the wrong annotation in the prepass.
 * Fixed the crash bug related to the exists term level optional type arguments in the inferencer.
-* Changed how BackendSwitch works in the partial evaluator to fix it being unsound and removed the top down restrictions.
+* Changed how BackendSwitch works in the partial evaluator to fix it being unsound and removed the top down restrictions. It no longer requires an annotation.
 * Fixed `pattern` being called incorrectly in a few places instead of `loop` in the inference module.
 * Fixed the shadowing of existential variables in the pattern inferencer.
 * Made sure the existential type variables are being reused between the or patterns.
@@ -137,7 +137,7 @@ Various macro related changes and bugfixes.
 
 2.8.0 (3/30/2024)
 
-* Implemented the existential types.
+Implemented the existential types.
 
 2.7.9 (3/21/2024)
 
