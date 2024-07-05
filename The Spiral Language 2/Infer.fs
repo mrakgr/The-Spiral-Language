@@ -256,8 +256,19 @@ let rec tt (env : TopEnv) = function
     | TyExists _ | TyLit _ | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
 
+let rec has_metavars x =
+    let f = has_metavars
+    match visit_t x with
+    | TyMetavar _ -> true
+    | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ | TyModule _ -> false
+    | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+    | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a || f b
+    | TyUnion(l,_) -> Map.exists (fun _ -> snd >> f) l
+    | TyRecord l -> Map.exists (fun _ -> f) l
+    | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
+
 // Eliminates the metavars in the type if possible.
-let rec term_subst a = 
+let rec term_subst a =
     let f = term_subst
     match visit_t a with
     | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
@@ -276,8 +287,19 @@ let rec term_subst a =
     | TyLayout(a,b) -> TyLayout(f a,b)
 
 type HoverTypes() =
+    let rec has_substituted_tvars x =
+        let f = has_substituted_tvars
+        match x with
+        | TyMetavar(_,{contents=Some _}) -> true
+        | TyVar (_, {contents=Some x}) | TyComment(_,x) -> f x
+        | TyVar _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ | TyModule _ -> false
+        | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+        | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a || f b
+        | TyUnion(l,_) -> Map.exists (fun _ -> snd >> f) l
+        | TyRecord l -> Map.exists (fun _ -> f) l
+        | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
     let hover_types = ResizeArray()
-    member _.AddHover(r,(x,com)) = hover_types.Add(r,(term_subst x,com))
+    member _.AddHover(r,(x,com)) = hover_types.Add(r,((if has_substituted_tvars x then term_subst x else x), com))
     member _.ToArray() = hover_types.ToArray()
 
 let module_open (hover_types : HoverTypes option) (top_env : Env) (r : VSCRange) b l =
@@ -465,17 +487,6 @@ let rec kind_force = function
     | KindMetavar link -> let x = KindType in link.contents' <- Some x; x
     | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_force a,kind_force b)
-
-let rec has_metavars x =
-    let f = has_metavars
-    match visit_t x with
-    | TyMetavar _ -> true
-    | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ | TyModule _ -> false
-    | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-    | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a || f b
-    | TyUnion(l,_) -> Map.exists (fun _ -> snd >> f) l
-    | TyRecord l -> Map.exists (fun _ -> f) l
-    | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
 
 let p prec prec' x = if prec < prec' then x else sprintf "(%s)" x
 let show_kind x =
