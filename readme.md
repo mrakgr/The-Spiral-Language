@@ -1,6 +1,7 @@
 <!-- TOC -->
 
 - [News](#news)
+    - [Date: 7/5/2024 - GADTs have been added to the language](#date-752024---gadts-have-been-added-to-the-language)
     - [Date: 6/17/2024 - The Python + Cuda backend now supports all of Spiral's featues](#date-6172024---the-python--cuda-backend-now-supports-all-of-spirals-featues)
     - [Date: 3/30/2024 - Added existentials to the language](#date-3302024---added-existentials-to-the-language)
     - [Date: 8/27/2023 - Check out the Spiral playlist on Youtube](#date-8272023---check-out-the-spiral-playlist-on-youtube)
@@ -30,6 +31,7 @@
             - [\v operator in macros](#%5Cv-operator-in-macros)
         - [Prototypes](#prototypes)
         - [Existentials](#existentials)
+        - [GADTs](#gadts)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
     - [Notes On Arrays](#notes-on-arrays)
     - [Bottom-Up Segment](#bottom-up-segment)
@@ -45,6 +47,10 @@
 <!-- /TOC -->
 
 # News
+
+## Date: 7/5/2024 - GADTs have been added to the language
+
+We need them for the ML library, so they've been added to the language. Check out the [GADT section](#gadts) in the docs for more info.
 
 ## Date: 6/17/2024 - The Python + Cuda backend now supports all of Spiral's featues
 
@@ -1419,6 +1425,101 @@ inl a = exists [i32; f32] 2
 ```
 
 In the bottom-up segment, the type variables need to be passed into the existential up front and allow passing of arbitrary types at the term level.
+
+### GADTs
+
+Spiral (as of v2.12.0) has the generalized algebraic datatypes. Existentials combined with specialized union constructors are what makes them. The regular union types have been extended so now you can write something like the following using the `::` operator to denote the GADT union cases.
+
+```spiral
+union rec graph t =
+    | Map :: forall dim t. (exists a. (layer_state -> a -> t) * graph (tensor dim a)) -> graph (tensor dim t)
+    | RowMap :: forall dim t. 
+        (exists a. (layer_state -> primitives.row_config -> tensor (int * int) a -> int -> tensor (int * int) int -> tensor (int * int) t) * graph (tensor dim a))
+        -> graph (tensor dim t)
+    | RowReduce :: forall dim t. 
+        (exists a. (layer_state -> primitives.row_config -> tensor (int * int) a -> int -> tensor (int * int) int -> t) * graph (tensor dim a))
+        -> graph (tensor dim t)
+    | Zip :: forall a b. graph a * graph b -> graph (a * b)
+    | Apply :: forall b el. graph (tensor (int * b) el) * graph int -> graph (tensor b el)
+    | Matmul :: forall dim t. graph (tensor dim t) * graph (tensor dim t) -> graph (tensor dim t)
+    | Weight :: forall dim t. graph (tensor dim t)
+    | Input :: forall dim t. (exists key{symbol}. key) * dim -> graph (tensor dim t)
+    | InputScalar :: (model_sizes -> graph int) -> graph int
+```
+
+This is a prototype of the graph datatype for the ML library currently being worked on (as of 7/5/2024), and many of the cases wouldn't have been possible without this feature. Regular union types are simply not expressive for what we want to do, so GADTs were added to the language. 
+
+Unlike in other languages with the similar feature, in Spiral the GADT union cases have to use the type variables from the foralls in their constructor. For those not in the constructor that are intended to be hidden away in the body, the existentials are necessary. The benefit of this arrangement is that GADTs that do not use existentials can be efficiently compiled and don't have to be recursive either.
+
+Let's check out how they work on a simpler example.
+
+```spiral
+union t y =
+    | A :: int -> t i32
+    | B :: t f32
+
+let f forall y. (x : t y) =
+    match x with
+    | A =>
+        inl x = x
+        ()
+    | B =>
+        inl x = x
+        ()
+
+inl main() : () = 
+    inl x = f (A 2)
+    inl x = f B
+    ()
+```
+
+If you hover with the cursor over the `x` variable in the first `inl x = x` statement, you'll see that it's type is `t i32`. Similarly, the `x` in the other match branch is of type `t f32`. What GADTs allow you is similar to a `typecase` statement in the top down segment. They allow the user to specialize type variables by the destructuring of an union type.
+
+Besides for allowing the data types to be as expressive as regular functions in terms of typing, GADTs can be efficiently compiled as long as they don't use existentials.
+
+When we compile the above, here is what we get.
+
+```fs
+type [<Struct>] US0 =
+    | US0_0 of f0_0 : int32
+and [<Struct>] US1 =
+    | US1_0
+let rec method0 (v0 : US0) : unit =
+    match v0 with
+    | US0_0(v1) -> (* A *)
+        ()
+and method1 (v0 : US1) : unit =
+    match v0 with
+    | US1_0 -> (* B *)
+        ()
+let v0 : int32 = 2
+let v1 : US0 = US0_0(v0)
+method0(v1)
+let v2 : US1 = US1_0
+method1(v2)
+```
+
+When the unions are specialized to their principal types in the partial evaluator, the non-constructible cases are eliminated. You cannot have an `t i32` that also has the `B` clause, so that one is automatically eliminated. If you try writing a function that takes in an `t i32`, you won't be able to destructure the `B` case at all.
+
+The syntax for them is simple, consider the following union type.
+
+```spiral
+union option t =
+    | Some : t
+    | None
+```
+
+Translating these to the GADT format would involve giving the union case constructors their full type.
+
+```spiral
+union option t =
+    | Some :: forall x. x -> option x
+    | None :: forall x. option x
+```
+
+These two types are otherwise equivalent, but while vanilla unions are fully generic, GADTs can be specialized making them a lot more powerful and expressive.
+
+It's possible to mix and match regular and GADT union cases without issue.
 
 ## Heap Allocation vs Code Size
 

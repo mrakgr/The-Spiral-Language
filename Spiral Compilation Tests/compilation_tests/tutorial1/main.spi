@@ -1,8 +1,21 @@
-inl main () =
-    let f x = x
-    real
-        open real_core
-        typecase `f with
-        | ~q =>
-            !!!!PrintStatic(`q)
+union t y =
+    | A :: int -> t i32
+    | B :: t f32
+
+union option t =
+    | Some :: forall x. x -> option x
+    | None :: forall x. option x
+
+let f forall y. (x : t y) =
+    match x with
+    | A =>
+        inl x = x
+        ()
+    | B =>
+        inl x = x
+        ()
+
+inl main() : () = 
+    inl x = f (A 2)
+    inl x = f B
     ()
