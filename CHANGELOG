@@ -1,4 +1,4 @@
-2.12.0 (WIP)
+2.12.0 (7/5/2024)
 
 Added GADTs to the language.
 
@@ -9,6 +9,7 @@ Added GADTs to the language.
 * Fixed the shadowing of existential variables in the pattern inferencer.
 * Made sure the existential type variables are being reused between the or patterns.
 * Fixed the pattern validator in parsing not recursing on existential patterns.
+* Changed the semantics of the nominals slightly to disallow recursive invocations.
 
 2.11.4 (6/24/2024)
 
