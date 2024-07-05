@@ -54,17 +54,44 @@ i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = str
 
 class US0_0(NamedTuple): # A
     tag = 0
-US0 = US0_0
+class US0_1(NamedTuple): # C
+    v0 : bool
+    v1 : i32
+    tag = 1
+US0 = Union[US0_0, US0_1]
 class US1_0(NamedTuple): # B
     tag = 0
-US1 = US1_0
+class US1_1(NamedTuple): # C
+    v0 : bool
+    v1 : f32
+    tag = 1
+US1 = Union[US1_0, US1_1]
 class US2_0(NamedTuple): # C
-    v0 : string
+    v0 : bool
+    v1 : string
     tag = 0
 US2 = US2_0
+class US3_0(NamedTuple): # C
+    v0 : bool
+    v1 : u8
+    tag = 0
+US3 = US3_0
+class US4_0(NamedTuple): # C
+    v0 : bool
+    v1 : u8
+    v2 : bool
+    tag = 0
+class US4_1(NamedTuple): # D
+    v0 : bool
+    v1 : u8
+    tag = 1
+US4 = Union[US4_0, US4_1]
 def method0(v0 : US0) -> None:
     match v0:
         case US0_0(): # A
+            del v0
+            return 
+        case US0_1(_, _): # C
             del v0
             return 
         case t:
@@ -74,11 +101,31 @@ def method1(v0 : US1) -> None:
         case US1_0(): # B
             del v0
             return 
+        case US1_1(_, _): # C
+            del v0
+            return 
         case t:
             raise Exception(f'Pattern matching miss. Got: {t}')
 def method2(v0 : US2) -> None:
     match v0:
-        case US2_0(_): # C
+        case US2_0(_, _): # C
+            del v0
+            return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method3(v0 : US3) -> None:
+    match v0:
+        case US3_0(_, _): # C
+            del v0
+            return 
+        case t:
+            raise Exception(f'Pattern matching miss. Got: {t}')
+def method4(v0 : US4) -> None:
+    match v0:
+        case US4_0(_, _, _): # C
+            del v0
+            return 
+        case US4_1(_, _): # D
             del v0
             return 
         case t:
@@ -90,9 +137,22 @@ def main():
     v1 = US1_0()
     method1(v1)
     del v1
-    v2 = "qwe"
-    v3 = US2_0(v2)
-    del v2
-    return method2(v3)
+    v2 = False
+    v3 = "qwe"
+    v4 = US2_0(v2, v3)
+    del v2, v3
+    method2(v4)
+    del v4
+    v5 = False
+    v6 = 234
+    v7 = US3_0(v5, v6)
+    del v5, v6
+    method3(v7)
+    del v7
+    v8 = False
+    v9 = 234
+    v10 = US4_1(v8, v9)
+    del v8, v9
+    return method4(v10)
 
 if __name__ == '__main__': print(main())

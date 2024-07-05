@@ -993,7 +993,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTWildcard _ -> case_metavar None
         | RawTForall(r,a,b) ->
             let id, env = add_ty_var env (typevar_name a)
-            TForall(p r,id,ty env b)
+            TForall(p r,id,ty' case_metavar env b)
         | RawTB r -> TB (p r)
         | RawTLit (r, x) -> TLit(p r,x)
         | RawTVar(r,a) -> v_ty env a
@@ -1026,9 +1026,9 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 let rec loop vars x =
                     match x with
                     | RawTForall(_,a,b) -> loop (typevar_name a :: vars) b
-                    | RawTFun(r,a,b,_) -> RawTTypecase(r,this,[b,subst_vars_with_metavars vars a]) |> f
-                    | b -> let r = range_of_texpr b in RawTTypecase(r,this,[b,RawTB r]) |> f
-                loop [] x
+                    | RawTFun(r,a,b,_) -> RawTTypecase(r,this,[subst_vars_with_metavars vars b,a])
+                    | b -> let r = range_of_texpr b in RawTTypecase(r,this,[subst_vars_with_metavars vars b,RawTB r])
+                loop [] x |> f
             TUnion(p r,(Map.map (fun _ (is_gadt,x) -> f x, if is_gadt then Some (make_typecase x) else None) a,b))
         | RawTTypecase(r,a,b) ->
             let b = b |> List.map (fun (t,e) ->
@@ -1179,7 +1179,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                                     | TArrow'(_,_,t) -> loop_outer t // GADTs have the foralls in their cases' type, not here.
                                     | TJoinPoint'(r,_,TUnion(_,(l,_))) -> 
                                         let rec loop vars = function
-                                            | TArrow'(scope,id,t) -> EForall(r,id,loop (id :: vars) t)
+                                            | TForall'(r,scope,id,t) -> EForall(r,id,loop (id :: vars) t)
                                             | TFun(t,t',_) -> EFun(r,0,ENominal(r,EPair(r,ESymbol(r,name),EV 0),t'),Some(TFun(t,t',FT_Vanilla)))
                                             | t' -> ENominal(r,EPair(r,ESymbol(r,name),EB r),t')
                                         loop [] (fst l.[name])
