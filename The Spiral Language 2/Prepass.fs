@@ -1179,15 +1179,15 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                                     | TArrow'(_,_,t) -> loop_outer t // GADTs have the foralls in their cases' type, not here.
                                     | TJoinPoint'(r,_,TUnion(_,(l,_))) -> 
                                         let rec loop vars = function
-                                            | TArrow'(scope,id,t) -> EForall'(r,scope,id,loop (id :: vars) t |> process_term)
+                                            | TArrow'(scope,id,t) -> EForall(r,id,loop (id :: vars) t)
                                             | TFun(t,t',_) -> EFun(r,0,ENominal(r,EPair(r,ESymbol(r,name),EV 0),t'),Some(TFun(t,t',FT_Vanilla)))
                                             | t' -> ENominal(r,EPair(r,ESymbol(r,name),EB r),t')
                                         loop [] (fst l.[name])
                                     | _ -> failwith "Compiler error: Expected a join point with a gadt union."
-                                Map.add name (loop_outer bodyt) term            
+                                Map.add name (loop_outer bodyt |> process_term) term
                             else
                                 let rec loop vars = function
-                                    | TArrow'(scope,id,t) -> EForall'(r,scope,id,loop (id :: vars) t |> process_term)
+                                    | TArrow'(scope,id,t) -> EForall(r,id,loop (id :: vars) t)
                                     | TJoinPoint'(r,_,TUnion(_,(l,_))) -> 
                                         let t = fst l.[name]
                                         let t' = List.foldBack (fun id nom -> TApply(r,nom,TV id)) vars nom
@@ -1195,18 +1195,18 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                                         | TB _ -> ENominal(r,EPair(r,ESymbol(r,name),EB r),t')
                                         | _ -> EFun(r,0,ENominal(r,EPair(r,ESymbol(r,name),EV 0),t'),Some(TFun(t,t',FT_Vanilla)))
                                     | _ -> failwith "Compiler error: Expected a join point with an union."
-                                Map.add name (loop [] bodyt) term                                
+                                Map.add name (loop [] bodyt |> process_term) term
                             ) term l
                     | _ ->
                         let rec loop vars = function
-                            | TArrow'(scope,id,t) -> EForall'(r,scope,id,loop (id :: vars) t |> process_term)
+                            | TArrow'(scope,id,t) -> EForall(r,id,loop (id :: vars) t)
                             | TJoinPoint'(r,_,t) -> 
                                 let t' = List.foldBack (fun id nom -> TApply(r,nom,TV id)) vars nom
                                 match t with
                                 | TB _ -> ENominal(r,EB r,t')
-                                | _ -> EFun(r,0,ENominal(r,EV 0,t'),Some(TFun(t,t',FT_Vanilla)))
+                                | _ -> EFun(r,0,ENominal(r,EV 0,t'),Some(TFun(t,t',FT_Vanilla)))                                
                             | _ -> failwith "Compiler error: Expected a join point."
-                        Map.add name (loop [] bodyt) term
+                        Map.add name (loop [] bodyt |> process_term) term
                 term,Map.add name nom ty', Map.add at_tag_i {|body=bodyt; name=name|} nominals, i+1
                 ) (Map.empty, Map.empty, Map.empty, top_env.nominals_next_tag) l
         match x with
