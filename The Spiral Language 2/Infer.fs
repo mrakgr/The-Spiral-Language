@@ -287,7 +287,9 @@ let rec term_subst a =
     | TyLayout(a,b) -> TyLayout(f a,b)
 
 type HoverTypes() =
-    let rec has_substituted_tvars x =
+    // This is to allocate less trash for code that doesn't use GADTs. 
+    // Unfortunately, we cannot use memoization instead as term_subst is not functionally pure.
+    let rec has_substituted_tvars x = 
         let f = has_substituted_tvars
         match x with
         | TyMetavar(_,{contents=Some _}) -> true
