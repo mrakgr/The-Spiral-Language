@@ -1,21 +1,21 @@
 union t y =
-    | A :: int -> t i32
-    | B :: t f32
+    | A :: i32 -> t i32
+    | B :: f32 -> t f32
 
 union option t =
     | Some :: forall x. x -> option x
     | None :: forall x. option x
 
-let f forall y. (x : t y) =
+let f forall y. (x : t y) : y =
     match x with
-    | A =>
-        inl x = x
-        ()
-    | B =>
-        inl x = x
-        ()
+    | A a =>
+        inl a = a
+        a
+    | B a =>
+        inl a = a
+        a
 
 inl main() : () = 
     inl x = f (A 2)
-    inl x = f B
+    inl x = f (B 3)
     ()
