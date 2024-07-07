@@ -1,21 +1,23 @@
-union t y =
-    | A :: i32 -> t i32
-    | B :: f32 -> t f32
+union qwe y =
+    | A :: qwe i32
+    | B :: qwe f32
 
-union option t =
-    | Some :: forall x. x -> option x
-    | None :: forall x. option x
+// nominal asd = int
+// nominal asd = asd
 
-let f forall y. (x : t y) : y =
-    match x with
-    | A a =>
-        inl a = a
-        a
-    | B a =>
-        inl a = a
-        a
+union asd =
+    | Q : asd
 
-inl main() : () = 
-    inl x = f (A 2)
-    inl x = f (B 3)
-    ()
+// let f forall y. (x : qwe y) : y =
+//     match x with
+//     | A a =>
+//         inl a = a
+//         a
+//     | B a =>
+//         inl a = a
+//         a
+
+// inl main() : () = 
+//     inl x = f (A 2)
+//     inl x = f (B 3)
+//     ()

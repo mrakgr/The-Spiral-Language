@@ -270,6 +270,13 @@ let rec has_metavars x =
 // Eliminates the metavars in the type if possible.
 let rec term_subst a =
     let f = term_subst
+    // 'a = 'b = ('c = int * 'd = float)
+    // visit_t shortens to:
+    // 'a = ('c = int * 'd = float)
+    // visit_t returns:
+    // ('c = int * 'd = float)
+    // term_subst returns:
+    // int * int
     match visit_t a with
     | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
     | TyComment(a,b) -> TyComment(a,f b)
@@ -746,30 +753,32 @@ let validate_nominal (errors : _ ResizeArray) global_id body v =
                 match body with
                 | RawTUnion(_,a,_,_) -> Map.find name a |> snd
                 | _ -> failwith "Compiler error: Expected an union."
-
+            let is_stack = b = UStack
 
             // Makes sure that the GADT constructor is resulting in its own type.
+            // Also make sure that it's not using an instance of itself in its constructor other than in first position.
             let rec assert_gadt_has_proper_specialized_constructor = function
                 | TyNominal global_id' -> if global_id <> global_id' then errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
-                | TyApply(a,_,_) -> assert_gadt_has_proper_specialized_constructor a
+                | TyApply(a,b,_) -> 
+                    assert_gadt_has_proper_specialized_constructor a
+                    if is_stack then assert_nominal_non_recursive b
                 | _ -> errors.Add(range_of_texpr_gadt_constructor body, IncorrectGADTConstructorType)
 
-            let assert_union_is_valid is_stack v =
+            let assert_gadt_is_valid v =
                 let rec find_gadt_constructor outside_foralls = function
                     | TyForall(n,t) -> find_gadt_constructor (Set.add n.name outside_foralls) t
                     | TyFun(a,b,_) -> 
                         if is_stack then assert_nominal_non_recursive a
-                        if is_gadt then 
-                            assert_gadt_has_proper_specialized_constructor b
-                            assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
+                        assert_gadt_has_proper_specialized_constructor b
+                        assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
                     | b ->
-                        if is_gadt then 
-                            assert_gadt_has_proper_specialized_constructor b
-                            assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
+                        assert_gadt_has_proper_specialized_constructor b
+                        assert_foralls_used' outside_foralls errors (range_of_texpr_gadt_constructor body) b
                         
-                if is_stack || is_gadt then
-                    find_gadt_constructor Set.empty v
-            assert_union_is_valid (b = UStack) v
+                find_gadt_constructor Set.empty v
+                    
+            if is_gadt then assert_gadt_is_valid v
+            elif is_stack then assert_nominal_non_recursive v
             )
     | _ ->
         assert_nominal_non_recursive v
@@ -1661,12 +1670,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                                 hover_types.AddHover(r,(s,""))
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
-                match term_subst s |> ho_index with // TODO: Dangerous place to use term_subst.
+                match term_subst s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
                     match v_term env name with
                     | Some (_,x) -> 
-                        match term_subst x |> ho_fun with // TODO: Dangerous place to use term_subst.
+                        match term_subst x |> ho_fun with
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a

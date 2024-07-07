@@ -1080,7 +1080,7 @@ and root_type_union (flags : RootTypeFlags) d =
     let bar = bar (col d)
     let vanilla = skip_op ":" >>. root_type flags |>> fun x -> Some (false, x)
     let gadt = 
-        skip_op "::" 
+        skip_op "::"
         >>. pipe2 (opt forall) (root_type flags) (Option.foldBack (List.foldBack (fun a b -> RawTForall(range_of_typevar a +. range_of_texpr b,a,b))))
         |>> fun x -> Some (true, x)
 
