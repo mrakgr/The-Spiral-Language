@@ -2,11 +2,10 @@ union qwe y =
     | A :: qwe i32
     | B :: qwe f32
 
+inl A : qwe i32 = nominal_create `(qwe i32) (.A,())
+
 // nominal asd = int
 // nominal asd = asd
-
-union asd =
-    | Q : asd
 
 // let f forall y. (x : qwe y) : y =
 //     match x with

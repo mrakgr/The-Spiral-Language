@@ -1664,10 +1664,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                                 gadt_typecases.Add(s, forall_vars, specialized_constructor)
                                 match a with PatE r' when r = r' -> () | _ -> loop body a // This check for PatE is so the hovers for it don't overwrite the main pattern.
                                 unify_gadt (Some gadt_links) r s specialized_constructor
-                                hover_types.AddHover(r,(s,""))
                             else
                                 match a with PatE r' when r = r' -> () | _ -> f (subst m v) a
-                                hover_types.AddHover(r,(s,""))
+                            hover_types.AddHover(r,(s,""))
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
                 match term_subst s |> ho_index with
