@@ -276,7 +276,7 @@ let rec term_subst a =
     // visit_t returns:
     // ('c = int * 'd = float)
     // term_subst returns:
-    // int * int
+    // int * float
     match visit_t a with
     | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
     | TyComment(a,b) -> TyComment(a,f b)
