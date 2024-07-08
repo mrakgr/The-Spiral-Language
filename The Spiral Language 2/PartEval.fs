@@ -1391,6 +1391,8 @@ let peval (env : TopEnv) (x : E) =
                 | None -> t <- Some t'
             l |> List.iter (function
                 | EPair(_,ELit(_,LitString backend),b) -> 
+                    // The reason why we're evaling all the branches intead of just one and in this specific order is because otherwise
+                    // compile time hashmaps could make type inference unsound.
                     if backend = s.backend.node then 
                         let d' = term s b
                         validate_type (data_to_ty s d')
