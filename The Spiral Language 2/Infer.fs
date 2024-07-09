@@ -667,7 +667,8 @@ let lit = function
     | LitString _ -> TyPrim StringT
     | LitChar _ -> TyPrim CharT
 
-let autogen_name (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'%i" i else sprintf "'%c" x
+let autogen_name_in_fun (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'%i" i else sprintf "'%c" x
+let autogen_name_in_typecase (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'t%i" i else sprintf "'t%c" x
 let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
 
 // Similar to BundleTop except with type annotations and type application filled in.
@@ -794,7 +795,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let annotations = Dictionary<obj,_>(HashIdentity.Reference)
     let exists_vars = Dictionary<obj,_>(HashIdentity.Reference)
     let gadt_typecases = Dictionary<obj,_>(HashIdentity.Reference)
-    let mutable autogened_forallvar_count = 0
+    let mutable autogened_forallvar_count_in_typecase = 0
+    let mutable autogened_forallvar_count_in_funs = 0
     let hover_types = HoverTypes()
 
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
@@ -956,8 +958,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyVar (_,{contents=Some x})
             | TyMetavar(_,{contents=Some x}) -> f x
             | TyMetavar(x, link) when scope = x.scope ->
-                let v = tyvar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=autogen_name autogened_forallvar_count}
-                autogened_forallvar_count <- autogened_forallvar_count+1
+                let v = tyvar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=autogen_name_in_fun autogened_forallvar_count_in_funs}
+                autogened_forallvar_count_in_funs <- autogened_forallvar_count_in_funs+1
                 link := Some v
                 replace_metavars v
             // This scheme with the HashSet is so generalize works for mutually recursive statements.
@@ -981,8 +983,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let rec loop m x = 
                 match visit_t x with
                 | TyForall(a,b) ->
-                    let v = tyvar {a with name=autogen_name autogened_forallvar_count; scope=scope}
-                    autogened_forallvar_count <- autogened_forallvar_count+1
+                    let v = tyvar {a with name=autogen_name_in_typecase autogened_forallvar_count_in_typecase; scope=scope}
+                    autogened_forallvar_count_in_typecase <- autogened_forallvar_count_in_typecase+1
                     let type_apply_args,b = loop ((a, v) :: m) b
                     v :: type_apply_args, b
                 | x -> [], subst m x
@@ -1438,7 +1440,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         generalized_statements.Add(body,t)
                         hover_types.AddHover(r,(t,""))
                         {env with term = Map.add name t env.term}
-                    let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
+                    let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var // The error is here. We need to dup the vars...
                     (term, gen), Map.add name ty s
                     ) env.term l'
             else 

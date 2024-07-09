@@ -1,0 +1,11 @@
+// Do the GADTs work in recursive functions?
+
+union t y =
+    | A :: forall x. x -> t x
+
+inl rec f forall y. (x : t y) : y =
+    // inl q = f
+    match x with
+    | A x => // Shouldn't be a type error.
+        inl q = f (A true)
+        x

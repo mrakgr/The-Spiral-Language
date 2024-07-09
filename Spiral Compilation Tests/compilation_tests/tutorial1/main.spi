@@ -1,11 +1,6 @@
-union qwe y =
-    | A :: qwe i32
-    | B :: qwe f32
-
-inl A : qwe i32 = nominal_create `(qwe i32) (.A,())
-
-// nominal asd = int
-// nominal asd = asd
+// union qwe y =
+//     | A :: qwe i32
+//     | B :: qwe f32
 
 // let f forall y. (x : qwe y) : y =
 //     match x with
@@ -20,3 +15,18 @@ inl A : qwe i32 = nominal_create `(qwe i32) (.A,())
 //     inl x = f (A 2)
 //     inl x = f (B 3)
 //     ()
+
+union t x =
+    | A :: forall x. x -> t x
+    | B :: forall x y. x * y -> t (x * y)
+
+// union t x =
+//     | A : x
+//     | B : x
+
+let f forall y. (x : t y) : y =
+    match x with
+    | A a
+    | B a =>
+        inl a = a
+        a
