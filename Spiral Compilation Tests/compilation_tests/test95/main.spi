@@ -29,12 +29,12 @@ inl snd (a,b) = b
 inl rec get_dim forall dim_top t_top. (h : graph_dims) : graph (tensor dim_top t_top) -> dim_top =
     function
     | Map(exists a. _, a) => get_dim h a
-    // | RowMap(exists a. _, a) => f a
-    // | RowReduce(exists a. _, a) => fst (f a)
-    // | Zip(a,b) =>
-    //     inl a = f a
-    //     inl b = f b
-    //     a
+    | RowMap(exists a. _, a) => get_dim h a
+    | RowReduce(exists a. _, a) => fst (get_dim h a)
+    | Zip(a,b) =>
+        inl a = get_dim h a
+        inl b = get_dim h b
+        a
     // | Matmul(a,b) =>
     //     inl (m,k as a) = f a
     //     inl (n,k') = f b
@@ -44,7 +44,9 @@ inl rec get_dim forall dim_top t_top. (h : graph_dims) : graph (tensor dim_top t
     // | Apply(exists a. a,b) => snd (f a)
     // | InputScalar => real ()
 
-// inl main() =
-//     inl graph : graph (tensor (int * int) float) =
-//         Input((exists .input), (1,4))
-//     ()
+inl main() =
+    inl graph : graph (tensor (int * int) float) =
+        Input((exists .input), (1,4))
+    inl h = graph_dims
+    inl q = get_dim h graph
+    ()
