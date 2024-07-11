@@ -278,7 +278,8 @@ let rec term_subst a =
     // term_subst returns:
     // int * float
     match visit_t a with
-    | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
+    | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
+    | TyVar(x,_) -> tyvar x
     | TyComment(a,b) -> TyComment(a,f b)
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
@@ -1425,6 +1426,19 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         hover_types.AddHover(r,(t,""))
         {env with term = Map.add name t env.term }
     and rec_block scope env l' =
+        let rec term_annotations scope env x =
+            let f t = 
+                let i = errors.Count
+                let v = fresh_var scope
+                ty scope env v t
+                if i = errors.Count && has_metavars v then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
+                v
+            match x with
+            | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations scope env body,FT_Vanilla)
+            | RawFun(_,[pat,body]) -> errors.Add(range_of_pattern pat, ExpectedAnnotation); TyFun(fresh_var scope, term_annotations scope env body,FT_Vanilla)
+            | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var scope, fresh_var scope, FT_Vanilla)
+            | RawJoinPoint(_,_,RawAnnot(_,_,t),_) | RawAnnot(_,_,t) -> f t
+            | x -> errors.Add(range_of_expr x,ExpectedAnnotation); fresh_var scope
         let scope = scope + 1
         let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l'
         let l,m =
@@ -1440,7 +1454,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         generalized_statements.Add(body,t)
                         hover_types.AddHover(r,(t,""))
                         {env with term = Map.add name t env.term}
-                    let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var // The error is here. We need to dup the vars...
+                    let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var |> term_subst
                     (term, gen), Map.add name ty s
                     ) env.term l'
             else 
@@ -1458,20 +1472,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let env = {env with term = m}
             List.iter (fun (term, _) -> term env) l
         List.fold (fun env (_, gen) -> gen env) env l
-    and term_annotations scope env x =
-        let f t = 
-            let i = errors.Count
-            let v = fresh_var scope
-            ty scope env v t
-            let v = term_subst v
-            if i = errors.Count && has_metavars v then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
-            v
-        match x with
-        | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations scope env body,FT_Vanilla)
-        | RawFun(_,[pat,body]) -> errors.Add(range_of_pattern pat, ExpectedAnnotation); TyFun(fresh_var scope, term_annotations scope env body,FT_Vanilla)
-        | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var scope, fresh_var scope, FT_Vanilla)
-        | RawJoinPoint(_,_,RawAnnot(_,_,t),_) | RawAnnot(_,_,t) -> f t
-        | x -> errors.Add(range_of_expr x,ExpectedAnnotation); fresh_var scope
     and ty scope env s x = ty' scope false env s x
     and ty' scope is_in_left_apply (env : Env) s x =
         let f s x = ty scope env s x
@@ -1575,11 +1575,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let h = TyNominal i
             let l' = List.map (fun (x : Var) -> x, fresh_subst_var scope x.constraints x.kind) l
             List.fold (fun s (_,x) -> match tt top_env s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
-        let rec ho_index = function 
+        let rec ho_index x =
+            match visit_t x with
             | TyApply(a,_,_) -> ho_index a 
             | TyNominal i -> ValueSome i
             | _ -> ValueNone
-        let rec ho_fun = function
+        let rec ho_fun x = 
+            match visit_t x with
             | TyFun(_,a,_) | TyForall(_,a) -> ho_fun a
             | a -> ho_index a
         let rec loop s x : unit =
@@ -1671,12 +1673,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             hover_types.AddHover(r,(s,""))
                         | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
-                match term_subst s |> ho_index with
+                match ho_index s with
                 | ValueSome i -> assume i
                 | ValueNone ->
                     match v_term env name with
                     | Some (_,x) -> 
-                        match term_subst x |> ho_fun with
+                        match ho_fun x with
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a

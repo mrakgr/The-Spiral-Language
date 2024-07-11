@@ -26,7 +26,9 @@ union t x =
 
 let f forall y. (x : t y) : y =
     match x with
-    | A a
+    | A a =>
+        inl a = a
+        a
     | B a =>
         inl a = a
         a
