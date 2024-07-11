@@ -826,25 +826,30 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMacro l -> l |> List.map (function TMText x -> RawMacroText(r,x) | TMVar x -> RawMacroType(r,f x) | TMLitVar x -> RawMacroTypeLit(r,f x)) |> fun l -> RawTMacro(r,l)
                 | TyLayout(a,b) -> RawTLayout(r,f a,b)
             f expr
-        let fill_typecases x =
+        let annot r x = t_to_rawtexpr r [] (snd annotations.[x])
+        let rec fill_typecases rec_term x =
             match gadt_typecases.TryGetValue(x) with
             | true, typecase_data ->
                 Seq.foldBack (fun (typecase_cond,forall_vars,typecase_constructor) typecase_body ->
                     let r = range_of_expr typecase_body
                     RawTypecase(r, t_to_rawtexpr r [] typecase_cond, [t_to_rawtexpr r forall_vars typecase_constructor, typecase_body])
-                    ) typecase_data x
+                    ) typecase_data (term rec_term x)
             | _ ->
-                x
-        let annot r x = t_to_rawtexpr r [] (snd annotations.[x])
-        let rec fill_foralls r rec_term body = 
+                term rec_term x
+        and fill_foralls r rec_term body = 
             let _,body = foralls_get body
             let l,_ = foralls_ty_get generalized_statements.[body]
             List.foldBack (fun (x : Var) s -> RawFilledForall(r,x.name,s)) l (term rec_term body)
         and term rec_term x = 
             let f = term rec_term
-            let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,fill_typecases (term rec_term b)) l
+            let clauses l = 
+                List.map (fun (a, b) -> 
+                    let rec_term,a = pattern rec_term a 
+                    a,fill_typecases rec_term b
+                    ) l
             match x with
-            | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
+            | RawFilledForall _ | RawMissingBody _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
+            | RawTypecase _
             | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
             | RawReal(_,x) -> x
             | RawV(r,n) ->
@@ -859,7 +864,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawForall(r,a,b) -> RawForall(r,a,f b)
             | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
                 let _,body = foralls_get body
-                RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), fill_typecases (term (Map.remove name rec_term) on_succ)])
+                RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), fill_typecases (Map.remove name rec_term) on_succ])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
             | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
             | RawExists(r,(r',a),b) -> RawExists(r,(r',Some(Option.defaultWith (fun () -> List.map (t_to_rawtexpr r []) exists_vars.[x]) a)),f b)
