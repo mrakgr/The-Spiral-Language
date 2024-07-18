@@ -268,8 +268,8 @@ let rec has_metavars x =
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
 
 // Eliminates the metavars in the type if possible.
-let rec term_subst a =
-    let f = term_subst
+let term_subst a =
+    let h = System.Collections.Generic.HashSet(HashIdentity.Reference)
     // 'a = 'b = ('c = int * 'd = float)
     // visit_t shortens to:
     // 'a = ('c = int * 'd = float)
@@ -277,22 +277,29 @@ let rec term_subst a =
     // ('c = int * 'd = float)
     // term_subst returns:
     // int * float
-    match visit_t a with
-    | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
-    | TyVar(x,_) -> tyvar x
-    | TyComment(a,b) -> TyComment(a,f b)
-    | TyPair(a,b) -> TyPair(f a, f b)
-    | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
-    | TyModule a -> TyModule(Map.map (fun _ -> f) a)
-    | TyUnion(a,b) -> TyUnion(Map.map (fun _ (is_gadt, x) -> is_gadt, f x) a,b)
-    | TyFun(a,b,t) -> TyFun(f a, f b, t)
-    | TyForall(a,b) -> TyForall(a,f b)
-    | TyExists(a,b) -> TyExists(a,f b)
-    | TyArray a -> TyArray(f a)
-    | TyApply(a,b,c) -> TyApply(f a, f b, c)
-    | TyInl(a,b) -> TyInl(a,f b)
-    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
-    | TyLayout(a,b) -> TyLayout(f a,b)
+    let inline g a f =
+        let _ = h.Add(a)
+        let x = f()
+        let _ = h.Remove(a)
+        x
+    let rec f a =
+        match visit_t a with
+        | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
+        | TyVar(x,r) -> TyVar(x, if h.Contains x then ref None else r)
+        | TyComment(a,b) -> TyComment(a,f b)
+        | TyPair(a,b) -> TyPair(f a, f b)
+        | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
+        | TyModule a -> TyModule(Map.map (fun _ -> f) a)
+        | TyUnion(a,b) -> TyUnion(Map.map (fun _ (is_gadt, x) -> is_gadt, f x) a,b)
+        | TyFun(a,b,t) -> TyFun(f a, f b, t)
+        | TyForall(a,b) -> g a <| fun () -> TyForall(a,f b)
+        | TyExists(a,b) -> TyExists(a,f b)
+        | TyArray a -> TyArray(f a)
+        | TyApply(a,b,c) -> TyApply(f a, f b, c)
+        | TyInl(a,b) -> g a <| fun () -> TyInl(a,f b)
+        | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
+        | TyLayout(a,b) -> TyLayout(f a,b)
+    f a
 
 type HoverTypes() =
     // This is to allocate less trash for code that doesn't use GADTs. 

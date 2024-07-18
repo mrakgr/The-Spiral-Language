@@ -1,52 +1,20 @@
-// Do the GADT constructors work?
+// Does the type substitution work properly?
 
-nominal tensor dim t = ()
-nominal layer_state = ()
-nominal row_config = ()
+union qwe y =
+    | A :: i32 -> qwe i32
+    | B :: f32 -> qwe f32
 
-union rec graph t =
-    // | Reduce :: forall t. (exists dim a. (layer_state -> a -> t) * graph (tensor dim a)) -> graph t
-    | Map :: forall dim t. (exists a. (layer_state -> a -> t) * graph (tensor dim a)) -> graph (tensor dim t)
-    | RowMap :: forall t. 
-        (exists a. (layer_state -> row_config -> tensor (int * int) a -> int -> tensor (int * int) int -> tensor (int * int) t) * graph (tensor (int * int) a))
-        -> graph (tensor (int * int) t)
-    | RowReduce :: forall t. 
-        (exists a. (layer_state -> row_config -> tensor (int * int) a -> int -> tensor (int * int) int -> t) * graph (tensor (int * int) a))
-        -> graph (tensor int t)
-    | Zip :: forall dim a b. graph (tensor dim a) * graph (tensor dim b) -> graph (tensor dim (a * b))
-    | Matmul :: forall t. graph (tensor (int * int) t) * graph (tensor (int * int) t) -> graph (tensor (int * int) t)
-    | Weight :: forall dim t. dim -> graph (tensor dim t)
-    | Input :: forall dim t. (exists key{symbol}. key) * dim -> graph (tensor dim t)
-    | Apply :: forall b el. (exists a. graph (tensor (a * b) el) * graph a) -> graph (tensor b el)
-    | InputScalar :: forall a. (exists key{symbol}. key) -> graph a
-
-nominal graph_dims = ()
-
-inl fst (a,b) = a
-inl snd (a,b) = b
-
-// Returns the top level dimension. Takes in a hashmap for memoization purposes.
-inl rec get_dim forall dim_top t_top. (h : graph_dims) : graph (tensor dim_top t_top) -> dim_top =
-    function
-    | Map(exists a. _, a) => get_dim h a
-    | RowMap(exists a. _, a) => get_dim h a
-    | RowReduce(exists a. _, a) => fst (get_dim h a)
-    | Zip(a,b) =>
-        inl a = get_dim h a
-        inl b = get_dim h b
+let f forall y. (x : qwe y) : y =
+    inl id (x : y) : y = x
+    match x with
+    | A a =>
+        inl a = id a
         a
-    // | Matmul(a,b) =>
-    //     inl (m,k as a) = f a
-    //     inl (n,k') = f b
-    //     m,n
-    // | Weight dim => dim
-    // | Input (_, dim) => dim
-    // | Apply(exists a. a,b) => snd (f a)
-    // | InputScalar => real ()
+    | B a =>
+        inl a = a
+        a
 
-inl main() =
-    inl graph : graph (tensor (int * int) float) =
-        Input((exists .input), (1,4))
-    inl h = graph_dims
-    inl q = get_dim h graph
+inl main() : () = 
+    inl x = f (A 2)
+    inl x = f (B 3)
     ()
