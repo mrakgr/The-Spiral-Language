@@ -1,34 +1,6 @@
-// union qwe y =
-//     | A :: qwe i32
-//     | B :: qwe f32
+// Does the following typecheck correctly?
 
-// let f forall y. (x : qwe y) : y =
-//     match x with
-//     | A a =>
-//         inl a = a
-//         a
-//     | B a =>
-//         inl a = a
-//         a
+nominal model t = ()
 
-// inl main() : () = 
-//     inl x = f (A 2)
-//     inl x = f (B 3)
-//     ()
-
-union t x =
-    | A :: forall x. x -> t x
-    | B :: forall x y. x * y -> t (x * y)
-
-// union t x =
-//     | A : x
-//     | B : x
-
-let f forall y. (x : t y) : y =
-    match x with
-    | A a =>
-        inl a = a
-        a
-    | B a =>
-        inl a = a
-        a
+let run ((exists r. x) : exists t. model t) : () =
+    ()

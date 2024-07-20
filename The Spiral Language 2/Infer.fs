@@ -981,9 +981,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a; f b
             | TyUnion(a,_) -> Map.iter (fun _ -> snd >> f) a
             | TyRecord a -> Map.iter (fun _ -> f) a
-            | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyExists(v,a) -> List.iter (h.Add >> ignore) v; f a
+            | TyForall(v,a) -> (h.Add >> ignore) v; f a
+            | TyComment(_,a) | TyLayout(a,_) | TyArray a -> f a
             | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
             | TyModule _ -> ()
+            | TyInl(_,a) -> errors.Add(r,CompilerError "Compiler error: Not expecting a TyInl in generalize.")
 
         let f x s = TyForall(x,s)
         replace_metavars body

@@ -1,0 +1,20 @@
+// Does the type substitution work properly?
+
+union qwe y =
+    | A :: i32 -> qwe i32
+    | B :: f32 -> qwe f32
+
+let f forall y. (x : qwe y) : y =
+    inl id (x : y) : y = x
+    match x with
+    | A a =>
+        inl a = id a
+        a
+    | B a =>
+        inl a = a
+        a
+
+inl main() : () = 
+    inl x = f (A 2)
+    inl x = f (B 3)
+    ()
