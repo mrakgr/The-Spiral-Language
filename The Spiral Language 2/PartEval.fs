@@ -2351,6 +2351,11 @@ let peval (env : TopEnv) (x : E) =
             match term s h with
             | DHashMap(_, is_writable) -> is_writable := false; DB
             | h -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,HashMapSet,[h;k;v]) ->
+            match term s h, term s k, term s v with
+            | DHashMap(h, is_writable), k, v when is_writable.Value -> h.[k] <- v; DB
+            | DHashMap(h, _), _, _ -> raise_type_error s "The hash map has been made read-only and cannot be added to."
+            | h, _, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
         | EOp(_,HashMapAdd,[h;k;v]) ->
             match term s h, term s k, term s v with
             | DHashMap(h, is_writable), k, v when is_writable.Value -> if h.TryAdd(k,v) then DB else raise_type_error s "The entry with the same key already exists in the dictionary."

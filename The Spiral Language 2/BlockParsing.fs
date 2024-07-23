@@ -29,6 +29,7 @@ type Op =
     // Compile time hash map
     | HashMapCreate
     | HashMapSetImmutable
+    | HashMapSet
     | HashMapAdd
     | HashMapTryAdd
     | HashMapContains
