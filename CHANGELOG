@@ -1,3 +1,8 @@
+2.12.7 (7/25/2024)
+
+* Fixed an issue of the Spiral throwing incoming away messages (and files) larger than 32kb. Now the limit is 1mb. 
+* ...
+
 2.12.6 (7/23/2024)
 
 * Added the HashMapSet op to the language.

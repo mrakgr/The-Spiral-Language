@@ -497,7 +497,10 @@ let [<EntryPoint>] main args =
     let builder = WebApplication.CreateBuilder()
     builder.Services
         .AddCors()
-        .AddSignalR(fun x -> x.EnableDetailedErrors <- true) |> ignore
+        .AddSignalR(fun x -> 
+            x.MaximumReceiveMessageSize <- 1 <<< 20 // 1mb
+            x.EnableDetailedErrors <- true
+            ) |> ignore
         
     builder.Services
         .AddSingleton<Supervisor>(fun s ->
