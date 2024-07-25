@@ -1091,6 +1091,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar (a,_), TyVar (b,_) when a = b -> ()
             | TyVar (a,link), b | b, TyVar (a,link) when gadt_links.IsSome ->
+                // TODO: Recursion check.
                 unify_kind a.kind (tt top_env b)
                 match constraint_process a.constraints b with
                 | [] -> link := Some b; gadt_links.Value.Add(link)
