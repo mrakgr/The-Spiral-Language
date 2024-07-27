@@ -47,6 +47,7 @@ and Ty =
     | YPair of Ty * Ty
     | YTypeFunction of body : T * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | YExists
+    | YForall // TODO
     | YRecord of Map<string, Ty>
     | YPrim of PrimitiveType
     | YArray of Ty

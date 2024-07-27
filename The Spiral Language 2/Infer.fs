@@ -1064,18 +1064,29 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
         // Does occurs checking for recursive metavariables.
         // Does scope checking in forall vars.
-        let rec validate_mvar_unification i x =
-            let f = validate_mvar_unification i
-            match visit_t x with
-            | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
-            | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
-            | TyExists(_,a) | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-            | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a; f b
-            | TyUnion(l,_) -> Map.iter (fun _ -> snd >> f) l
-            | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyVar(b,_) -> if i.scope < b.scope then raise (TypeErrorException [r,TypeVarScopeError(b.name,got,expected)])
-            | TyMetavar(x,_) -> if i = x then raise (TypeErrorException [r,RecursiveMetavarsNotAllowed(got,expected)]) elif i.scope < x.scope then x.scope <- i.scope
-            | TyLayout(a,_) -> f a
+        let validate_mvar_unification i x =
+            let nested_tvars = HashSet(HashIdentity.Reference)
+            let rec f x =
+                match visit_t x with
+                | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+                | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
+                | TyForall(v,a) | TyInl(v,a) ->
+                    let _ = nested_tvars.Add(v)
+                    f a
+                    let _ = nested_tvars.Remove(v)
+                    ()
+                | TyExists(v,a) ->
+                    v |> List.iter (nested_tvars.Add >> ignore)
+                    f a
+                    v |> List.iter (nested_tvars.Remove >> ignore)
+                | TyComment(_,a) | TyArray a -> f a
+                | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a; f b
+                | TyUnion(l,_) -> Map.iter (fun _ -> snd >> f) l
+                | TyRecord l -> Map.iter (fun _ -> f) l
+                | TyVar(b,_) -> if nested_tvars.Contains b = false && i.scope < b.scope then raise (TypeErrorException [r,TypeVarScopeError(b.name,got,expected)])
+                | TyMetavar(x,_) -> if i = x then raise (TypeErrorException [r,RecursiveMetavarsNotAllowed(got,expected)]) elif i.scope < x.scope then x.scope <- i.scope
+                | TyLayout(a,_) -> f a
+            f x
 
         // Does occurs checking for recursive type variables.
         let rec validate_tvar_unification i x =

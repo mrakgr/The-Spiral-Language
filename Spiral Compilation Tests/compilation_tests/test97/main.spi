@@ -1,0 +1,6 @@
+// Does the following typecheck correctly?
+
+nominal model t = ()
+
+let run ((exists r. x) : exists t. model t) : () =
+    ()
