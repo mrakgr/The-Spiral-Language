@@ -1,5 +1,10 @@
 // Do higher ranked types work correctly?
 inl main() =
-    inl f forall x. (x : x) (id : forall t. t -> t) : x = id x
-    inl q = `$f
+    inl id forall t. (x : t) : t = x
+    inl f forall x. (id : forall t. t -> t) (x : x) : x = id x
+    inl q = f `$id true
+
+    inl q forall a b c. ...
+    inl w forall b c. : () =  q : ...
     q
+    

@@ -1118,7 +1118,7 @@ and root_type (flags : RootTypeFlags) d =
                 <|> macro_expression MTypeLit (root_type root_type_defaults |>> fun x -> RawMacroTypeLit(range_of_texpr x,x))) s
             let body = many ((read_text false |>> RawMacroText) <|> read_macro_type_var <|> read_macro_expression)
             pipe3 skip_macro_open body skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
-        let exists = range (exists .>>. root_type {flags with allow_wildcard=false}) |>> fun (r,(l,b)) -> RawTExists(r,l,b)
+        let exists = range (exists .>>. root_type {flags with allow_wildcard=false}) |>> fun (r,(l,b)) -> RawTExists(r,l,b) // TODO: Move this next to the foralls.
         let (+) = alt (index d)
         (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro + exists) d
 

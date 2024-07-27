@@ -269,6 +269,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         | YArray a -> sprintf "%s *" (tup_ty a)
         | YFun(a,b,t) -> $"Fun%i{(cfun (a,b,t)).tag}"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
+        | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
         | Int8T -> "char" 

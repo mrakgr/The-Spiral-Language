@@ -209,6 +209,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             let a = env.ty_to_data a |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", "
             $"Callable[[{a}], {tup_ty b}]"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
+        | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
         | a -> failwithf "Complier error: Type not supported in the codegen.\nGot: %A" a
     and tup_ty x =
         match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) with
