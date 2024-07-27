@@ -75,6 +75,7 @@ type TypeError =
     | TermError of T * T
     | TypeVarScopeError of string * T * T
     | RecursiveMetavarsNotAllowed of T * T
+    | RecursiveTypevarsNotAllowed of T * T
     | ForallVarConstraintError of string * Constraint Set * Constraint Set
     | MetavarsNotAllowedInRecordWith
     | ExpectedRecord of T
@@ -601,6 +602,7 @@ let show_type_error (env : TopEnv) x =
     | KindErrorInConstraint(a,b) -> sprintf "Kind unification failure when propagating them from constraints.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | RecursiveMetavarsNotAllowed(a,b) -> sprintf "Recursive metavariables are not allowed. A metavar cannot be unified with a type that has itself.\nGot:      %s\nExpected: %s" (f a) (f b)
+    | RecursiveTypevarsNotAllowed(a,b) -> sprintf "Recursive type variables are not allowed. A type variable cannot be unified with a type that has itself.\nGot:      %s\nExpected: %s" (f a) (f b)
     | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
     | ExpectedSymbolAsModuleKey a -> sprintf "Expected symbol as a module key.\nGot: %s" (f a)
     | UnboundVariable x -> sprintf "Unbound variable: %s." x
@@ -1061,8 +1063,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
         // Does occurs checking for recursive metavariables.
         // Does scope checking in forall vars.
-        let rec validate_unification i x =
-            let f = validate_unification i
+        let rec validate_mvar_unification i x =
+            let f = validate_mvar_unification i
             match visit_t x with
             | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
@@ -1072,6 +1074,19 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyVar(b,_) -> if i.scope < b.scope then raise (TypeErrorException [r,TypeVarScopeError(b.name,got,expected)])
             | TyMetavar(x,_) -> if i = x then raise (TypeErrorException [r,RecursiveMetavarsNotAllowed(got,expected)]) elif i.scope < x.scope then x.scope <- i.scope
+            | TyLayout(a,_) -> f a
+
+        // Does occurs checking for recursive type variables.
+        let rec validate_tvar_unification i x =
+            let f = validate_tvar_unification i
+            match visit_t x with
+            | TyMetavar _ | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+            | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
+            | TyExists(_,a) | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyApply(a,b,_) | TyFun(a,b,_) | TyPair(a,b) -> f a; f b
+            | TyUnion(l,_) -> Map.iter (fun _ -> snd >> f) l
+            | TyRecord l -> Map.iter (fun _ -> f) l
+            | TyVar(x,_) -> if i = x then raise (TypeErrorException [r,RecursiveTypevarsNotAllowed(got,expected)])
             | TyLayout(a,_) -> f a
 
         let rec loop (a'',b'') = 
@@ -1084,14 +1099,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     b.constraints <- a.constraints + b.constraints
                     link := Some b'
             | TyMetavar(a,link), b | b, TyMetavar(a,link) ->
-                validate_unification a b
+                validate_mvar_unification a b
                 unify_kind a.kind (tt top_env b)
                 match constraint_process a.constraints b with
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar (a,_), TyVar (b,_) when a = b -> ()
             | TyVar (a,link), b | b, TyVar (a,link) when gadt_links.IsSome ->
-                // TODO: Recursion check.
+                validate_tvar_unification a b
                 unify_kind a.kind (tt top_env b)
                 match constraint_process a.constraints b with
                 | [] -> link := Some b; gadt_links.Value.Add(link)
