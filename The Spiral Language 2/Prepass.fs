@@ -1069,7 +1069,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawDefaultLit(r,a) -> failwith "Compiler error: Default values should have been annotated in `fill` by prepass time."
         | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(p r,a,ty env b)
         | RawB r -> EB(p r)
-        | RawV(r,a) -> v_term env a
+        | RawV(r,a,_) -> v_term env a
         | RawLit(r,a) -> ELit(p r,a)
         | RawSymbol(r,a) -> ESymbol(p r,a)
         | RawType(r,a) -> EType(p r,ty env a)

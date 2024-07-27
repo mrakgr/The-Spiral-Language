@@ -74,7 +74,7 @@ and fold_offset_term offset x =
     let g = add_offset offset
     match x with
     | RawB r -> RawB (g r)
-    | RawV(r,a) -> RawV (g r,a)
+    | RawV(r,a,b) -> RawV (g r,a,b)
     | RawLit(r,a) -> RawLit (g r,a)
     | RawDefaultLit(r,a) -> RawDefaultLit (g r,a)
     | RawSymbol(r,a) -> RawSymbol (g r,a)

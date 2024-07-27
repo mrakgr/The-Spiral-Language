@@ -351,7 +351,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     let rec cterm constraints (term, ty) x =
         match x with
         | RawSymbol _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
-        | RawV(a,b) -> check_term term (a,b)
+        | RawV(a,b,_) -> check_term term (a,b)
         | RawType(_,x) -> ctype constraints term ty x
         | RawMatch(_,body,l) -> cterm constraints (term, ty) body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) b) l
@@ -861,7 +861,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawTypecase _
             | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
             | RawReal(_,x) -> x
-            | RawV(r,n) ->
+            | RawV(r,n,false) -> x
+            | RawV(r,n,true) ->
                 match type_apply_args.TryGetValue(n) with
                 | true, type_apply_args ->
                     match Map.tryFind n rec_term with
@@ -1201,7 +1202,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let f = term scope env
         let f' x = let v = fresh_var scope in f v x; visit_t v
         let f'' x = let v = fresh_var scope in term' scope true env v x; visit_t v
-        let inline rawv (r,name) =
+        let inline rawv (r,name,is_tvar_applied) =
             match v_term env name with
             | None -> errors.Add(r,UnboundVariable name)
             | Some (_,TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
@@ -1209,11 +1210,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 hover_types.AddHover(r,(m,com))
                 errors.Add(r,ModuleMustBeImmediatelyApplied)
             | Some (com,a) -> 
-                match a with TyForall _ -> annotations.Add(x,(r,s)) | _ -> ()
-                let f a = let l,v = forall_subst_all scope a in unify r s v; l
-                let l = f a
-                hover_types.AddHover(r,(s,com))
-                type_apply_args.Add(name,(l,f))
+                if is_tvar_applied then
+                    match a with TyForall _ -> annotations.Add(x,(r,s)) | _ -> ()
+                    let f a = let l,v = forall_subst_all scope a in unify r s v; l
+                    let l = f a
+                    hover_types.AddHover(r,(s,com))
+                    type_apply_args.Add(name,(l,f))
+                else
+                    unify r s a
+                    hover_types.AddHover(r,(s,com))
         let match_clause (q,w) (a,b) =
             let gadt_links, gadt_typecases', (scope, env) = pattern scope env q a
             term scope env w b
@@ -1221,7 +1226,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             gadt_typecases.Add(b,gadt_typecases')
         match x with
         | RawB r -> unify r s TyB
-        | RawV(r,a) -> rawv (r,a)
+        | RawV(r,a,is_tvar_applied) -> rawv (r,a,is_tvar_applied)
         | RawDefaultLit(r,_) -> unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType); hover_types.AddHover(r,(s,"")); annotations.Add(x,(r,s))
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbol(r,x) -> unify r s (TySymbol x)
@@ -1546,6 +1551,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTForall(r,a,b) ->
             let a = typevar_to_var scope env.constraints a
             let body_var = fresh_var scope
+            // TODO: Make sure the tvar is used in the body_var.
             ty scope {env with ty = Map.add a.name (tyvar a) env.ty} body_var b
             unify r s (TyForall(a, body_var))
         | RawTApply(r,a',b) ->
