@@ -1,0 +1,8 @@
+// Why top down variable shadowing restiction is necessary.
+inl main() =
+    inl eq forall q. (a : q) (b : q) = true
+    inl qwe forall t. (x : t) =
+        inl asd forall t. (y : t) =
+            eq x x // Without the restriction, the automatic type application would apply the wrong type variable here.
+        ()
+    ()    

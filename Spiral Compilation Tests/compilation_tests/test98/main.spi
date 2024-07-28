@@ -1,8 +1,11 @@
+// nominal bar t = forall t. int
+
+// union foo t =
+//     | A :: forall t. (forall q. int) -> foo t
+
 // Do higher ranked types work correctly?
 inl main() =
     inl id forall t. (x : t) : t = x
     inl f forall x. (id : forall t. t -> t) (x : x) : x = id x
     // inl qwe (x : forall t. int) = (real ())
-    inl q = f `$id false
-    q
-    
+    f `$id false

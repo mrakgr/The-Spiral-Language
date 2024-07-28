@@ -710,7 +710,6 @@ type [<ReferenceEquality>] InferResult = {
 let dispose_gadt_links gadt_links = Seq.iter (fun x -> x := None) gadt_links
 
 let assert_foralls_used' (errors : (VSCRange * TypeError) ResizeArray) outside_foralls r x =
-    //let errors : (VSCRange * TypeError) ResizeArray = ResizeArray()
     let h = HashSet()
     let rec f x =
         match visit_t x with
@@ -724,9 +723,8 @@ let assert_foralls_used' (errors : (VSCRange * TypeError) ResizeArray) outside_f
             let a = f a
             if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
             else Set.remove v.name a
-        | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
+        | TyUnion _ | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
         | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b,_) -> f a + f b
-        | TyUnion(a,_) -> Map.fold (fun s _ (_,x) -> Set.union s (f x)) Set.empty a
         | TyRecord a -> Map.fold (fun s _ x -> Set.union s (f x)) Set.empty a
         | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
         | TyMacro a -> 
@@ -779,6 +777,7 @@ let validate_nominal (errors : _ ResizeArray) global_id body v =
                     | TyFun(a,b,_) -> 
                         if is_stack then assert_nominal_non_recursive a
                         assert_gadt_has_proper_specialized_constructor b
+                        assert_foralls_used errors (range_of_texpr_gadt_body body) a
                         assert_foralls_used' errors outside_foralls (range_of_texpr_gadt_constructor body) b
                     | b ->
                         assert_gadt_has_proper_specialized_constructor b
@@ -787,7 +786,9 @@ let validate_nominal (errors : _ ResizeArray) global_id body v =
                 find_gadt_constructor Set.empty v
                     
             if is_gadt then assert_gadt_is_valid v
-            elif is_stack then assert_nominal_non_recursive v
+            else
+                if is_stack then assert_nominal_non_recursive v
+                assert_foralls_used errors (range_of_texpr body) v // We need to assert that the foralls in regular union bodies are checked.
             )
     | _ ->
         assert_nominal_non_recursive v
