@@ -1,0 +1,10 @@
+// Are the union cases in GADTs being eliminated correctly?
+
+union qwe t =
+    | A :: qwe i32
+    | B :: qwe f32
+
+inl main() =
+    inl ~x = A
+    inl ~y : qwe string = real !!!!NominalCreate((.A,()), `(qwe string)) // Should give an error that .A is missing in the union type.
+    ()
