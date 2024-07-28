@@ -794,6 +794,14 @@ let validate_nominal (errors : _ ResizeArray) global_id body v =
     | _ ->
         assert_nominal_non_recursive v
 
+let rec kind_to_rawkind (x : TT) : RawKindExpr =
+    match visit_tt x with
+    | KindMetavar _ | KindType -> RawKindStar
+    | KindFun(a,b) -> RawKindFun(kind_to_rawkind a, kind_to_rawkind b)
+    
+let var_to_hovar r (x : Var) : HoVar = r,(x.name,kind_to_rawkind x.kind)
+let var_to_typevar r (x : Var) : TypeVar = var_to_hovar r x, [] // In the bottom up segment the constrains aren't checked anywhere so we'll put an empty list here.
+
 open Spiral.BlockBundling
 let infer package_id module_id (top_env' : TopEnv) expr =
     let at_tag i = {package_id=package_id; module_id=module_id; tag=i}
@@ -816,7 +824,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let t_to_rawtexpr r vars_to_metavars expr =
             let rec f x = 
                 match visit_t x with
-                | TyUnion _ | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
+                | TyUnion _ | TyMetavar _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
+                | TyForall(a,b) -> RawTForall(r,var_to_typevar r a,f b)
                 | TyComment(_,x) -> f x
                 | TyB -> RawTB r
                 | TyLit x -> RawTLit(r,x)

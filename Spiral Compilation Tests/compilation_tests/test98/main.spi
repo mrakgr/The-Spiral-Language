@@ -2,9 +2,6 @@
 inl main() =
     inl id forall t. (x : t) : t = x
     inl f forall x. (id : forall t. t -> t) (x : x) : x = id x
-    inl q = f `$id true
-
-    inl q forall a b c. ...
-    inl w forall b c. : () =  q : ...
+    inl q = f `$id false
     q
     
