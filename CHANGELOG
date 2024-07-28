@@ -1,3 +1,7 @@
+2.13.0 (7/28/2024)
+
+Added higher ranked types to the language.
+
 2.12.7 (7/26/2024)
 
 * Fixed an issue of the Spiral throwing incoming away messages (and files) larger than 32kb. Now the limit is 1mb. 
