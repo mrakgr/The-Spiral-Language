@@ -709,8 +709,8 @@ type [<ReferenceEquality>] InferResult = {
 
 let dispose_gadt_links gadt_links = Seq.iter (fun x -> x := None) gadt_links
 
-let assert_foralls_used' outside_foralls r x =
-    let errors : (VSCRange * TypeError) ResizeArray = ResizeArray()
+let assert_foralls_used' (errors : (VSCRange * TypeError) ResizeArray) outside_foralls r x =
+    //let errors : (VSCRange * TypeError) ResizeArray = ResizeArray()
     let h = HashSet()
     let rec f x =
         match visit_t x with
@@ -739,9 +739,8 @@ let assert_foralls_used' outside_foralls r x =
     Seq.iter (h.Add >> ignore) (outside_foralls - used_vars)
     if 0 < h.Count then
         errors.Add(r, UnusedTypeVariable (Seq.toList h))
-    errors
 
-let assert_foralls_used r x = assert_foralls_used' Set.empty r x
+let assert_foralls_used errors r x = assert_foralls_used' errors Set.empty r x
 
 let validate_nominal (errors : _ ResizeArray) global_id body v =
     // Stack union types and regular nominals must not be recursive.
@@ -780,14 +779,14 @@ let validate_nominal (errors : _ ResizeArray) global_id body v =
                     | TyFun(a,b,_) -> 
                         if is_stack then assert_nominal_non_recursive a
                         assert_gadt_has_proper_specialized_constructor b
-                        assert_foralls_used' outside_foralls (range_of_texpr_gadt_constructor body) b
+                        assert_foralls_used' errors outside_foralls (range_of_texpr_gadt_constructor body) b
                     | b ->
                         assert_gadt_has_proper_specialized_constructor b
-                        assert_foralls_used' outside_foralls (range_of_texpr_gadt_constructor body) b
+                        assert_foralls_used' errors outside_foralls (range_of_texpr_gadt_constructor body) b
                         
                 find_gadt_constructor Set.empty v
                     
-            if is_gadt then assert_gadt_is_valid v |> errors.AddRange
+            if is_gadt then assert_gadt_is_valid v
             elif is_stack then assert_nominal_non_recursive v
             )
     | _ ->
@@ -1002,7 +1001,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let f x s = TyForall(x,s)
         replace_metavars body
         let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst
-        if List.isEmpty forall_vars = false then assert_foralls_used r x |> errors.AddRange
+        if List.isEmpty forall_vars = false then assert_foralls_used errors r x
         x
 
     let gadt_extract scope (v : T) =
@@ -1529,7 +1528,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         List.fold (fun env (_, gen) -> gen env) env l
     and ty_init scope env s x = 
         ty scope env s x
-        assert_foralls_used (range_of_texpr x) s |> errors.AddRange
+        assert_foralls_used errors (range_of_texpr x) s
     and ty scope env s x = ty' scope false env s x
     and ty' scope is_in_left_apply (env : Env) s x =
         let f s x = ty scope env s x
@@ -1858,7 +1857,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let v = fresh_var scope
         ty_init scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        if 0 = errors.Count && (assert_foralls_used r' body |> errors.AddRange; 0 = errors.Count) then
+        if 0 = errors.Count && (assert_foralls_used errors r' body; 0 = errors.Count) then
             let x =
                 { top_env_empty with
                     prototypes_next_tag = i.tag + 1

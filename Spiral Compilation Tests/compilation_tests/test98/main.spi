@@ -1,7 +1,7 @@
 // Do higher ranked types work correctly?
 inl main() =
     inl id forall t. (x : t) : t = x
-    inl f forall x. (id : forall t r h. t -> t) (x : x) : x = id x
+    inl f forall x. (id : forall t. t -> t) (x : x) : x = id x
     // inl qwe (x : forall t. int) = (real ())
     inl q = f `$id false
     q
