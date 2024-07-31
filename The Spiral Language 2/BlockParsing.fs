@@ -88,6 +88,7 @@ type Op =
     | StringLength
     | StringIndex
     | StringSlice
+    | StaticStringConcat
 
     // Array
     | ArrayCreate

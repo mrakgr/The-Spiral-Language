@@ -2388,6 +2388,14 @@ let peval (env : TopEnv) (x : E) =
                 | true, v -> v
                 | false, _ -> DSymbol "null"
             | h, _ -> raise_type_error s $"Expected a compile time HashMap.\nGot: {show_data h}"
+        | EOp(_,StaticStringConcat,[l]) ->
+            let strb = System.Text.StringBuilder()
+            let rec loop = function
+                | DPair(a,b) -> loop a; loop b
+                | DLit(LitString x) -> strb.Append(x) |> ignore
+                | x -> raise_type_error s $"Expected a compile time string or a pair of them.\nGot: {show_data x}"
+            loop (term s l)
+            DLit(LitString(strb.ToString()))
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {
