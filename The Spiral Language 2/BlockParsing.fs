@@ -89,6 +89,7 @@ type Op =
     | StringIndex
     | StringSlice
     | StaticStringConcat
+    | Printf // Cuda specific
 
     // Array
     | ArrayCreate

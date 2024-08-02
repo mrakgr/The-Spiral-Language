@@ -500,6 +500,10 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | Sin, [x] -> sprintf "sin(%s)" (tup_data x)
             | Cos, [x] -> sprintf "cos(%s)" (tup_data x)
             | NanIs, [x] -> sprintf "isnan(%s)" (tup_data x)
+            | Printf, [fmt;str] -> 
+                match args' str with
+                | "" -> sprintf "printf(%s)" (tup_data fmt)
+                | str -> sprintf "printf(%s,%s)" (tup_data fmt) str
             | UnionTag, [DV(L(i,YUnion l)) as x] -> 
                 match l.Item.layout with
                 | UHeap -> ".base->tag"

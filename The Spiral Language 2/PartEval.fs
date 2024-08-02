@@ -2393,9 +2393,15 @@ let peval (env : TopEnv) (x : E) =
             let rec loop = function
                 | DPair(a,b) -> loop a; loop b
                 | DLit(LitString x) -> strb.Append(x) |> ignore
+                | DB -> ()
                 | x -> raise_type_error s $"Expected a compile time string or a pair of them.\nGot: {show_data x}"
             loop (term s l)
             DLit(LitString(strb.ToString()))
+        | EOp(_,Printf,[fmt;str]) ->
+            let fmt,str = term2 s fmt str
+            match fmt with
+            | DLit(LitString _) -> push_binop_no_rewrite s Printf (fmt, str) YB
+            | _ -> raise_type_error s $"Expected a compile time string as the format.\nGot: {show_data fmt}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

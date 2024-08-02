@@ -1,3 +1,8 @@
+2.13.1 (8/2/2024)
+
+* Added Printf and StaticStringConcat ops to the language in order to assist string formatting in the coreext module in the ML library.
+* In the ML library we resolved the issue of semaphores not being used correctly. Now the warp threads will be reconverging correctly.
+
 2.13.0 (7/28/2024)
 
 Added higher ranked types to the language.
