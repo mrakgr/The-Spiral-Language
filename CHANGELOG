@@ -1,3 +1,9 @@
+2.13.3 (8/2/2024)
+
+Minor parser improvement. `inl model_output : int -> _ = function ...` does not give an error anymore
+
+* Global functions can be checked for validity though the annotation in the parser.
+
 2.13.2 (8/2/2024)
 
 Minor parser improvement to avoid having to put parens around existential patterns.

@@ -1406,9 +1406,14 @@ type [<ReferenceEquality>] TopStatement =
     | TopOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
 let top_inl_or_let_process comments is_top_down = function
-    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(comments,r,(r',name),body,is_top_down))
-    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(comments,r,(r',name),body,is_top_down))
-    | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
+    | (r,PatVar(r',name),body),is_rec -> 
+        let rec loop = function
+            | RawAnnot(r,body,t) -> loop body
+            | RawForall _ | RawFun _ ->
+                if is_rec then Ok(TopRecInl(comments,r,(r',name),body,is_top_down))
+                else Ok(TopInl(comments,r,(r',name),body,is_top_down))
+            | _ -> Error [r, ExpectedGlobalFunction]
+        loop body
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
 let top_inl_or_let d = ((comments .>>. inl_or_let root_term root_pattern_pair root_type_annot) >>= fun (comments,x) d -> top_inl_or_let_process comments d.is_top_down x) d
 
