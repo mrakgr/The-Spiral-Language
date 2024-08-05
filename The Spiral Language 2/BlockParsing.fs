@@ -808,7 +808,7 @@ let forall d =
         let x = q |> List.map (fun ((r,(a,_)),_) -> r,a) |> duplicates DuplicateForallVar
         match List.append x x' with [] -> Ok q | er -> Error er
         ) d
-let pat_exists d = 
+let pat_exists' d = 
     (skip_keyword SpecExists >>. many (range read_small_type_var) .>> skip_op "." 
     >>= fun q _ -> 
         match duplicates DuplicateExistsVar q with [] -> Ok q | er -> Error er
@@ -1053,12 +1053,12 @@ and pat_array s = (skip_unary_op ";" >>. range (squares (sepBy root_pattern_type
 and pat_list s =
     (range (squares (sepBy root_pattern_type (skip_op ";")))
     |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,"Nil",PatB r))) s
+and pat_exists s = (range (pat_exists' .>>. root_pattern_type) |>> fun (r,(l,b)) -> PatExists(r,l,b)) s
 and root_pattern s =
     let body s = 
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
-        let pat_exists = range (pat_exists .>>. root_pattern) |>> fun (r,(l,b)) -> PatExists(r,l,b)
         let (+) = alt (index s)
         (root_pattern_rounds + root_pattern_var_nominal_union + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
         + root_pattern_record + pat_symbol + pat_array + pat_list + pat_exists) s
@@ -1067,12 +1067,12 @@ and root_pattern s =
     let pat_pair = pat_pair pat_and
     let pat_cons = range (sepBy1 pat_pair (skip_op "::")) |>> fun (r,x) -> List.reduceBack (pat_list_pair r) x
     let pat_or = sepBy1 pat_cons (skip_op "|") |>> List.reduce (fun a b -> PatOr(range_of_pattern a +. range_of_pattern b,a,b))
-    let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
+    let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_exists )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
     pat_as s
 and root_pattern_when d = (root_pattern .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a) d
 and root_pattern_var d =
     let (+) = alt (index d)
-    (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record + pat_array + pat_list) d
+    (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record + pat_array + pat_list + pat_exists) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 and root_type_annot d = root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d
 and root_type_record (flags : RootTypeFlags) d =
@@ -1120,9 +1120,8 @@ and root_type (flags : RootTypeFlags) d =
                 <|> macro_expression MTypeLit (root_type root_type_defaults |>> fun x -> RawMacroTypeLit(range_of_texpr x,x))) s
             let body = many ((read_text false |>> RawMacroText) <|> read_macro_type_var <|> read_macro_expression)
             pipe3 skip_macro_open body skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
-        let exists = range (exists .>>. root_type {flags with allow_wildcard=false}) |>> fun (r,(l,b)) -> RawTExists(r,l,b) // TODO: Move this next to the foralls.
         let (+) = alt (index d)
-        (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro + exists) d
+        (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro) d
 
     let fold_applies a b = List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b
     let apply_tight d = pipe2 cases (many (expr_tight cases)) fold_applies d
@@ -1130,8 +1129,8 @@ and root_type (flags : RootTypeFlags) d =
     
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b,FT_Vanilla))
-    let foralls = pipe2 (opt forall) functions (Option.foldBack (List.foldBack (fun a b -> RawTForall(range_of_typevar a +. range_of_texpr b,a,b))))
-    
+    let exists = pipe2 (opt (range exists)) functions (Option.foldBack (fun (r,l) b -> RawTExists(r +. range_of_texpr b,l,b)))
+    let foralls = pipe2 (opt forall) exists (Option.foldBack (List.foldBack (fun a b -> RawTForall(range_of_typevar a +. range_of_texpr b,a,b))))
     foralls d
 
 and root_term d =
