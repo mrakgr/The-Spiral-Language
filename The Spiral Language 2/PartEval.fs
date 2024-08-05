@@ -647,6 +647,9 @@ let peval (env : TopEnv) (x : E) =
                 ) x
         let v = f x
         if dirty then v else x
+    and term_real_nominal s x =
+        let s = {s with seq=ResizeArray(); cse=Dictionary(HashIdentity.Structural) :: s.cse}
+        term s x |> data_to_ty s
     and term_scope'' s x =
         let x = term s x |> dyn false s
         let x_ty = data_to_ty s x
@@ -765,7 +768,7 @@ let peval (env : TopEnv) (x : E) =
                 ty s body
             | a -> raise_type_error s <| sprintf "Expected a record, nominal or a type function. Or a metavar when in typecase.\nGot: %s" (show_ty a)
         | TPrim a -> YPrim a
-        | TTerm(_,a) -> term_scope s a |> snd
+        | TTerm(_,a) -> term_real_nominal s a
         | TMacro(r,a) -> 
             let s = add_trace s r
             YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a) | TMLitType a -> TypeLit(ty s a |> assert_ty_lit s)))

@@ -1,3 +1,7 @@
+2.13.4 (8/2/2024)
+
+* Fixed an error in the handling of real nominals introduded in the v2.13.0 of Spiral.
+
 2.13.3 (8/2/2024)
 
 Minor parser improvement. `inl model_output : int -> _ = function ...` does not give an error anymore
