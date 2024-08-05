@@ -1,3 +1,10 @@
+2.13.2 (8/2/2024)
+
+Minor parser improvement to avoid having to put parens around existential patterns.
+
+* Changed the way existentials are being parsed in patterns.
+* Changed the way foralls are being parsed in types.
+
 2.13.1 (8/2/2024)
 
 * Added Printf and StaticStringConcat ops to the language in order to assist string formatting in the coreext module in the ML library.
