@@ -873,8 +873,10 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
     
     // The functions in this block are basically renaming string id to int ids, in addition to pattern compilation.
     let rec compile_pattern (id : Id) (env : Env) (clauses : (Pattern * RawExpr) list) =
-        let mutable var_count = env.term.i
-        let patvar () = let x = var_count in var_count <- var_count+1; x
+        let mutable term_var_count = env.term.i
+        let mutable ty_var_count = env.ty.i
+        let patvar () = let x = term_var_count in term_var_count <- term_var_count+1; x
+        let ty_patvar () = let x = ty_var_count in ty_var_count <- ty_var_count+1; x
         let loop (pat, on_succ) on_fail =
             let mutable dict = Map.empty
             let mutable dict_type = Map.empty
@@ -895,7 +897,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 let tv x =
                     match Map.tryFind x dict_type with
                     | Some x -> x
-                    | None -> let v = patvar() in dict_type <- Map.add x v dict_type; v
+                    | None -> let v = ty_patvar() in dict_type <- Map.add x v dict_type; v
                 let step pat on_succ =
                     match pat with
                     | PatVar(_,x) -> v x, on_succ
@@ -962,8 +964,8 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         l |> List.iter (fun (terms,tys) -> // The reason I am not evaling it in place is because of the var count which is mutable. I need to deal with the patterns first before replacing the strings in the body.
             let env (dict,dict_type) = 
                 {env with 
-                    term = {|env.term with i=var_count; env=dict |> Map.fold (fun s k v -> Map.add k (EV v) s) env.term.env|} 
-                    ty = {|env.ty with i=var_count; env=dict_type |> Map.fold (fun s k v -> Map.add k (TV v) s) env.ty.env|} 
+                    term = {|env.term with i=term_var_count; env=dict |> Map.fold (fun s k v -> Map.add k (EV v) s) env.term.env|} 
+                    ty = {|env.ty with i=ty_var_count; env=dict_type |> Map.fold (fun s k v -> Map.add k (TV v) s) env.ty.env|} 
                     }
             terms |> Seq.iter (fun (a,dict,b) -> b := term (env dict) a)
             tys |> Seq.iter (fun (a,dict,b) -> b := ty (env dict) a)

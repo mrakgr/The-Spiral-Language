@@ -1,3 +1,10 @@
+2.13.6 ()
+
+* Fixed the incorrect type id assignment in PatExists during pattern compilation.
+
+
+*** Need to fix the infinite loop bug PrintRaw
+
 2.13.5 (8/7/2024)
 
 * The Spiral VS Code plugin now supports dynamic port allocations. It does that when the port is set to 0, and that has been made the new default.
