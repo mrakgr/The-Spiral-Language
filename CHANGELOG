@@ -1,3 +1,7 @@
+2.13.7 (8/9/2024)
+
+* Prefixing a function name with noinline causes the __noinline__ annotation to be generated in the Cuda codegen.
+
 2.13.6 (8/9/2024)
 
 * Fixed the incorrect type id assignment in PatExists during pattern compilation.
