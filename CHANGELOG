@@ -1,9 +1,6 @@
-2.13.6 ()
+2.13.6 (8/9/2024)
 
 * Fixed the incorrect type id assignment in PatExists during pattern compilation.
-
-
-*** Need to fix the infinite loop bug PrintRaw
 
 2.13.5 (8/7/2024)
 
