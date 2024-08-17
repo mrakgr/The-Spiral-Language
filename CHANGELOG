@@ -1,3 +1,8 @@
+2.13.8 (8/17/2024)
+
+* Replaced `asm("exit;")` with `__trap()` in the Cuda codegen. It will raise an error on the host (assuming it doesn't exit before the kernel completes.)
+* Changed the way the main function is generated on the Python side so the above bullet point holds.
+
 2.13.7 (8/9/2024)
 
 * Prefixing a function name with noinline causes the __noinline__ annotation to be generated in the Cuda codegen.

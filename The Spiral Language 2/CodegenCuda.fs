@@ -439,7 +439,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             let string_in_op = function DLit (LitString b) -> lit_string b | b -> raise_codegen_error "In the Cuda backend, the exception string must be a literal."
             let fmt = @"%s\n"
             line s $"printf(\"{fmt}\", {string_in_op b});"
-            line s "asm(\"exit;\");" // TODO: Print out the error traces as well.
+            line s "__trap();" // TODO: Print out the error traces as well.
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 
             let rec loop = function

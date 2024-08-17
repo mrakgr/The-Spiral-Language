@@ -432,9 +432,16 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     let main = StringBuilder()
     let s = {text=main; indent=0}
     
-    line s "def main():"
+    line s "def main_body():"
     binds_start [||] (indent s) x
     s.text.AppendLine() |> ignore
+
+    line s "def main():"
+    line (indent s) "r = main_body()"
+    line (indent s) "cp.cuda.get_current_stream().synchronize() # This line is here so the `__trap()` calls on the kernel aren't missed."
+    line (indent s) "return r"
+    s.text.AppendLine() |> ignore
+
     line s "if __name__ == '__main__': print(main())"
 
     let program = StringBuilder()
