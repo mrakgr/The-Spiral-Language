@@ -409,7 +409,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     let s = indent s
                     match on_fail with
                     | Some b -> binds s ret b
-                    | None -> line s "assert(\"Invalid tag.\" && false);"
+                    | None -> line s "assert(\"Invalid tag.\" && false); __trap();"
                 line s "}"
             line s "}"
         | TyUnionBox(a,b,c') ->

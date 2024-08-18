@@ -1,3 +1,7 @@
+2.13.9 (8/18/2024)
+
+* Added a `__trap()` in TyUnionUnbox. Now trap calls will be placed in the default case in Cuda union unboxing.
+
 2.13.8 (8/17/2024)
 
 * Replaced `asm("exit;")` with `__trap()` in the Cuda codegen. It will raise an error on the host (assuming it doesn't exit before the kernel completes.)
