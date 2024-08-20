@@ -41,7 +41,6 @@ class SerialDisposable implements Disposable {
     }
 }
 
-
 export const activate = async (ctx: ExtensionContext) => {
     const port : number = workspace.getConfiguration("spiral").get("port") || await getPortPromise()
     const hubTimeout = 1000

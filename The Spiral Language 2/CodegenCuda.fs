@@ -204,7 +204,9 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     | TyArrayCreate(a,b) ->  
                         match d with
                         | [|L(i,YArray t)|] -> 
-                            line s $"{tup_ty t} v{i}[{tup_data b}];"
+                            match tup_ty t with
+                            | "void" -> line s "/* void array create */"
+                            | t -> line s $"{t} v{i}[{tup_data b}];"
                             true
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | TyJoinPoint(JPClosure(a,b),b') ->
@@ -607,11 +609,11 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                                 x.free_vars 
                                 |> Array.map (fun (L(i,t)) -> $"v{i}(_v{i})")
                                 |> String.concat ", "
-                            line s_typ $"Closure{i}({constructor_args}) : {initializer_args} {{ }}"
+                            line s_typ $"__device__ Closure{i}({constructor_args}) : {initializer_args} {{ }}"
                     let () = // destructor
                         match x.funtype with
                         | FT_Pointer | FT_Vanilla -> ()
-                        | FT_Closure -> line s_typ $"~Closure{i}() override = default;"
+                        | FT_Closure -> line s_typ $"__device__ ~Closure{i}() override = default;"
                     ()
                 line s_typ "};"
             )

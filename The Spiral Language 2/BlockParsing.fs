@@ -48,9 +48,9 @@ type Op =
     | UsesOriginalTermVars
     | UsesOriginalNominals
 
-    // imports
+    // Imports
     | Global
-
+    
     // Python
     | ToPythonRecord
     | ToPythonNamedTuple
@@ -189,8 +189,9 @@ type Op =
     | TagToSymbol
     | FunctionTermSlotsGet
     | FunctionTermSlotsSet
-    | SizeOf
     | FreeVars
+    | FreeVarsReplace
+    | SizeOf
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

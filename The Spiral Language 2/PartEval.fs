@@ -228,6 +228,27 @@ let data_free_vars call_data =
     f call_data
     free_vars.ToArray()
 
+let data_free_vars_replace s (d : Dictionary<TyV,TyV>) (x : Data) =
+    let m = Dictionary(HashIdentity.Reference)
+    let rec f x =
+        Utils.memoize m (function
+            | DPair(a,b) -> DPair(f a, f b)
+            | DForall(body,a,b,c,d) -> DForall(body,Array.map f a,b,c,d)
+            | DFunction(body,annot,a,b,c,d) -> DFunction(body,annot,Array.map f a,b,c,d)
+            | DExists(annot,a) -> DExists(annot, f a)
+            | DRecord l -> DRecord(Map.map (fun _ -> f) l)
+            | DV(tyv) -> DV(d[tyv])
+            | DUnion(a,b) -> DUnion(f a,b)
+            | DNominal(a,b) -> DNominal(f a,b)
+            | DSymbol _ | DLit _ | DTLit _ | DB as x -> x
+            | DHashMap(x,is_writable) -> 
+                let q = OrderedDictionary(HashIdentity.Reference)
+                x |> Seq.iter (fun kv -> q.Add(f kv.Key, f kv.Value))
+                DHashMap(q,ref !is_writable)
+            | DHashSet _ -> 
+                raise_type_error s "The mutable compile-time HashSets cannot have their free vars replaced."
+            ) x
+    f x
 let inline (|C|) (x : _ ConsedNode) = x.node
 let inline (|C'|) (x : _ ConsedNode) = x.node, x.tag
 let rdata_free_vars call_data =
@@ -2336,6 +2357,18 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,FreeVars,[a]) ->
             let x = term s a |> data_free_vars
             Array.foldBack (fun x s -> DPair(DV x,s)) x DB
+        | EOp(_,FreeVarsReplace,[a;b]) ->
+            let a = term s a
+            let b = term s b
+            let a_fv = a |> data_free_vars
+            let b_fv = b |> data_free_vars
+            if a_fv.Length <> b_fv.Length then raise_type_error s "The two expressions need to have the same number of free variables."
+            let d = Dictionary(HashIdentity.Reference)
+            Array.iter2 (fun (L(_,ta) as a) (L(_,tb) as b) -> 
+                if ta <> tb then raise_type_error s $"The free variables can only be replaced with free vars of the same type.\nGot: {show_ty ta}\nExpected: {show_ty tb}"
+                d.Add(a,b)
+                ) a_fv b_fv
+            data_free_vars_replace s d a
         | EOp(_,HashSetCreate,[]) -> DHashSet(HashSet(HashIdentity.Reference))
         | EOp(_,HashSetAdd,[h;k]) ->
             match term s h, term s k with

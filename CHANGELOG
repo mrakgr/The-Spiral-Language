@@ -1,3 +1,8 @@
+2.13.10 (8/20/2024)
+
+* The Cuda closure constructors now have the correct __device__ annotation.
+* Added the FreeVarsReplace op to the language.
+
 2.13.9 (8/18/2024)
 
 * Added a `__trap()` in TyUnionUnbox. Now trap calls will be placed in the default case in Cuda union unboxing.
