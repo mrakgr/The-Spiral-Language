@@ -1,3 +1,7 @@
+2.13.11 (8/21/2024)
+
+Same as prev, VS Code marketplace is behaving strangely.
+
 2.13.10 (8/20/2024)
 
 * The Cuda closure constructors now have the correct __device__ annotation.
