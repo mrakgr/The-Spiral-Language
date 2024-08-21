@@ -6,6 +6,7 @@ Same as prev, VS Code marketplace is behaving strangely.
 
 * The Cuda closure constructors now have the correct __device__ annotation.
 * Added the FreeVarsReplace op to the language.
+* The Python main function has a device synchronization on the main stream at the end so it catches all the `__trap()` exceptions being raised.
 
 2.13.9 (8/18/2024)
 
