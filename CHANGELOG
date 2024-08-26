@@ -1,3 +1,7 @@
+2.13.12 (8/26/2024)
+
+* Fixed a type var shadowing bug during module opens in the top down segment.
+
 2.13.11 (8/21/2024)
 
 Same as prev, VS Code marketplace is behaving strangely.
