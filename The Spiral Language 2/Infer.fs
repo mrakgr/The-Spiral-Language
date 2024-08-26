@@ -72,6 +72,7 @@ type TypeError =
     | UnboundVariable of string
     | UnboundModule
     | ModuleIndexFailedInOpen
+    | ModuleIndexWouldShadowLocalVars of string []
     | TermError of T * T
     | TypeVarScopeError of string * T * T
     | RecursiveMetavarsNotAllowed of T * T
@@ -320,7 +321,7 @@ type HoverTypes() =
     member _.AddHover(r,(x,com)) = hover_types.Add(r,((if has_substituted_tvars x then term_subst x else x), com))
     member _.ToArray() = hover_types.ToArray()
 
-let module_open (hover_types : HoverTypes option) (top_env : Env) (r : VSCRange) b l =
+let module_open (hover_types : HoverTypes option) (top_env : Env) (local_env_ty : Map<string,T>) (r : VSCRange) b l =
     let tryFind env x =
         match Map.tryFind x env.term, Map.tryFind x env.ty, Map.tryFind x env.constraints with
         | Some (TyModule a), Some (TyModule b), Some (M c) -> ValueSome {term=a; ty=b; constraints=c}
@@ -337,7 +338,13 @@ let module_open (hover_types : HoverTypes option) (top_env : Env) (r : VSCRange)
                     loop env x'
                 | _ -> Error(r, ModuleIndexFailedInOpen)
             | [] -> Ok env
-        loop env l
+        loop env l |> Result.bind (fun env ->
+            let h = ResizeArray()
+            local_env_ty |> Map.iter (fun k _ -> if env.ty.ContainsKey k then h.Add k)
+            if h.Count > 0 then Error(r, ModuleIndexWouldShadowLocalVars(h.ToArray()))
+            else Ok env
+            )
+
 
 let validate_bound_vars (top_env : Env) constraints term ty x =
     let errors = ResizeArray()
@@ -383,7 +390,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 cterm constraints (term, ty + metavars a) b
                 ) b
         | RawOpen(_,(a,b),l,on_succ) ->
-            match module_open None top_env a b l with
+            match module_open None top_env Map.empty a b l with
             | Ok x ->
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
                 cterm (Map.foldBack Map.add x.constraints constraints) (combine term x.term, combine ty x.ty) on_succ
@@ -608,6 +615,8 @@ let show_type_error (env : TopEnv) x =
     | UnboundVariable x -> sprintf "Unbound variable: %s." x
     | UnboundModule -> sprintf "Unbound module."
     | ModuleIndexFailedInOpen -> sprintf "Module does not have a submodule with that key."
+    | ModuleIndexWouldShadowLocalVars [|v|] -> $"The module open would shadow a local variable: {v}."
+    | ModuleIndexWouldShadowLocalVars vars -> let v = String.concat ", " vars in $"The module open would shadow the local variables: {v}."
     | TypeVarScopeError(a,_,_) -> sprintf "Tried to unify the type variable %s with a metavar outside its scope." a
     | ForallVarConstraintError(n,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall var %s's.\nGot: %s\nExpected: %s" n (show_constraints env a) (show_constraints env b)
     | MetavarsNotAllowedInRecordWith -> sprintf "In the top-down segment the record keys need to be fully known. Please add an annotation."
@@ -1309,7 +1318,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             loop (f'' a')
         | RawAnnot(r,a,b) ->  ty_init scope env s b; f s a
         | RawOpen(_,(r,a),l,on_succ) ->
-            match module_open (Some hover_types) (loc_env top_env) r a l with
+            match module_open (Some hover_types) (loc_env top_env) env.ty r a l with
             | Ok x ->
                 let combine big small = Map.foldBack Map.add small big
                 term scope {term = combine env.term x.term; ty = combine env.ty x.ty; constraints = combine env.constraints x.constraints} s on_succ
@@ -1971,7 +1980,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | Some(C x) -> errors.Add(fst prot, ExpectedPrototypeConstraint x); check_ins fake
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
     | BundleOpen(q,(r,a),b) ->
-        match module_open (Some hover_types) (loc_env top_env) r a b with
+        match module_open (Some hover_types) (loc_env top_env) Map.empty r a b with
         | Ok x -> psucc (fun () -> FOpen(q,(r,a),b)), AOpen {top_env_empty with term=x.term; ty=x.ty; constraints=x.constraints}
         | Error er -> errors.Add(er); pfail, AOpen top_env_empty
     |> fun (filled_top, top_env_additions) -> 
