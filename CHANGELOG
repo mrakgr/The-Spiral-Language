@@ -1,6 +1,6 @@
 2.13.13 (9/5/2024)
 
-* Non-default literals can now be safely converted by annotations as long as they are immediate. Example: `real 2.5 : f32`.
+* Non-default literals can now be safely converted by annotations as long as they are immediate. Example: `real 0 : f32`.
 
 2.13.12 (8/26/2024)
 
