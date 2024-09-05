@@ -1,0 +1,6 @@
+// Are regular literals in the bottom up segment (safely) converted correctly?
+
+type t = f64
+
+inl main() : t =
+    real 2.5 : t

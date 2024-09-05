@@ -58,6 +58,24 @@ type Literal =
     | LitString of string
     | LitChar of char
 
+    // Converts the literal back to their string representation. Doesn't override the default printer.
+    member l.LitToString() =
+        match l with
+        | LitUInt8 x -> x.ToString("R")
+        | LitUInt16 x -> x.ToString("R")
+        | LitUInt32 x -> x.ToString("R")
+        | LitUInt64 x -> x.ToString("R")
+        | LitInt8 x -> x.ToString("R")
+        | LitInt16 x -> x.ToString("R")
+        | LitInt32 x -> x.ToString("R")
+        | LitInt64 x -> x.ToString("R")
+        | LitFloat32 x -> x.ToString("R")
+        | LitFloat64 x -> x.ToString("R")
+        | LitBool x -> x.ToString()
+        | LitString x -> x
+        | LitChar x -> x.ToString()
+
+
 type SemanticTokenLegend =
     | variable = 0
     | symbol = 1
