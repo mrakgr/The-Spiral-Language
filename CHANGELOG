@@ -1,3 +1,7 @@
+2.13.14 (9/6/2024)
+
+* Changed the FreeVars op so it uses {} instead of () as the terminator. Unit types unlike empty records don't mix well with tensors.
+
 2.13.13 (9/5/2024)
 
 * Non-default literals can now be safely converted by annotations as long as they are immediate. Example: `real 0 : f32`.

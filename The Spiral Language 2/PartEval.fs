@@ -2349,6 +2349,7 @@ let peval (env : TopEnv) (x : E) =
             | a, _ -> raise_type_error s $"Expected a compile time function.\nGot: {show_data a}"
         | EOp(_,SizeOf,[EType(_,a)]) ->
             match ty s a with
+            | YB | YSymbol _ -> DLit (LitInt32 0)
             | YPrim (Int8T | UInt8T | BoolT) -> DLit (LitInt32 1)
             | YPrim (Int16T | UInt16T) -> DLit (LitInt32 2)
             | YPrim (Int32T | UInt32T | Float32T) -> DLit (LitInt32 4)
@@ -2356,7 +2357,7 @@ let peval (env : TopEnv) (x : E) =
             | a -> push_typedop s (TySizeOf a) (YPrim Int32T) 
         | EOp(_,FreeVars,[a]) ->
             let x = term s a |> data_free_vars
-            Array.foldBack (fun x s -> DPair(DV x,s)) x DB
+            Array.foldBack (fun x s -> DPair(DV x,s)) x (DRecord Map.empty)
         | EOp(_,FreeVarsReplace,[a;b]) ->
             let a = term s a
             let b = term s b
