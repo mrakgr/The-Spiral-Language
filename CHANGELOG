@@ -1,3 +1,7 @@
+2.13.15 (9/8/2024)
+
+* Minor change to the way the main type vars are defined in the Python backend. Intellisense will stop complaining about vars being used in type annotations.
+
 2.13.14 (9/6/2024)
 
 * Changed the FreeVars op so it uses {} instead of () as the terminator. Unit types unlike empty records don't mix well with tensors.

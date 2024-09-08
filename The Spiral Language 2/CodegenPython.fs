@@ -426,7 +426,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     import "cupy as cp"
     from "dataclasses import dataclass"
     from "typing import NamedTuple, Union, Callable, Tuple"
-    globals.Add "i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str"
+    globals.Add "i8 = int; i16 = int; i32 = int; i64 = int; u8 = int; u16 = int; u32 = int; u64 = int; f32 = float; f64 = float; char = str; string = str"
     globals.Add ""
 
     let main = StringBuilder()
