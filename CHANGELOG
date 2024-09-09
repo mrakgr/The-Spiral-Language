@@ -1,3 +1,7 @@
+2.14.0 (9/9/2024)
+
+Changed the indexing semantics of the layout types in the Cuda backend. From here on out, their destructured variables will be code generated as references.
+
 2.13.15 (9/8/2024)
 
 * Minor change to the way the main type vars are defined in the Python backend. Intellisense will stop complaining about vars being used in type annotations.

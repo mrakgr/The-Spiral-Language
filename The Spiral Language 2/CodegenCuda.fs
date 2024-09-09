@@ -166,7 +166,18 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
                     let decl_vars () = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
+                    let layout_index (x'_i : int) (x' : TyV []) = Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
                     match a with
+                    | TyLayoutIndexAll(x) -> 
+                        match x with 
+                        | L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i 
+                        | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
+                        true
+                    | TyLayoutIndexByKey(x,key) -> 
+                        match x with 
+                        | L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i 
+                        | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
+                        true
                     | TyMacro a ->
                         let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
                         if m.StartsWith("#pragma") then 
@@ -340,10 +351,6 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 | FT_Vanilla -> raise_codegen_error "Compiler error: The vanilla function case should have been blocked elsewhere."
                 | FT_Pointer -> $"FunPointerMethod{x.tag}"
                 | FT_Closure -> $"csptr<ClosureBase{x.tag}>{{new Closure{x.tag}{{{args}}}}}"
-        let layout_index (x'_i : int) (x' : TyV []) =
-            match ret with
-            | BindsLocal x -> Array.map2 (fun (L(i,_)) (L(i',_)) -> $"v{i} = v{x'_i}.base->v{i'};") x x' |> line' s
-            | BindsTailEnd -> raise_codegen_error "Compiler error: Layout index should never come in end position."
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
@@ -429,8 +436,8 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         | TyLayoutToHeapMutable(a,b) -> 
             let tag = (mut b).tag
             $"sptr<Mut{tag}>{{new Mut{tag}{{{args' a}}}}}" |> return'
-        | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
-        | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
+        | TyLayoutIndexAll(x) -> raise_codegen_error "Compiler error: TyLayoutIndexAll should have been taken care of in TyLet."
+        | TyLayoutIndexByKey(x,key) -> raise_codegen_error "Compiler error: TyLayoutIndexByKey should have been taken care of in TyLet."
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.map2 (fun (L(i',_)) b -> $"v{i}.base->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)

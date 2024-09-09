@@ -44,6 +44,9 @@
             - [Print Static](#print-static)
         - [Type Inference In Bottom-Up Style](#type-inference-in-bottom-up-style)
         - [Real Nominals And Inverse Arrays](#real-nominals-and-inverse-arrays)
+    - [Special behaviors in the Cuda backend](#special-behaviors-in-the-cuda-backend)
+        - [\v variables in macros](#%5Cv-variables-in-macros)
+        - [Layout type indexing returns references](#layout-type-indexing-returns-references)
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
@@ -2706,6 +2709,98 @@ v6
 ```
 
 F# has value structs so maybe this functionality on its own is not a big deal. It certainly has been advantageous in the old Cython backend which allocated composite types on the heap, but in the old Spiral what I've particularly found this functionality useful for is getting arrays past language boundaries. Different languages, F# and C for example, have structs of different sizes and it is hard to keep them straight. Primitive types on the other hand are much easier to pass around.
+
+## Special behaviors in the Cuda backend
+
+### `\v` variables in macros
+
+```spiral
+inl main() =
+    run fun () =>
+        inl x : array int = $"`int \v[5];"
+        ()
+```
+
+```cpp
+extern "C" __global__ void entry0() {
+    int v0[5];;
+    return ;
+}
+```
+
+As [documented previously](#v-operator-in-macros), it is often useful to be able to declare local arrays in Cuda code, and the `\v` string can be used in the macro for that purpose. As newer versions of Spiral support macro expressions, you can pass complex types into the macro directly without needing to bind them in a typecase first.
+
+```spiral
+inl main() =
+    run fun () =>
+        inl x : array (int * float) = $"`(int * float) \v[5];"
+        ()
+```
+```cpp
+struct Tuple0;
+struct Tuple0 {
+    int v0;
+    float v1;
+    __device__ Tuple0() = default;
+    __device__ Tuple0(int t0, float t1) : v0(t0), v1(t1) {}
+};
+extern "C" __global__ void entry0() {
+    Tuple0 v0[5];;
+    return ;
+}
+```
+
+This behavior is safe. If you tried doing something like...
+
+```
+inl main() =
+    run fun () =>
+        inl x : (int * float) = $"`(int * float) \v"
+        ()
+```
+```
+Error trace on line: 8, column: 13 in module: c:\Spiral_s_ML_Library\tests\test14.spi.
+    run fun () =>
+            ^
+Error trace on line: 9, column: 9 in module: c:\Spiral_s_ML_Library\tests\test14.spi.
+        inl x : (int * float) = $"`(int * float) \v"
+        ^
+Error trace on line: 9, column: 33 in module: c:\Spiral_s_ML_Library\tests\test14.spi.
+        inl x : (int * float) = $"`(int * float) \v"
+                                ^
+The special \v macro requires the same number of free vars in its binding as there are \v in the code.
+```
+
+The Cuda codegenerator makes sure that the right amount of free vars are in the macro as they are in the generated code.
+
+### Layout type indexing returns references
+
+```spiral
+inl main() =
+    run fun () =>
+        inl x : heap (int * int * int) = heap (1,2,3)
+        inl a,b,c = !x
+        ()
+```
+```cpp
+struct Heap0;
+struct Heap0 {
+    int refc{0};
+    int v0;
+    int v1;
+    int v2;
+    __device__ Heap0() = default;
+    __device__ Heap0(int t0, int t1, int t2) : v0(t0), v1(t1), v2(t2) {}
+};
+extern "C" __global__ void entry0() {
+    sptr<Heap0> v0;
+    v0 = sptr<Heap0>{new Heap0{1l, 2l, 3l}};
+    int & v1 = v0.base->v0; int & v2 = v0.base->v1; int & v3 = v0.base->v2;
+    return ;
+}
+```
+
+As layout types in the Cuda backend would be pretty useless without this capability, it has been implemented in Spiral v2.15.0. It's necessary keep in mind that when indexing into layout types that references, and not value types will be generated in the resulting output. And trying to mutate the values on the stack will end up mutating them in the layout type itself even if they are intended to be immutable `heap` types.
 
 ## Known Bugs
 
