@@ -2712,6 +2712,102 @@ F# has value structs so maybe this functionality on its own is not a big deal. I
 
 ## Special behaviors in the Cuda backend
 
+Note: the following examples need the [Spiral ML library](https://github.com/mrakgr/Spiral-s-ML-Library). The project has a new core library intended for Cuda programming.
+
+### `noinline_` prefix in named join points
+
+```spiral
+open corebase
+open corecuda
+open coreext
+
+inl main() =
+    run fun () =>
+        let qwe() : () = $'printf("hello\\n")'
+        qwe()
+```
+
+```cpp
+__device__ void qwe_0();
+__device__ void qwe_0(){
+    printf("hello\n");
+    return ;
+}
+extern "C" __global__ void entry0() {
+    return qwe_0();
+}
+```
+
+This is how it normally compiles in the Python + Cuda backend, but suppose we changed the name a little?
+
+```spiral
+open corebase
+open corecuda
+open coreext
+
+inl main() =
+    run fun () =>
+        let noinline_qwe() : () = $'printf("hello\\n")'
+        noinline_qwe()
+```
+```cpp
+__device__ void noinline_qwe_0();
+__device__ __noinline__ void noinline_qwe_0(){
+    printf("hello\n");
+    return ;
+}
+extern "C" __global__ void entry0() {
+    return noinline_qwe_0();
+}
+```
+
+As you can see, named join points that are prefixed with **noinline** get the `__noinline__` annotation in generated code.
+
+Why is this useful?
+
+```spiral
+open corebase
+open corecuda
+open coreext
+
+inl main() =
+    run fun () =>
+        let noinline_qwe() : () = 
+            __syncthreads()
+            $'printf("hello\\n")'
+        if thread_index() < 15 then
+            $'printf("true\\n")'
+            noinline_qwe()
+        else
+            $'printf("false\\n")'
+            noinline_qwe()
+```
+```cpp
+__device__ void noinline_qwe_0();
+__device__ __noinline__ void noinline_qwe_0(){
+    __syncthreads();
+    printf("hello\n");
+    return ;
+}
+extern "C" __global__ void entry0() {
+    int v0;
+    v0 = threadIdx.x;
+    bool v1;
+    v1 = v0 < 15l;
+    if (v1){
+        printf("true\n");
+        return noinline_qwe_0();
+    } else {
+        printf("false\n");
+        return noinline_qwe_0();
+    }
+}
+```
+
+If the function was not marked with `__noinline__`, once we run this the kernel would have ended up handing. Thread synchronization using `__syncthreads` requires all the threads in the block to execute the same instruction. Without the `__noinline__` the compiler would have inlined that small function and the kernel would have gotten stuck.
+
+On other words, `__noinline__` allows the divergent threads in the kernel to reconverge on a function call.
+
 ### `\v` variables in macros
 
 ```spiral
@@ -2728,7 +2824,7 @@ extern "C" __global__ void entry0() {
 }
 ```
 
-As [documented previously](#v-operator-in-macros), it is often useful to be able to declare local arrays in Cuda code, and the `\v` string can be used in the macro for that purpose. As newer versions of Spiral support macro expressions, you can pass complex types into the macro directly without needing to bind them in a typecase first.
+As [documented previously](#v-operator-in-macros), it is often useful to be able to declare local arrays in Cuda code, and the `\v` string can be used in the macro for that purpose. Also, as newer versions of Spiral support macro expressions, you can pass complex types into the macro directly without needing to bind them in a typecase first.
 
 ```spiral
 inl main() =
