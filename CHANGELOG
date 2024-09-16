@@ -1,3 +1,7 @@
+2.14.1 (9/16/2024)
+
+* Added the missing YLit case in the typecase unifier in the partial evaluator.
+
 2.14.0 (9/9/2024)
 
 Changed the indexing semantics of the layout types in the Cuda backend. From here on out, their destructured variables will be code generated as references.

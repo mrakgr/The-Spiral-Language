@@ -532,6 +532,7 @@ let is_unify s x =
         | YNominal a, YNominal a' -> a = a'
         | YLayout(a,b), YLayout(a',b') -> f (a,a') && b = b'
         | YUnion a, YUnion a' -> a = a'
+        | YLit a, YLit b -> a = b
         | a, YMetavar i -> (is_metavar.Add i && (store_ty s i a; true)) || a = vt s i
         | _ -> false
     f x

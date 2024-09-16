@@ -1,0 +1,6 @@
+// Are the typecases working correctly on type literals?
+
+inl main() : () = real
+    inl x = !!!!LitToTypeLit(true)
+    typecase `x with
+    | true => ()
