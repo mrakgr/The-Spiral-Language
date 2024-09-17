@@ -301,11 +301,11 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
     and lit = function
         | LitInt8 x -> sprintf "%i" x
         | LitInt16 x -> sprintf "%i" x
-        | LitInt32 x -> sprintf "%il" x
+        | LitInt32 x -> sprintf "%i" x
         | LitInt64 x -> sprintf "%ill" x
         | LitUInt8 x -> sprintf "%iu" x
         | LitUInt16 x -> sprintf "%iu" x
-        | LitUInt32 x -> sprintf "%iul" x
+        | LitUInt32 x -> sprintf "%iu" x
         | LitUInt64 x -> sprintf "%iull" x
         | LitFloat32 x -> 
             if x = infinityf then "1.0f / 0.0f"

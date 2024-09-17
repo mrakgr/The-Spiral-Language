@@ -1,3 +1,7 @@
+2.14.2 (9/17/2024)
+
+* Modified the way int literals are printed in the Cuda backend for compatibility with Godbolt (Compiler Explorer).
+
 2.14.1 (9/16/2024)
 
 * Added the missing YLit case in the typecase unifier in the partial evaluator.
