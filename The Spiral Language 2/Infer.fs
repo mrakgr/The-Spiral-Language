@@ -89,6 +89,8 @@ type TypeError =
     | UnionsCannotBeApplied
     | ExpectedNominalInApply of T
     | MalformedNominal
+    | LayoutSetMustBeAnnotated
+    | ExpectedMutableLayout of T
     | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
     | ModuleIndexFailed of string
@@ -526,7 +528,7 @@ let show_kind x =
 
 let show_constraints env x = Set.toList x |> List.map (constraint_name env) |> String.concat "; " |> sprintf "{%s}"
 let show_nominal (env : TopEnv) i = match Map.tryFind i env.nominals_aux with Some x -> x.name | None -> "?"
-let show_layout_type = function Heap -> "heap" | HeapMutable -> "mut"
+let show_layout_type = function Heap -> "heap" | HeapMutable -> "mut" | StackMutable -> "stack_mut"
 
 let show_t (env : TopEnv) x =
     let show_var (a : Var) =
@@ -620,6 +622,8 @@ let show_type_error (env : TopEnv) x =
     | TypeVarScopeError(a,_,_) -> sprintf "Tried to unify the type variable %s with a metavar outside its scope." a
     | ForallVarConstraintError(n,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall var %s's.\nGot: %s\nExpected: %s" n (show_constraints env a) (show_constraints env b)
     | MetavarsNotAllowedInRecordWith -> sprintf "In the top-down segment the record keys need to be fully known. Please add an annotation."
+    | LayoutSetMustBeAnnotated -> sprintf "The layout type being set must be annotated."
+    | ExpectedMutableLayout a -> sprintf "Expected a mutable layout type.\nGot: %s" (f a)
     | ExpectedRecord a -> sprintf "Expected a record.\nGot: %s" (f a)
     | ExpectedRecordInsideALayout a -> sprintf "Expected a record inside a layout type.\nGot: %s" (f a)
     | ExpectedRecordAsResultOfIndex a -> sprintf "Expected a record as result of index.\nGot: %s" (f a)
@@ -1454,20 +1458,24 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             unify r s TyB
             try let v = fresh_var scope
                 let i = errors.Count
-                f (TyLayout(v,HeapMutable)) a
-                if i <> errors.Count then raise (TypeErrorException [])
-                let b = List.map (fun x -> range_of_expr x, f' x) b
-                List.fold (fun (r,a') (r',b') ->
-                    match visit_t a' with
-                    | TyRecord a ->
-                        match b' with
-                        | TySymbol b ->
-                            match Map.tryFind b a with
-                            | Some x -> r', x
-                            | _ -> raise (TypeErrorException [r, RecordIndexFailed b])
-                        | b -> raise (TypeErrorException [r', ExpectedSymbol' b])
-                    | a -> raise (TypeErrorException [r, ExpectedRecord a])
-                    ) (range_of_expr a, v) b |> snd
+                f v a
+                match visit_t v with
+                | TyMetavar _ -> raise (TypeErrorException [r, LayoutSetMustBeAnnotated])
+                | TyLayout(v,(HeapMutable | StackMutable)) ->
+                    if i <> errors.Count then raise (TypeErrorException [])
+                    let b = List.map (fun x -> range_of_expr x, f' x) b
+                    List.fold (fun (r,a') (r',b') ->
+                        match visit_t a' with
+                        | TyRecord a ->
+                            match b' with
+                            | TySymbol b ->
+                                match Map.tryFind b a with
+                                | Some x -> r', x
+                                | _ -> raise (TypeErrorException [r, RecordIndexFailed b])
+                            | b -> raise (TypeErrorException [r', ExpectedSymbol' b])
+                        | a -> raise (TypeErrorException [r, ExpectedRecord a])
+                        ) (range_of_expr a, v) b |> snd
+                | v -> raise (TypeErrorException [r, ExpectedMutableLayout v])
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var scope
             |> fun v -> f v c
         | RawArray(r,a) ->
@@ -2015,6 +2023,7 @@ let base_types (default_env : Startup.DefaultEnv) =
     "array_base", inl (fun x -> TyArray(tyvar x))
     "heap", inl (fun x -> TyLayout(tyvar x,Layout.Heap))
     "mut", inl (fun x -> TyLayout(tyvar x,Layout.HeapMutable))
+    "stack_mut", inl (fun x -> TyLayout(tyvar x,Layout.StackMutable))
     "fptr", inl2 (fun x y -> TyFun(tyvar x,tyvar y,FT_Pointer))
     "closure", inl2 (fun x y -> TyFun(tyvar x,tyvar y,FT_Closure))
     "int", TyPrim default_env.default_int

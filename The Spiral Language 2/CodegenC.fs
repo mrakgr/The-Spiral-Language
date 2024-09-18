@@ -431,11 +431,23 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
             | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
             |> return'
-        | TyLayoutToHeap(a,b) -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a) |> return'
-        | TyLayoutToHeapMutable(a,b) -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a) |> return'
-        | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
-        | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
-        | TyLayoutHeapMutableSet(L(i,t),b,c) ->
+        | TyToLayout(a,b,Heap) -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a) |> return'
+        | TyToLayout(a,b,HeapMutable) -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a) |> return'
+        | TyToLayout(a,b,StackMutable) -> raise_codegen_error "The C backend doesn't support stack mutable layout types."
+        | TyLayoutIndexAll(L(i,YLayout(a,lay))) ->
+            match lay with
+            | Heap -> heap a 
+            | HeapMutable -> mut a
+            | StackMutable -> raise_codegen_error "The C backend doesn't support indexing into stack mutable layout types."
+            |> fun x -> x.free_vars |> layout_index i 
+        | TyLayoutIndexByKey(L(i,YLayout(a,lay)),key) -> 
+            match lay with
+            | Heap -> heap a 
+            | HeapMutable -> mut a
+            | StackMutable -> raise_codegen_error "The C backend doesn't support indexing into stack mutable layout types."
+            |> fun x -> x.free_vars_by_key.[key] |> layout_index i
+        | TyLayoutIndexAll _ | TyLayoutIndexByKey _ -> raise_codegen_error "Compiler error: Expected the TyV in layout index to be a layout type."
+        | TyLayoutMutableSet(L(i,t),b,c) ->
             let q = mut t // `mut t` is correct here, peval strips the YLayout.
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") q.data b 
             Array.map2 (fun (L(i',_)) b -> $"&(v{i}->v{i'}), {show_w b}") (data_free_vars a) (data_term_vars c) |> String.concat ", " 

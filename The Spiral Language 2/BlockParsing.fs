@@ -11,7 +11,7 @@ type SymbolString = string
 type VarString = string
 type NominalString = string
 
-type Layout = Heap | HeapMutable
+type Layout = Heap | HeapMutable | StackMutable
 type FunType = FT_Vanilla | FT_Pointer | FT_Closure // The closure and the pointer are specific to the C++ backend.
 
 type Op =
@@ -61,6 +61,7 @@ type Op =
     // Layout
     | LayoutToHeap
     | LayoutToHeapMutable
+    | LayoutToStackMutable
     | LayoutIndex
 
     // Type

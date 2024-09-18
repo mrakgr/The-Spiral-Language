@@ -121,11 +121,10 @@ and TypedOp =
     | TyUnionBox of string * Data * Union
     | TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
     | TyIntSwitch of TyV * TypedBind [] [] * TypedBind []
-    | TyLayoutToHeap of Data * Ty
-    | TyLayoutToHeapMutable of Data * Ty
+    | TyToLayout of Data * Ty * Layout
     | TyLayoutIndexAll of TyV
     | TyLayoutIndexByKey of TyV * string
-    | TyLayoutHeapMutableSet of TyV * string list * Data
+    | TyLayoutMutableSet of TyV * string list * Data
     | TyFailwith of Ty * Data
     | TyApply of TyV * Data
     | TyConv of Ty * Data
@@ -325,7 +324,7 @@ let lit_to_primitive_type = function
 
 let lit_to_ty x = lit_to_primitive_type x |> YPrim
 let is_tco_compatible = function 
-    | TyApply _ | TyJoinPoint _ | TyArrayLiteral _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _
+    | TyApply _ | TyJoinPoint _ | TyArrayLiteral _ | TyUnionBox _ | TyToLayout _
     | TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyArrayCreate _ | TyFailwith _ -> true 
     | _ -> false
 
@@ -849,8 +848,7 @@ let peval (env : TopEnv) (x : E) =
                         | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the layout type's record." b
                     | _ -> raise_type_error s <| sprintf "Expected a record inside the layout type.\nGot: %s" (show_ty ty)
                 match layout with
-                | HeapMutable -> push_typedop_no_rewrite s key ret_ty
-                | Heap -> push_typedop s key ret_ty
+                | Heap | StackMutable | HeapMutable -> push_typedop_no_rewrite s key ret_ty
             | DV(L(_,YLayout _)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
             | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type possibly inside a nominal.\nGot: %s" (show_data a)
 
@@ -1134,11 +1132,11 @@ let peval (env : TopEnv) (x : E) =
         | ETypePatternMiss a -> raise_type_error s <| sprintf "Pattern miss.\nGot: %s" (show_ty (ty s a))
         | EIfThenElse(r,cond,tr,fl) -> let s = add_trace s r in if_ s (term s cond) tr fl
         | EIfThen(r,cond,tr) -> let s = add_trace s r in if_ s (term s cond) tr (EB r)
-        | EHeapMutableSet(r,a,b,c) ->
+        | EMutableSet(r,a,b,c) ->
             let s = add_trace s r
-            let L(i,a_ty) & a =
+            let a,a_layout_ty =
                 match term s a with
-                | DV(L(i,YLayout(a,HeapMutable))) -> L(i,a)
+                | DV(L(i,YLayout(a_layout_ty,(StackMutable | HeapMutable))) & a) -> a,a_layout_ty
                 | DV(L(_,YLayout _)) -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
                 | a -> raise_type_error s <| sprintf "Expected a mutable layout type.\nGot: %s" (show_data a)
             let b = 
@@ -1155,10 +1153,11 @@ let peval (env : TopEnv) (x : E) =
                         | Some a -> r', a
                         | None -> raise_type_error (add_trace s r) <| sprintf "Key %s not found in the layout type." b
                     | a -> raise_type_error (add_trace s r) <| sprintf "Expected a record.\nGot: %s" (show_ty a)
-                    ) (r,a_ty) b |> snd
+                    ) (r,a_layout_ty) b |> snd
             let c = term s c |> dyn false s
-            if data_to_ty s c = c_ty then push_typedop_no_rewrite s (TyLayoutHeapMutableSet(a,List.map snd b,c)) YB
-            else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty c_ty)
+            let c_ty' = data_to_ty s c
+            if c_ty' = c_ty then push_typedop_no_rewrite s (TyLayoutMutableSet(a,List.map snd b,c)) YB
+            else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty c_ty') (show_ty c_ty)
         | EMacro(r,a,b) ->
             let s = add_trace s r
             let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x) | MLitType x -> CMTypeLit(ty s x |> assert_ty_lit s))
@@ -1454,22 +1453,23 @@ let peval (env : TopEnv) (x : E) =
                     | _, ty -> raise_type_error s <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
                 | _ -> raise_type_error s <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
             | _ -> raise_type_error s "The body of the conditional of the while loop must be a solitary join point."
-        | EOp(_,LayoutToHeap,[a]) -> 
+        | EOp(_,(LayoutToHeap | LayoutToHeapMutable | LayoutToStackMutable as op),[a]) -> 
             let x = dyn false s (term s a)
             let ty = data_to_ty s x
-            let key = TyLayoutToHeap(x,ty)
-            push_typedop_no_rewrite s key (YLayout(ty,Heap))
-        | EOp(_,LayoutToHeapMutable,[a]) -> 
-            let x = dyn false s (term s a)
-            let ty = data_to_ty s x
-            let key = TyLayoutToHeapMutable(x,ty)
-            push_typedop_no_rewrite s key (YLayout(ty,HeapMutable))
+            let layout =
+                match op with
+                | LayoutToHeap -> Heap
+                | LayoutToHeapMutable -> HeapMutable
+                | LayoutToStackMutable -> StackMutable
+                | _ -> raise_type_error s "Compiler error: Forgot a case in LayoutTo."
+            let key = TyToLayout(x,ty,layout)
+            push_typedop_no_rewrite s key (YLayout(ty,layout))
         | EOp(_,LayoutIndex,[a]) -> 
             match term s a with
             | DV(L(i,YLayout(ty,layout)) as tyv) as a -> 
                 match layout with
-                | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll tyv) ty
-                | Heap -> 
+                | StackMutable | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll tyv) ty
+                | Heap ->
                     match ty with
                     | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyLayoutIndexByKey(tyv,b)) ty) l)
                     | _ -> push_typedop s (TyLayoutIndexAll tyv) ty
