@@ -80,12 +80,15 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         let dict' = Dictionary(HashIdentity.Structural)
         let dict = Dictionary(HashIdentity.Reference)
         let f x : LayoutRec = 
-            let x = env.ty_to_data x
-            let a, b =
-                match x with
-                | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
-                | _ -> data_free_vars x, Map.empty
-            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            match x with
+            | YLayout(x,_) ->
+                let x = env.ty_to_data x
+                let a, b =
+                    match x with
+                    | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
+                    | _ -> data_free_vars x, Map.empty
+                {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            | _ -> raise_codegen_error $"Compiler error: Expected a layout type (1).\nGot: %s{show_ty x}"
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
@@ -176,22 +179,22 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                         | Heap | HeapMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
                         | StackMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.v{i'};") d x' |> line' s
                     match a with
-                    | TyToLayout(a,b,StackMutable) ->
+                    | TyToLayout(a,YLayout(_,StackMutable) & b) ->
                         match d with
                         | [|L(i,YLayout(_,StackMutable))|] -> // For the regular arrays.
                             let tag = (stack_mut b).tag
-                            line s $"StackMut{tag} v{i}{{{args' a}}}"
+                            line s $"StackMut{tag} v{i}{{{args' a}}};"
                             true
                         | _ ->
                             raise_codegen_error "Compiler error: Expected a stack mutable layout type."
                     | TyLayoutIndexAll(x) -> 
                         match x with 
-                        | L(i,YLayout(a,lay)) -> (get_layout_rec lay a).free_vars |> layout_index lay i 
+                        | L(i,YLayout(_,lay) & a) -> (get_layout_rec lay a).free_vars |> layout_index lay i 
                         | _ -> raise_codegen_error "Compiler error: Expected the TyV in layout index to be a layout type."
                         true
                     | TyLayoutIndexByKey(x,key) -> 
                         match x with 
-                        | L(i,YLayout(a,lay)) -> (get_layout_rec lay a).free_vars_by_key.[key] |> layout_index lay i 
+                        | L(i,YLayout(_,lay) & a) -> (get_layout_rec lay a).free_vars_by_key.[key] |> layout_index lay i 
                         | _ -> raise_codegen_error "Compiler error: Expected the TyV in layout index by key to be a layout type."
                         true
                     | TyMacro a ->
@@ -287,9 +290,11 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             match a.Item.layout with
             | UStack -> sprintf "Union%i" (unions a).tag
             | UHeap -> sprintf "sptr<Union%i>" (unions a).tag
-        | YLayout(a,Heap) -> sprintf "sptr<Heap%i>" (heap a).tag
-        | YLayout(a,HeapMutable) -> sprintf "sptr<Mut%i>" (mut a).tag
-        | YLayout(a,StackMutable) -> sprintf "& StackMut%i" (mut a).tag
+        | YLayout(_,lay) as a -> 
+            match lay with
+            | Heap -> sprintf "sptr<Heap%i>" (heap a).tag
+            | HeapMutable -> sprintf "sptr<Mut%i>" (mut a).tag
+            | StackMutable -> sprintf "& StackMut%i" (mut a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind backend_name r with
             | Some x -> tup_ty x
@@ -447,13 +452,19 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | UHeap -> $"sptr<Union{tag}>{{new Union{tag}{{Union{tag}_{i}{{{vars}}}}}}}"
             | UStack -> $"Union{tag}{{Union{tag}_{i}{{{vars}}}}}"
             |> return'
-        | TyToLayout(a,b,Heap) -> 
-            let tag = (heap b).tag
-            $"sptr<Heap{tag}>{{new Heap{tag}{{{args' a}}}}}" |> return'
-        | TyToLayout(a,b,HeapMutable) -> 
-            let tag = (mut b).tag
-            $"sptr<Mut{tag}>{{new Mut{tag}{{{args' a}}}}}" |> return'
-        | TyToLayout(a,b,StackMutable) -> raise_codegen_error "Stack mutable types are references and shouldn't be returned from if statements and join points."
+        | TyToLayout(a,b) -> 
+            match b with
+            | YLayout(_,layout) -> 
+                match layout with
+                | Heap ->
+                    let tag = (heap b).tag
+                    $"sptr<Heap{tag}>{{new Heap{tag}{{{args' a}}}}}"
+                | HeapMutable ->
+                    let tag = (mut b).tag
+                    $"sptr<Mut{tag}>{{new Mut{tag}{{{args' a}}}}}"
+                | StackMutable -> raise_codegen_error "The Cuda backend doesn't support stack mutable layout types."
+            | _ -> raise_codegen_error "Compiler error: Expected a layout type (2)."
+            |> return'
         | TyLayoutIndexAll(x) -> raise_codegen_error "Compiler error: TyLayoutIndexAll should have been taken care of in TyLet."
         | TyLayoutIndexByKey(x,key) -> raise_codegen_error "Compiler error: TyLayoutIndexByKey should have been taken care of in TyLet."
         | TyLayoutMutableSet(L(i,t),b,c) ->

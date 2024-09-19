@@ -26,6 +26,8 @@ int32_t main(){
     Mut0 * v0;
     v0 = MutCreate0(1l, 2l);
     AssignMut0(&(v0->v0), 3l, &(v0->v1), 4l);
+    int32_t v1;
+    v1 = v0->v0;
     MutDecref0(v0);
-    return 0l;
+    return v1;
 }

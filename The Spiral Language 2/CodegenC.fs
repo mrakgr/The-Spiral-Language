@@ -96,12 +96,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let dict' = Dictionary(HashIdentity.Structural)
         let dict = Dictionary(HashIdentity.Reference)
         let f x : LayoutRec = 
-            let x = env.ty_to_data x
-            let a, b =
-                match x with
-                | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
-                | _ -> data_free_vars x, Map.empty
-            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            match x with
+            | YLayout(x,_) ->
+                let x = env.ty_to_data x
+                let a, b =
+                    match x with
+                    | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
+                    | _ -> data_free_vars x, Map.empty
+                {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            | _ -> raise_codegen_error $"Compiler error: Expected a layout type (7).\nGot: %s{show_ty x}"
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
@@ -251,8 +254,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YArray t -> g (fun () -> $"ArrayDecref{(carray t).tag}({f v});")
         | YFun(a,b,FT_Vanilla) -> g (fun () ->  $"{f v}->decref_fptr({f v});")
         | YPrim StringT -> g (fun () ->  $"StringDecref({f v});" )
-        | YLayout(a,Heap) -> g (fun () ->  $"HeapDecref{(heap a).tag}({f v});")
-        | YLayout(a,HeapMutable) -> g (fun () ->  $"MutDecref{(mut a).tag}({f v});")
+        | YLayout(_,Heap) as a -> g (fun () ->  $"HeapDecref{(heap a).tag}({f v});")
+        | YLayout(_,HeapMutable) as a -> g (fun () ->  $"MutDecref{(mut a).tag}({f v});")
         | _ -> None
     and refc_change' (f : int * Ty -> string) count (x : TyV []) : string [] = Array.choose (refc_change'' f count) x
     and refc_change f c x = refc_change' (fun (i,t) -> f i) c x
@@ -279,8 +282,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match a.Item.layout with
             | UStack -> sprintf "US%i" (ustack a).tag
             | UHeap -> sprintf "UH%i *" (uheap a).tag
-        | YLayout(a,Heap) -> sprintf "Heap%i *" (heap a).tag
-        | YLayout(a,HeapMutable) -> sprintf "Mut%i *" (mut a).tag
+        | YLayout(_,lay) as a -> 
+            match lay with
+            | Heap -> sprintf "Heap%i *" (heap a).tag
+            | HeapMutable -> sprintf "Mut%i *" (mut a).tag
+            | StackMutable -> raise_codegen_error "Compiler error: The C backend doesn't support stack mutable layout types."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "Array%i *" (carray a).tag
@@ -431,16 +437,22 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
             | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
             |> return'
-        | TyToLayout(a,b,Heap) -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a) |> return'
-        | TyToLayout(a,b,HeapMutable) -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a) |> return'
-        | TyToLayout(a,b,StackMutable) -> raise_codegen_error "The C backend doesn't support stack mutable layout types."
-        | TyLayoutIndexAll(L(i,YLayout(a,lay))) ->
+        | TyToLayout(a,b) -> 
+            match b with
+            | YLayout(_,layout) -> 
+                match layout with
+                | Heap -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a)
+                | HeapMutable -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a)
+                | StackMutable -> raise_codegen_error "The C backend doesn't support stack mutable layout types."
+            | _ -> raise_codegen_error $"Compiler error: Expected a layout type (8).\nGot: %s{show_ty b}"
+            |> return'
+        | TyLayoutIndexAll(L(i,YLayout(_,lay) & a)) ->
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a
             | StackMutable -> raise_codegen_error "The C backend doesn't support indexing into stack mutable layout types."
             |> fun x -> x.free_vars |> layout_index i 
-        | TyLayoutIndexByKey(L(i,YLayout(a,lay)),key) -> 
+        | TyLayoutIndexByKey(L(i,YLayout(_,lay) & a),key) ->
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a

@@ -94,12 +94,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let dict' = Dictionary(HashIdentity.Structural)
         let dict = Dictionary(HashIdentity.Reference)
         let f x : LayoutRec = 
-            let x = env.ty_to_data x
-            let a, b =
-                match x with
-                | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
-                | _ -> data_free_vars x, Map.empty
-            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            match x with
+            | YLayout(x,_) ->
+                let x = env.ty_to_data x
+                let a, b =
+                    match x with
+                    | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
+                    | _ -> data_free_vars x, Map.empty
+                {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            | _ -> raise_codegen_error $"Compiler error: Expected a layout type (3).\nGot: %s{show_ty x}"
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
@@ -133,8 +136,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match a.layout with
             | UHeap -> sprintf "UH%i" (uheap a.cases).tag
             | UStack -> sprintf "US%i" (ustack a.cases).tag
-        | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
-        | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
+        | YLayout(_,lay) as a -> 
+            match lay with
+            | Heap -> sprintf "Heap%i" (heap a).tag
+            | HeapMutable -> sprintf "Mut%i" (mut a).tag
+            | StackMutable -> raise_codegen_error "Compiler error: The F# backend doesn't support stack mutable layout types."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "(%s [])" (tup_ty a)
@@ -266,23 +272,25 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UHeap -> sprintf "UH%i_%i%s" (uheap c.cases).tag i vars
             | UStack -> sprintf "US%i_%i%s" (ustack c.cases).tag i vars
             |> simple
-        | TyToLayout(a,b,Heap) -> 
+        | TyToLayout(a,b) -> 
             let a = layout_vars a
-            simple (if a = "" then sprintf "Heap%i()" (heap b).tag else sprintf "{%s} : Heap%i" a (heap b).tag)
-        | TyToLayout(a,b,HeapMutable) ->
-            let a = layout_vars a
-            simple (if a = "" then sprintf "Mut%i()" (mut b).tag else sprintf "{%s} : Mut%i" a (mut b).tag)
-        | TyToLayout(a,b,StackMutable) ->
-            raise_codegen_error "The F# backend doesn't support stack mutable layout types."
-        | TyLayoutIndexAll(L(i,YLayout(a,lay))) -> 
+            match b with
+            | YLayout(_,layout) -> 
+                match layout with
+                | Heap -> if a = "" then sprintf "Heap%i()" (heap b).tag else sprintf "{%s} : Heap%i" a (heap b).tag
+                | HeapMutable -> if a = "" then sprintf "Mut%i()" (mut b).tag else sprintf "{%s} : Mut%i" a (mut b).tag
+                | StackMutable -> raise_codegen_error "The F# backend doesn't support stack mutable layout types."
+            | _ -> raise_codegen_error $"Compiler error: Expected a layout type (4).\nGot: %s{show_ty b}"
+            |> simple
+        | TyLayoutIndexAll(L(i,YLayout(_,lay) & a)) -> 
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a 
             | StackMutable -> raise_codegen_error "The F# backend doesn't support indexing into stack mutable layout types."
             |> fun x -> x.free_vars |> layout_index i
-        | TyLayoutIndexByKey(L(i,YLayout(a,lay)),key) -> 
+        | TyLayoutIndexByKey(L(i,YLayout(_,lay) & a),key) -> 
             match lay with
-            | Heap -> heap a 
+            | Heap -> heap a
             | HeapMutable -> mut a 
             | StackMutable -> raise_codegen_error "The F# backend doesn't support indexing into stack mutable layout types."
             |> fun x -> x.free_vars_by_key.[key] |> layout_index i

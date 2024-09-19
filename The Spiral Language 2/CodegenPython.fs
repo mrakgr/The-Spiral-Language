@@ -133,12 +133,15 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         let dict' = Dictionary(HashIdentity.Structural)
         let dict = Dictionary(HashIdentity.Reference)
         let f x : LayoutRec = 
-            let x = env.ty_to_data x
-            let a, b =
-                match x with
-                | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
-                | _ -> data_free_vars x, Map.empty
-            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            match x with
+            | YLayout(x,_) ->
+                let x = env.ty_to_data x
+                let a, b =
+                    match x with
+                    | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
+                    | _ -> data_free_vars x, Map.empty
+                {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+            | _ -> raise_codegen_error $"Compiler error: Expected a layout type (5).\nGot: %s{show_ty x}"
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
@@ -196,8 +199,11 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             match a.Item.layout with
             | UHeap -> sprintf "UH%i" (uheap a).tag
             | UStack -> sprintf "US%i" (ustack a).tag
-        | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
-        | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
+        | YLayout(_,lay) as a -> 
+            match lay with
+            | Heap -> sprintf "Heap%i" (heap a).tag
+            | HeapMutable -> sprintf "Mut%i" (mut a).tag
+            | StackMutable -> raise_codegen_error "Compiler error: The Python backend doesn't support stack mutable layout types."
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind backend_name r with
             | Some x -> tup_ty x
@@ -210,7 +216,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             $"Callable[[{a}], {tup_ty b}]"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
-        | a -> failwithf "Complier error: Type not supported in the codegen.\nGot: %A" a
+        | a -> raise_codegen_error $"Complier error: Type not supported in the codegen.\nGot: %A{a}"
     and tup_ty x =
         match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) with
         | [||] -> "None"
@@ -286,16 +292,22 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
             | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
             |> return'
-        | TyToLayout(a,b,Heap) -> sprintf "Heap%i(%s)" (heap b).tag (tup_data' a) |> return'
-        | TyToLayout(a,b,HeapMutable) -> sprintf "Mut%i(%s)" (mut b).tag (tup_data' a) |> return'
-        | TyToLayout(a,b,StackMutable) -> raise_codegen_error "The Python backend doesn't support stack mutable layout types."
-        | TyLayoutIndexAll(L(i,YLayout(a,lay))) -> 
+        | TyToLayout(a,b) -> 
+            match b with
+            | YLayout(_,layout) -> 
+                match layout with
+                | Heap -> sprintf "Heap%i(%s)" (heap b).tag (tup_data' a)
+                | HeapMutable -> sprintf "Mut%i(%s)" (mut b).tag (tup_data' a)
+                | StackMutable -> raise_codegen_error "The Python backend doesn't support stack mutable layout types."
+            | _ -> raise_codegen_error "Compiler error: Expected a layout type (6)."
+            |> return'
+        | TyLayoutIndexAll(L(i,YLayout(_,lay) & a)) -> 
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a
             | StackMutable -> raise_codegen_error "The Python backend doesn't support indexing into stack mutable layout types."
             |> fun x -> x.free_vars |> layout_index i
-        | TyLayoutIndexByKey(L(i,YLayout(a,lay)),key) ->
+        | TyLayoutIndexByKey(L(i,YLayout(_,lay) & a),key) ->
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a

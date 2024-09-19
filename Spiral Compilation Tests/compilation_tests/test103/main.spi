@@ -1,0 +1,14 @@
+// Does stack_mut layout type work?
+
+// Creates a stack mutable layout type.
+inl stack_mut forall t. (x : t): stack_mut t = !!!!LayoutToStackMutable(x)
+// Unboxes a heap layout type.
+inl (~@) forall t. (x : stack_mut t): t = !!!!LayoutIndex(x)
+
+inl main() : () =
+    inl _ = join_backend Cuda
+        inl x = stack_mut {x = true; y = 1i32}
+        inl _ = x.x, x.y
+        x.x <- false
+        ()
+    ()

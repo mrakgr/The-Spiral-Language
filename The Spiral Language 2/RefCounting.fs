@@ -41,7 +41,7 @@ let refc_used_vars (x : TypedBind []) =
         | TySizeOf _ -> Set.empty
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + fv d | _ -> s) Set.empty l
         | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + fv x) Set.empty l
-        | TyToLayout(x,_,_) | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyConv(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> fv x
+        | TyToLayout(x,_) | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyConv(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> fv x
         | TyWhile(cond,body) -> jp cond + binds body
         | TyLayoutIndexAll(i) | TyLayoutIndexByKey(i,_) -> Set.singleton i
         | TyApply(i,d) | TyLayoutMutableSet(i,_,d) -> Set.singleton i + fv d
@@ -108,7 +108,7 @@ let refc_prepass (new_vars : TyV Set) (increfed_vars : TyV Set) (x : TypedBind [
         | TyApply(a,b) -> varc_add a 1 (varc_data b) |> fun_call
         | TyJoinPoint(_,x) -> Array.fold (fun s x -> varc_add x 1 s) Map.empty x |> fun_call
         | TyArrayLiteral(_,x) -> List.fold (fun s x -> varc_union s (varc_data x)) Map.empty x |> fun_call
-        | TyUnionBox(_,x,_) | TyToLayout(x,_,_) -> varc_data x |> fun_call
+        | TyUnionBox(_,x,_) | TyToLayout(x,_) -> varc_data x |> fun_call
         | TySizeOf _ | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyOp _ | TyFailwith _ | TyConv _ 
         | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutMutableSet _ | TyBackend _ -> ()
         | TyWhile(_,body) -> binds Set.empty Set.empty body

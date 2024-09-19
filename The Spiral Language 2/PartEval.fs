@@ -121,7 +121,7 @@ and TypedOp =
     | TyUnionBox of string * Data * Union
     | TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
     | TyIntSwitch of TyV * TypedBind [] [] * TypedBind []
-    | TyToLayout of Data * Ty * Layout
+    | TyToLayout of Data * Ty
     | TyLayoutIndexAll of TyV
     | TyLayoutIndexByKey of TyV * string
     | TyLayoutMutableSet of TyV * string list * Data
@@ -1462,8 +1462,9 @@ let peval (env : TopEnv) (x : E) =
                 | LayoutToHeapMutable -> HeapMutable
                 | LayoutToStackMutable -> StackMutable
                 | _ -> raise_type_error s "Compiler error: Forgot a case in LayoutTo."
-            let key = TyToLayout(x,ty,layout)
-            push_typedop_no_rewrite s key (YLayout(ty,layout))
+            let ret_ty = YLayout(ty,layout)
+            let key = TyToLayout(x,ret_ty)
+            push_typedop_no_rewrite s key ret_ty
         | EOp(_,LayoutIndex,[a]) -> 
             match term s a with
             | DV(L(i,YLayout(ty,layout)) as tyv) as a -> 
