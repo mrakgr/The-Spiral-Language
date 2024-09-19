@@ -1461,20 +1461,23 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 f v a
                 match visit_t v with
                 | TyMetavar _ -> raise (TypeErrorException [r, LayoutSetMustBeAnnotated])
-                | TyLayout(v,(HeapMutable | StackMutable)) ->
-                    if i <> errors.Count then raise (TypeErrorException [])
-                    let b = List.map (fun x -> range_of_expr x, f' x) b
-                    List.fold (fun (r,a') (r',b') ->
-                        match visit_t a' with
-                        | TyRecord a ->
-                            match b' with
-                            | TySymbol b ->
-                                match Map.tryFind b a with
-                                | Some x -> r', x
-                                | _ -> raise (TypeErrorException [r, RecordIndexFailed b])
-                            | b -> raise (TypeErrorException [r', ExpectedSymbol' b])
-                        | a -> raise (TypeErrorException [r, ExpectedRecord a])
-                        ) (range_of_expr a, v) b |> snd
+                | TyLayout(v,lay) ->
+                    match lay with
+                    | HeapMutable | StackMutable ->
+                        if i <> errors.Count then raise (TypeErrorException [])
+                        let b = List.map (fun x -> range_of_expr x, f' x) b
+                        List.fold (fun (r,a') (r',b') ->
+                            match visit_t a' with
+                            | TyRecord a ->
+                                match b' with
+                                | TySymbol b ->
+                                    match Map.tryFind b a with
+                                    | Some x -> r', x
+                                    | _ -> raise (TypeErrorException [r, RecordIndexFailed b])
+                                | b -> raise (TypeErrorException [r', ExpectedSymbol' b])
+                            | a -> raise (TypeErrorException [r, ExpectedRecord a])
+                            ) (range_of_expr a, v) b |> snd
+                    | Heap -> raise (TypeErrorException [r, ExpectedMutableLayout v])
                 | v -> raise (TypeErrorException [r, ExpectedMutableLayout v])
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var scope
             |> fun v -> f v c

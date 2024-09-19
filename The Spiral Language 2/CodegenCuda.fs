@@ -294,7 +294,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             match lay with
             | Heap -> sprintf "sptr<Heap%i>" (heap a).tag
             | HeapMutable -> sprintf "sptr<Mut%i>" (mut a).tag
-            | StackMutable -> sprintf "& StackMut%i" (mut a).tag
+            | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind backend_name r with
             | Some x -> tup_ty x
@@ -468,11 +468,17 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         | TyLayoutIndexAll(x) -> raise_codegen_error "Compiler error: TyLayoutIndexAll should have been taken care of in TyLet."
         | TyLayoutIndexByKey(x,key) -> raise_codegen_error "Compiler error: TyLayoutIndexByKey should have been taken care of in TyLet."
         | TyLayoutMutableSet(L(i,t),b,c) ->
-            let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             match t with
-            | YLayout(_,HeapMutable) -> Array.map2 (fun (L(i',_)) b -> $"v{i}.base->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
-            | YLayout(_,StackMutable) -> Array.map2 (fun (L(i',_)) b -> $"v{i}.v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
-            | _ -> raise_codegen_error "Compiler error: TyLayoutMutableSet should only be HeapMutable or StackMutable."
+            | YLayout(_,lay) ->
+                match lay with
+                | HeapMutable -> 
+                    let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
+                    Array.map2 (fun (L(i',_)) b -> $"v{i}.base->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
+                | StackMutable -> 
+                    let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (stack_mut t).data b
+                    Array.map2 (fun (L(i',_)) b -> $"v{i}.v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
+                | Heap -> raise_codegen_error "Compiler error (1): TyLayoutMutableSet should only be HeapMutable or StackMutable."
+            | _ -> raise_codegen_error "Compiler error (2): TyLayoutMutableSet should only be HeapMutable or StackMutable."
             |> String.concat " " |> line s
         | TyArrayLiteral(a,b') -> raise_codegen_error "Compiler error: TyArrayLiteral should have been taken care of in TyLet."
         | TyArrayCreate(a,b) ->  raise_codegen_error "Compiler error: TyArrayCreate should have been taken care of in TyLet."
