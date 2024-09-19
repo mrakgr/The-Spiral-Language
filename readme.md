@@ -29,7 +29,7 @@
             - [Records](#records)
             - [Unions](#unions)
         - [Type Literals](#type-literals)
-            - [\v operator in macros](#%5Cv-operator-in-macros)
+            - [v operator in macros](#v-operator-in-macros)
         - [Prototypes](#prototypes)
         - [Existentials](#existentials)
         - [GADTs](#gadts)
@@ -45,8 +45,10 @@
         - [Type Inference In Bottom-Up Style](#type-inference-in-bottom-up-style)
         - [Real Nominals And Inverse Arrays](#real-nominals-and-inverse-arrays)
     - [Special behaviors in the Cuda backend](#special-behaviors-in-the-cuda-backend)
-        - [\v variables in macros](#%5Cv-variables-in-macros)
+        - [noinline_ prefix in named join points](#noinline_-prefix-in-named-join-points)
+        - [v variables in macros](#v-variables-in-macros)
         - [Layout type indexing returns references](#layout-type-indexing-returns-references)
+        - [Stack mutable layout types](#stack-mutable-layout-types)
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
@@ -1293,7 +1295,7 @@ typecase 16 * (f32 * i32) with
 
 You can't do meaninful computation with them in the top down segment and they are intended to be used in the real segment instead. The top down segment's intent is to help you propagate them, and not much else.
 
-#### `\v` operator in macros
+#### `v` operator in macros
 
 In the C/C++ backends, `\v` can be used to declare arrays without needing to return them.
 
@@ -2808,7 +2810,7 @@ If the function was not marked with `__noinline__`, once we run this the kernel 
 
 On other words, `__noinline__` allows the divergent threads in the kernel to reconverge on a function call.
 
-### `\v` variables in macros
+### `v` variables in macros
 
 ```spiral
 inl main() =
@@ -2897,6 +2899,33 @@ extern "C" __global__ void entry0() {
 ```
 
 As layout types in the Cuda backend would be pretty useless without this capability, it has been implemented in Spiral v2.15.0. It's necessary keep in mind that when indexing into layout types that references, and not value types will be generated in the resulting output. And trying to mutate the values on the stack will end up mutating them in the layout type itself even if they are intended to be immutable `heap` types.
+
+### Stack mutable layout types
+
+As of v2.15.0, a new layout type has been added to the language.
+
+```spiral
+inl main() : () =
+    inl _ = join_backend Cuda
+        inl x = stack_mut {x = true; y = 1i32}
+        inl _ = x.x, x.y
+        x.x <- false
+    ()
+```
+
+```cpp
+extern "C" __global__ void entry0() {
+    StackMut0 v0{true, 1};
+    bool & v1 = v0.v0;
+    int & v2 = v0.v1;
+    v0.v0 = false;
+    return ;
+}
+```
+
+On the stack they are constructed as value types, but in functions they are passed by reference. Since they are C++ reference types, they cannot be returned from join points and conditionals.
+
+The purpose of them is to match the forward passing semantics of heap mutable types, and easily swap between the two to see if allocating on the heap or the stack is better. Much like for the other layout types, indexing into them returns references.
 
 ## Known Bugs
 
