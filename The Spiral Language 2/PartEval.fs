@@ -745,8 +745,6 @@ let peval (env : TopEnv) (x : E) =
             let cases =
                 Map.fold (fun cases k v ->
                     let v = Option.defaultValue (fst v) (snd v) // If the union case is generalized, use the specialized destructor instead of the constructor to evaluate the type.
-                    let qwe = ty s v
-                    printfn "%A" qwe
                     match ty s v with
                     | YVoid -> cases
                     | v ->

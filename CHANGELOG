@@ -1,3 +1,7 @@
+2.15.2 (10/1/2024)
+
+* Removed the printfn I accidentally left in.
+
 2.15.1 (10/1/2024)
 
 * Added the missing YExists and YForall cases in the is_unify in the partial evaluator.
