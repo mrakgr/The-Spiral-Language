@@ -1,0 +1,9 @@
+// Do existentials in GADTs compile?
+
+type layer = exists t. t
+union extractor t =
+    | Ex_Layer :: extractor layer
+
+inl main() : () =
+    inl t = Ex_Layer
+    ()

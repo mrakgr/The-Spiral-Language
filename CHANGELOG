@@ -1,3 +1,7 @@
+2.15.1 (10/1/2024)
+
+* Added the missing YExists and YForall cases in the is_unify in the partial evaluator.
+
 2.15.0 (9/19/2024)
 
 Added the stack mutable layout type into the language.

@@ -512,7 +512,7 @@ let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <
 let is_unify s x =
     let is_metavar = HashSet()
     let rec f = function
-        | YB, YB -> true
+        | YB, YB | YExists, YExists | YForall, YForall -> true
         | YFun(a,b,t), YFun(a',b',t') -> t = t' && f (a,a') && f (b,b')
         | YApply(a,b), YApply(a',b')
         | YPair(a,b), YPair(a',b') -> f (a,a') && f (b,b')
@@ -745,6 +745,8 @@ let peval (env : TopEnv) (x : E) =
             let cases =
                 Map.fold (fun cases k v ->
                     let v = Option.defaultValue (fst v) (snd v) // If the union case is generalized, use the specialized destructor instead of the constructor to evaluate the type.
+                    let qwe = ty s v
+                    printfn "%A" qwe
                     match ty s v with
                     | YVoid -> cases
                     | v ->
