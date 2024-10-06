@@ -1,0 +1,11 @@
+// Do type level functions in generalize give a compiler error?
+// Should be fixed since v2.15.3.
+
+type foo t = ()
+nominal bar (t : * -> *) = t ()
+
+inl zxc() =
+    inl x : bar foo = bar () // This type cannot be constructed, so the error on this line is intended.
+    ()
+inl asd (x : _ foo) = () // No type errors should be on this line.
+

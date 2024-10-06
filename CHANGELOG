@@ -1,3 +1,7 @@
+2.15.3 (10/6/2024)
+
+* Got rid of the compiler error in `generalize`.
+
 2.15.2 (10/1/2024)
 
 * Removed the printfn I accidentally left in.
