@@ -1,5 +1,2 @@
-﻿let x = 123s
-
-x.ToString()
-|> printfn "%s"
-
+﻿234.5f
+|> (fun a ->  a.ToString("R"))

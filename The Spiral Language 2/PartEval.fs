@@ -1481,6 +1481,24 @@ let peval (env : TopEnv) (x : E) =
             | DLit x -> DTLit x
             | DSymbol x -> DSymbol x
             | a -> raise_type_error s <| sprintf "Expected a symbol or a type literal.\nGot: %s" (show_data a)
+        | EOp(_,LitToSymbol,[a]) -> 
+            match term s a with
+            | DLit x ->
+                match x with
+                | LitInt8 a -> a.ToString("R") |> DSymbol
+                | LitInt16 a -> a.ToString("R") |> DSymbol
+                | LitInt32 a -> a.ToString("R") |> DSymbol
+                | LitInt64 a -> a.ToString("R") |> DSymbol
+                | LitUInt8 a -> a.ToString("R") |> DSymbol
+                | LitUInt16 a -> a.ToString("R") |> DSymbol
+                | LitUInt32 a -> a.ToString("R") |> DSymbol
+                | LitUInt64 a -> a.ToString("R") |> DSymbol
+                | LitFloat32 a -> a.ToString("R") |> DSymbol
+                | LitFloat64 a -> a.ToString("R") |> DSymbol
+                | LitBool a -> a.ToString() |> DSymbol
+                | LitChar a -> a.ToString() |> DSymbol
+                | LitString a -> a.ToString() |> DSymbol
+            | a -> raise_type_error s <| sprintf "Expected a symbol or a type literal.\nGot: %s" (show_data a)
         | EOp(_,StringLitToSymbol,[a]) -> 
             match term s a with
             | DLit(LitString a) -> DSymbol a

@@ -69,6 +69,7 @@ type Op =
     | TypeToSymbol
     | TypeLitToLit
     | LitToTypeLit
+    | LitToSymbol
 
     // Closure conversion
     | Dyn

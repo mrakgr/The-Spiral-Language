@@ -831,16 +831,8 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | DRecord m when m.Count = 1 ->
                 match Map.tryFind "cluster_dims" m with
                 | Some(DRecord m) when m.Count = 3 ->
-                    let f x y z = $"void __cluster_dims({x},{y},{z})"
                     match Map.tryFind "x" m, Map.tryFind "y" m, Map.tryFind "z" m with
-                    | Some(DLit(LitInt8 x)), Some(DLit(LitInt8 y)), Some(DLit(LitInt8 z)) ->  f x y z
-                    | Some(DLit(LitInt16 x)), Some(DLit(LitInt16 y)), Some(DLit(LitInt16 z)) ->  f x y z
-                    | Some(DLit(LitInt32 x)), Some(DLit(LitInt32 y)), Some(DLit(LitInt32 z)) ->  f x y z
-                    | Some(DLit(LitInt64 x)), Some(DLit(LitInt64 y)), Some(DLit(LitInt64 z)) ->  f x y z
-                    | Some(DLit(LitUInt8 x)), Some(DLit(LitUInt8 y)), Some(DLit(LitUInt8 z)) ->  f x y z
-                    | Some(DLit(LitUInt16 x)), Some(DLit(LitUInt16 y)), Some(DLit(LitUInt16 z)) ->  f x y z
-                    | Some(DLit(LitUInt32 x)), Some(DLit(LitUInt32 y)), Some(DLit(LitUInt32 z)) ->  f x y z
-                    | Some(DLit(LitUInt64 x)), Some(DLit(LitUInt64 y)), Some(DLit(LitUInt64 z)) ->  f x y z
+                    | Some(DSymbol x), Some(DSymbol y), Some(DSymbol z) ->  $"void __cluster_dims__({x},{y},{z})"
                     | Some(DV _), _, _
                     | _, Some(DV _), _
                     | _, _, Some(DV _) ->  raise_codegen_error "All the variables have to be known at compile time."

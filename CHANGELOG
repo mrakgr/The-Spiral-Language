@@ -1,6 +1,10 @@
+2.15.6 (12/1/2024)
+
+* Actually made the __cluster_dim__ annotations work.
+
 2.15.4-5 (12/1/2024)
 
-* Modified the Cuda codegen so it supports __cluster_dim__ annotations. That is done by returning a record of type {cluster_dims : {x : int; y : int; z : int}}.
+* Modified the Cuda codegen so it supports __cluster_dim__ annotations.
 
 2.15.3 (10/6/2024)
 
