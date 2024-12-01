@@ -8,7 +8,7 @@ function Publish-Vsce {
         [string] $Rank = "patch" # Can also be "minor"
     )
     Write-Host "Publishing on VSCE."
-    vsce publish $Rank # https://marketplace.visualstudio.com/items?itemName=mrakgr.spiral-lang-vscode
+    npx "@vscode/vsce" publish $Rank # https://marketplace.visualstudio.com/items?itemName=mrakgr.spiral-lang-vscode
 }
 
 function Publish-Ovsx {
