@@ -1,3 +1,7 @@
+2.15.4 (12/1/2024)
+
+* Modified the Cuda codegen so it supports __cluster_dim__ annotations. That is done by returning a record of type {cluster_dims : {x : int; y : int; z : int}}.
+
 2.15.3 (10/6/2024)
 
 * Got rid of the compiler error in `generalize`.
@@ -13,6 +17,8 @@
 2.15.0 (9/19/2024)
 
 Added the stack mutable layout type into the language.
+
+* In the Cuda codegen, indexing into layout types now generates a reference type in the compiled code.
 
 2.14.2 (9/17/2024)
 

@@ -825,18 +825,36 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
     and stack_mut : _ -> LayoutRec = layout_tmpl false "StackMut"
 
     fun vs (x : TypedBind []) ->
-        match binds_last_data x |> data_term_vars |> term_vars_to_tys with
-        | [||] ->
-            let main_defs' = {text=StringBuilder(); indent=0}
-            let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-            line main_defs' $"extern \"C\" __global__ void entry%i{main_defs.Count}(%s{args}) {{"
-            binds_start (indent main_defs') x
-            line main_defs' "}"
-            main_defs.Add(main_defs'.text.ToString())
+        let ret_ty =
+            let er() = raise_codegen_error "The return type of the __global__ kernel in the Cuda backend should be a void type or a record of type {cluster_dims : {x : int; y : int; z : int}}."
+            match binds_last_data x with
+            | DRecord m when m.Count = 1 ->
+                match Map.tryFind "cluster_dims" m with
+                | Some(DRecord m) when m.Count = 3 ->
+                    let f x y z = $"void __cluster_dims({x},{y},{z})"
+                    match Map.tryFind "x" m, Map.tryFind "y" m, Map.tryFind "z" m with
+                    | Some(DLit(LitInt8 x)), Some(DLit(LitInt8 y)), Some(DLit(LitInt8 z)) ->  f x y z
+                    | Some(DLit(LitInt16 x)), Some(DLit(LitInt16 y)), Some(DLit(LitInt16 z)) ->  f x y z
+                    | Some(DLit(LitInt32 x)), Some(DLit(LitInt32 y)), Some(DLit(LitInt32 z)) ->  f x y z
+                    | Some(DLit(LitInt64 x)), Some(DLit(LitInt64 y)), Some(DLit(LitInt64 z)) ->  f x y z
+                    | Some(DLit(LitUInt8 x)), Some(DLit(LitUInt8 y)), Some(DLit(LitUInt8 z)) ->  f x y z
+                    | Some(DLit(LitUInt16 x)), Some(DLit(LitUInt16 y)), Some(DLit(LitUInt16 z)) ->  f x y z
+                    | Some(DLit(LitUInt32 x)), Some(DLit(LitUInt32 y)), Some(DLit(LitUInt32 z)) ->  f x y z
+                    | Some(DLit(LitUInt64 x)), Some(DLit(LitUInt64 y)), Some(DLit(LitUInt64 z)) ->  f x y z
+                    | Some(DV _), _, _
+                    | _, Some(DV _), _
+                    | _, _, Some(DV _) ->  raise_codegen_error "All the variables have to be known at compile time."
+                    | _ -> er()
+                | _ -> er()
+            | DB -> "void"
+            | _ -> er()
+        let main_defs' = {text=StringBuilder(); indent=0}
+        let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+        line main_defs' $"extern \"C\" __global__ {ret_ty} entry%i{main_defs.Count}(%s{args}) {{"
+        binds_start (indent main_defs') x
+        line main_defs' "}"
+        main_defs.Add(main_defs'.text.ToString())
 
-            global' $"using default_int = {prim default_env.default_int};"
-            global' $"using default_uint = {prim default_env.default_uint};"
-            global' (IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh")))
-            
-        | _ ->
-            raise_codegen_error $"The return type of the __global__ kernel in the Cuda backend should be a void type."
+        global' $"using default_int = {prim default_env.default_int};"
+        global' $"using default_uint = {prim default_env.default_uint};"
+        global' (IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh")))

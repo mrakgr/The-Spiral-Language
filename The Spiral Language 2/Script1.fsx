@@ -1,4 +1,5 @@
-﻿let x = 123.4561234567891234
+﻿let x = 123s
 
-x.ToString("R")
+x.ToString()
+|> printfn "%s"
 
