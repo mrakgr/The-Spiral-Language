@@ -65,7 +65,7 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen (default_env : Startup.DefaultEnv) (env : PartEvalResult) =
+let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartEvalResult) =
     let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
     let print show r =
         let s_typ_fwd = {text=StringBuilder(); indent=0}
@@ -828,29 +828,38 @@ let codegen (default_env : Startup.DefaultEnv) (env : PartEvalResult) =
     and stack_mut : _ -> LayoutRec = layout_tmpl false "StackMut"
 
     fun (x : TypedBind []) ->
+        let aux_library_code = StringBuilder()
         let host_code = StringBuilder()
         let ret_ty =
             let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
             match binds_last_data x with
             | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
             | _ -> er()
+
+        let file_name = IO.Path.GetFileNameWithoutExtension(file_path)
+        import' $"{file_name}.auto.cu"
+
         let main_defs' = {text=StringBuilder(); indent=0}
         line main_defs' $"{ret_ty} main() {{"
         binds_start (indent main_defs') x
         line main_defs' "}"
         main_defs.Add(main_defs'.text.ToString())
 
-        global' $"using default_int = {prim default_env.default_int};"
-        global' $"using default_uint = {prim default_env.default_uint};"
-        global' (IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh")))
+        let _ = aux_library_code.AppendJoin("\n", [|
+            $"using default_int = {prim default_env.default_int};"
+            $"using default_uint = {prim default_env.default_uint};"
+            IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh"))
+        |])
 
-        let ref_counting_lib = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.py"))
-        host_code.AppendLine(ref_counting_lib.Replace("__device__ ","")) |> ignore
-
-        globals |> Seq.iter (fun x -> host_code.AppendLine(x) |> ignore)
-        fwd_dcls |> Seq.iter (fun x -> host_code.Append(x) |> ignore)
-        types |> Seq.iter (fun x -> host_code.Append(x) |> ignore)
-        functions |> Seq.iter (fun x -> host_code.Append(x) |> ignore)
-        main_defs |> Seq.iter (fun x -> host_code.Append(x) |> ignore)
-
-        host_code.ToString()
+        let _ = 
+            host_code.AppendJoin('\n', globals)
+                .AppendLine()
+                .AppendJoin("", fwd_dcls)
+                .AppendJoin("", types)
+                .AppendJoin("", functions)
+                .AppendJoin("", main_defs)
+            
+        [
+            {|code = aux_library_code.ToString(); file_extension = "auto.cu"|}
+            {|code = host_code.ToString(); file_extension = "cu"|}
+        ]
