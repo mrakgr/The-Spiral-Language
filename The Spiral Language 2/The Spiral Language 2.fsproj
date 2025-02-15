@@ -1,11 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>The_Spiral_Language_2</RootNamespace>
     <OutputType>Exe</OutputType>
     <AssemblyName>Spiral</AssemblyName>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
     <NoWarn>40</NoWarn>
@@ -14,14 +13,12 @@
     <Optimize>False</Optimize>
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
     <NoWarn>40</NoWarn>
     <Optimize>True</Optimize>
     <Tailcalls>True</Tailcalls>
   </PropertyGroup>
-
   <ItemGroup>
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
@@ -48,7 +45,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="CodegenCuda.fs" />
-    <Compile Include="CodegenCppCuda.fs" />
+    <Compile Include="CodegenCppCudaDevice.fs" />
+    <Compile Include="CodegenCppCudaHost.fs" />
     <None Include="reference_counting.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -60,7 +58,6 @@
     <Compile Include="ServerUtils.fs" />
     <Compile Include="Supervisor.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Argu" Version="6.1.4" />
     <PackageReference Include="FParsec" Version="1.1.1" />
@@ -69,9 +66,7 @@
     <PackageReference Include="Hopac" Version="0.5.1" />
     <PackageReference Include="SoftCircuits.OrderedDictionary" Version="3.2.0" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="7.0.400" />
   </ItemGroup>
-
 </Project>
