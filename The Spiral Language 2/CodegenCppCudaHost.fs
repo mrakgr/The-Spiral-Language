@@ -841,8 +841,7 @@ let codegen' backend_handler (part_evan_env : PartEvalResult) (x : TypedBind [])
     main_defs.Add(main_defs'.text.ToString())
 
     StringBuilder()
-        .AppendJoin('\n', globals)
-        .AppendLine()
+        .AppendJoin('\n', (StringBuilder(), globals) ||> Seq.fold (fun s -> s.AppendLine))
         .AppendJoin("", fwd_dcls)
         .AppendJoin("", types)
         .AppendJoin("", functions)
@@ -868,24 +867,29 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
             ) part_eval_env x
 
+    let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
+    let indent_lines (x : string) =
+        x.Split('\n')
+        |> Array.map (fun x -> if x <> "" then $"    {x}" else x)
+        |> fun x -> StringBuilder().AppendJoin("", x)    
+    
     let device_code = 
         StringBuilder()
-            .AppendJoin('\n', code_env.globals)
-            .AppendLine()
+            .AppendJoin("", append_lines code_env.globals)
             .AppendJoin("", code_env.fwd_dcls)
             .AppendJoin("", code_env.types)
             .AppendJoin("", code_env.functions)
             .AppendJoin("", code_env.main_defs)
-    
+            .ToString()
+
     let code = 
-        let file_name = IO.Path.GetFileNameWithoutExtension(file_path)
+        let file_name = IO.Path.GetFileNameWithoutExtension file_path
         StringBuilder()
             .AppendLine($"#include \"{file_name}.auto.cu\"")
             .Append(
                 StringBuilder()
                     .AppendLine("namespace Device {")
-                    .Append(device_code)
-                    .Replace("\n","\n    ")
+                    .Append(indent_lines device_code)
             )
             .AppendLine("}")
             .Append(host_code)
@@ -900,5 +904,5 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
 
     [
         {|code = aux_library_code.ToString(); file_extension = "auto.cu"|}
-        {|code = host_code.ToString(); file_extension = "cu"|}
+        {|code = code.ToString(); file_extension = "cu"|}
     ]
