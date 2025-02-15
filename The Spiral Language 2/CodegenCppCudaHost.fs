@@ -848,7 +848,7 @@ let codegen' backend_handler (part_evan_env : PartEvalResult) (x : TypedBind [])
         .AppendJoin("", functions)
         .AppendJoin("", main_defs)
         
-let codegen (default_env : Startup.DefaultEnv) part_eval_env x = 
+let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
     let code_env = CppCudaDevice.codegen_env.Create()
 
@@ -876,11 +876,17 @@ let codegen (default_env : Startup.DefaultEnv) part_eval_env x =
             .AppendJoin("", code_env.types)
             .AppendJoin("", code_env.functions)
             .AppendJoin("", code_env.main_defs)
-            
+    
     let code = 
+        let file_name = IO.Path.GetFileNameWithoutExtension(file_path)
         StringBuilder()
-            .AppendLine("namespace Device {")
-            .Append(device_code)
+            .AppendLine($"#include \"{file_name}.auto.cu\"")
+            .Append(
+                StringBuilder()
+                    .AppendLine("namespace Device {")
+                    .Append(device_code)
+                    .Replace("\n","\n    ")
+            )
             .AppendLine("}")
             .Append(host_code)
             .ToString()
