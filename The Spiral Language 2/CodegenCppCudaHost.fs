@@ -16,6 +16,21 @@ let private max_tag = 255uy
 //let __device__= "__device__"
 let __device__ = ""
 
+let prim = function
+    | Int8T -> "char" 
+    | Int16T -> "short"
+    | Int32T -> "int"
+    | Int64T -> "long long"
+    | UInt8T -> "unsigned char"
+    | UInt16T -> "unsigned short"
+    | UInt32T -> "unsigned int"
+    | UInt64T -> "unsigned long long"
+    | Float32T -> "float"
+    | Float64T -> "double"
+    | BoolT -> "bool" // part of c++ standard
+    | CharT -> "char"
+    | StringT -> "const char *"
+
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 8
@@ -65,8 +80,8 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartEvalResult) =
-    let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
+let codegen' backend_handler (part_evan_env : PartEvalResult) (x : TypedBind []) =
+    let globals, fwd_dcls, types, functions, main_defs = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
     let print show r =
         let s_typ_fwd = {text=StringBuilder(); indent=0}
         let s_typ = {text=StringBuilder(); indent=0}
@@ -85,7 +100,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
         let f x : LayoutRec = 
             match x with
             | YLayout(x,_) ->
-                let x = env.ty_to_data x
+                let x = part_evan_env.ty_to_data x
                 let a, b =
                     match x with
                     | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
@@ -101,7 +116,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
         let f (a : Union) : UnionRec = 
-            let free_vars = a.Item.cases |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
+            let free_vars = a.Item.cases |> Map.map (fun _ -> part_evan_env.ty_to_data >> data_free_vars)
             {free_vars=free_vars; tag=dict.Count; is_heap=a.Item.layout = UHeap}
         fun x ->
             let mutable dirty = false
@@ -287,7 +302,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
         | [|x|] -> tyv x
         | x -> sprintf "Tuple%i" (tup x).tag
     and tup_ty_tyvs (x : TyV []) = tup_ty_tys (tyvs_to_tys x)
-    and tup_ty x = env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
+    and tup_ty x = part_evan_env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
     and tyv = function
         | YUnion a ->
             match a.Item.layout with
@@ -309,20 +324,6 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
-    and prim = function
-        | Int8T -> "char" 
-        | Int16T -> "short"
-        | Int32T -> "int"
-        | Int64T -> "long long"
-        | UInt8T -> "unsigned char"
-        | UInt16T -> "unsigned short"
-        | UInt32T -> "unsigned int"
-        | UInt64T -> "unsigned long long"
-        | Float32T -> "float"
-        | Float64T -> "double"
-        | BoolT -> "bool" // part of c++ standard
-        | CharT -> "char"
-        | StringT -> "const char *"
     and lit = function
         | LitInt8 x -> sprintf "%i" x
         | LitInt16 x -> sprintf "%i" x
@@ -385,7 +386,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend(_,_,r) -> raise_codegen_error_backend r "The Cuda backend does not support the nesting of other backends."
+        | TyBackend(a,b,c) -> return' (backend_handler (a,b,c))
         | TyWhile(a,b) ->
             let cond =
                 match a with
@@ -565,7 +566,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
         order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
     and method_template is_while : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
-            match (fst env.join_point_method.[jp_body]).[key] with
+            match (fst part_evan_env.join_point_method.[jp_body]).[key] with
             | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=Option.map fix_method_name name}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s_fwd s_typ s_fun x ->
@@ -591,7 +592,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
         let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
         let mutable i = 0
         loop domain |> List.choose (fun x -> 
-            let n = env.ty_to_data x |> data_free_vars 
+            let n = part_evan_env.ty_to_data x |> data_free_vars 
             let x = if n.Length <> 0 then Some(i, tup_ty_tyvs n, n |> rename) else None
             i <- i+1
             x
@@ -600,7 +601,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
         jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
             | YFun(domain,range,t) ->
-                match (fst env.join_point_closure.[jp_body]).[key] with
+                match (fst part_evan_env.join_point_closure.[jp_body]).[key] with
                 | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; free_vars=rdata_free_vars args; funtype=t}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
@@ -827,39 +828,71 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) (env : PartE
     and mut : _ -> LayoutRec = layout_tmpl true "Mut"
     and stack_mut : _ -> LayoutRec = layout_tmpl false "StackMut"
 
-    fun (x : TypedBind []) ->
-        let aux_library_code = StringBuilder()
-        let host_code = StringBuilder()
-        let ret_ty =
-            let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
-            match binds_last_data x with
-            | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
-            | _ -> er()
+    let ret_ty =
+        let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
+        match binds_last_data x with
+        | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
+        | _ -> er()
 
-        let file_name = IO.Path.GetFileNameWithoutExtension(file_path)
-        import' $"{file_name}.auto.cu"
+    let main_defs' = {text=StringBuilder(); indent=0}
+    line main_defs' $"{ret_ty} main() {{"
+    binds_start (indent main_defs') x
+    line main_defs' "}"
+    main_defs.Add(main_defs'.text.ToString())
 
-        let main_defs' = {text=StringBuilder(); indent=0}
-        line main_defs' $"{ret_ty} main() {{"
-        binds_start (indent main_defs') x
-        line main_defs' "}"
-        main_defs.Add(main_defs'.text.ToString())
+    StringBuilder()
+        .AppendJoin('\n', globals)
+        .AppendLine()
+        .AppendJoin("", fwd_dcls)
+        .AppendJoin("", types)
+        .AppendJoin("", functions)
+        .AppendJoin("", main_defs)
+        
+let codegen (default_env : Startup.DefaultEnv) part_eval_env x = 
+    let g = Dictionary HashIdentity.Structural
+    let code_env = CppCudaDevice.codegen_env.Create()
 
-        let _ = aux_library_code.AppendJoin("\n", [|
-            $"using default_int = {prim default_env.default_int};"
-            $"using default_uint = {prim default_env.default_uint};"
-            IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh"))
-        |])
+    let cuda_codegen = CppCudaDevice.codegen default_env code_env part_eval_env
+    let host_code =
+        codegen' (fun (jp_body,key,r') ->
+            let backend_name = (fst jp_body).node
+            match backend_name with
+            | "Cuda" ->
+                Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
+                    let args = rdata_free_vars args
+                    match (fst part_eval_env.join_point_method.[jp_body]).[key] with
+                    | Some a, Some _, _ -> cuda_codegen args a
+                    | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                    string g.Count
+                    ) (jp_body,key)
+            | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
+            ) part_eval_env x
 
-        let _ = 
-            host_code.AppendJoin('\n', globals)
-                .AppendLine()
-                .AppendJoin("", fwd_dcls)
-                .AppendJoin("", types)
-                .AppendJoin("", functions)
-                .AppendJoin("", main_defs)
+    let device_code = 
+        StringBuilder()
+            .AppendJoin('\n', code_env.globals)
+            .AppendLine()
+            .AppendJoin("", code_env.fwd_dcls)
+            .AppendJoin("", code_env.types)
+            .AppendJoin("", code_env.functions)
+            .AppendJoin("", code_env.main_defs)
             
-        [
-            {|code = aux_library_code.ToString(); file_extension = "auto.cu"|}
-            {|code = host_code.ToString(); file_extension = "cu"|}
-        ]
+    let code = 
+        StringBuilder()
+            .AppendLine("namespace Device {")
+            .Append(device_code)
+            .AppendLine("}")
+            .Append(host_code)
+            .ToString()
+
+    let aux_library_code = StringBuilder().AppendJoin("\n", [|
+        $"using default_int = {prim default_env.default_int};"
+        $"using default_uint = {prim default_env.default_uint};"
+        IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh"))
+            .Replace("__device__", "__host__ __device__")
+    |])
+
+    [
+        {|code = aux_library_code.ToString(); file_extension = "auto.cu"|}
+        {|code = host_code.ToString(); file_extension = "cu"|}
+    ]

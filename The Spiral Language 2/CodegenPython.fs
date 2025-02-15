@@ -480,7 +480,7 @@ let codegen (default_env : Startup.DefaultEnv) env x =
     let g = Dictionary(HashIdentity.Structural)
     let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
 
-    let codegen = Cuda.codegen default_env ars env
+    let cuda_codegen = Cuda.codegen default_env ars env
     let python_code =
         codegen' (fun (jp_body,key,r') ->
             let backend_name = (fst jp_body).node
@@ -489,7 +489,7 @@ let codegen (default_env : Startup.DefaultEnv) env x =
                 Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
                     let args = rdata_free_vars args
                     match (fst env.join_point_method.[jp_body]).[key] with
-                    | Some a, Some _, _ -> codegen args a
+                    | Some a, Some _, _ -> cuda_codegen args a
                     | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
                     string g.Count
                     ) (jp_body,key)
