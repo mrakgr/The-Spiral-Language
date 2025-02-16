@@ -1055,9 +1055,9 @@ let peval (env : TopEnv) (x : E) =
             match backend with
             | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod((backend',body),join_point_key),call_args)) ret_ty
             | Some (range,_) ->
-                let method_name = push_typedop_no_rewrite s (TyBackend((backend',body),join_point_key,range)) (YPrim Int32T)
+                let _ = push_typedop_no_rewrite s (TyBackend((backend',body),join_point_key,range)) YB
                 let call_args = Array.foldBack (fun v s -> DPair(DV v,s)) call_args DB
-                DPair(method_name, call_args)
+                call_args
         | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit
         | EType(r,_) -> raise_type_error (add_trace s r) "Raw types are not allowed on the term level."
         | EApply(r,a,b) -> let s = add_trace s r in apply s (term s a, term s b)
