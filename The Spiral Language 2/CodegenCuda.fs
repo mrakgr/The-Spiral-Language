@@ -198,7 +198,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                         | _ -> raise_codegen_error "Compiler error: Expected the TyV in layout index by key to be a layout type."
                         true
                     | TyMacro a ->
-                        let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
+                        let m = a |> List.map (function CMText x -> x | CMTerm (x,inl) -> (if inl then args' x else tup_data x) | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
                         if m.StartsWith("#pragma") then 
                             line s m
                             true

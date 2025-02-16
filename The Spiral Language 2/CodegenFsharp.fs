@@ -129,6 +129,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
     let show_w = function WV (L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
+    let args' x = x |> data_term_vars |> Array.map show_w |> String.concat ", "
 
     let rec tyv = function
         | YUnion a -> 
@@ -209,7 +210,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: Expected an int in length"
             |> simple
         match a with
-        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat "" |> simple
+        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm (x,inl) -> (if inl then args' x else tup x) | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat "" |> simple
         | TySizeOf t -> simple $"sizeof<{tup_ty t}>"
         | TyIf(cond,tr,fl) ->
             complex <| fun s ->

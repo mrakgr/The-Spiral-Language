@@ -65,6 +65,7 @@ let type_lit = function
 
 let show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
 let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
+let args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
 let prim x = Infer.show_primt x
 let cupy_ty x =
     let er () = raise_codegen_error "Only stack allocated primitive types (i8,i16,i32,i64 and u8,u16,u32,u64 and f32,f64 and bool) are allowed in CuPy arrays."
@@ -239,7 +240,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
 
         match a with
         | TySizeOf t -> raise_codegen_error $"The following type in `sizeof` is not supported in the Python back end.\nGot: {show_ty t}"
-        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit a -> type_lit a) |> String.concat "" |> return'
+        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm (x,inl) -> (if inl then args' x else tup_data x) | CMType x -> tup_ty x | CMTypeLit a -> type_lit a) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if %s:" (tup_data cond))
             binds g_decr (indent s) ret tr

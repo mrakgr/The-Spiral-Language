@@ -272,7 +272,7 @@ type HoVar = VSCRange * (VarString * RawKindExpr)
 type TypeVar = HoVar * (VSCRange * VarString) list
 type RawMacro =
     | RawMacroText of VSCRange * string
-    | RawMacroTerm of VSCRange * RawExpr
+    | RawMacroTerm of VSCRange * RawExpr * is_inline : bool
     | RawMacroType of VSCRange * RawTExpr
     | RawMacroTypeLit of VSCRange * RawTExpr
 and RawRecordWith =
@@ -517,7 +517,7 @@ let read_text is_term_macro d =
 
 let read_macro_var d =
     try_current d <| function
-        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTerm(p,rawv(p,x)))
+        | p, TokMacroTermVar (x, is_inline) -> skip d; Ok(RawMacroTerm(p,rawv(p,x),is_inline))
         | p, TokMacroTypeVar x -> skip d; Ok(RawMacroType(p,RawTVar(p,x)))
         | p, TokMacroTypeLitVar x -> skip d; Ok(RawMacroTypeLit(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroVar]
@@ -1256,7 +1256,8 @@ and root_term d =
 
         let case_macro =
             let read_macro_expression s = 
-                (macro_expression MTerm (root_term |>> fun x -> RawMacroTerm(range_of_expr x,x))
+                (macro_expression MTerm (root_term |>> fun x -> RawMacroTerm(range_of_expr x,x,false))
+                <|> macro_expression MTermInline (root_term |>> fun x -> RawMacroTerm(range_of_expr x,x,true))
                 <|> macro_expression MType (root_type root_type_defaults |>> fun x -> RawMacroType(range_of_texpr x,x))
                 <|> macro_expression MTypeLit (root_type root_type_defaults |>> fun x -> RawMacroTypeLit(range_of_texpr x,x))) s
             let body = many ((read_text true |>> RawMacroText) <|> read_macro_var <|> read_macro_expression)

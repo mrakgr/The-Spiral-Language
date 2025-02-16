@@ -210,7 +210,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     let decl_vars = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
                     match a with
                     | TyMacro a ->
-                        let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
+                        let m = a |> List.map (function CMText x -> x | CMTerm (x,inl) -> (if inl then args' x else tup_data x) | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
                         let q = m.Split("\\v")
                         if q.Length = 1 then 
                             decl_vars |> line' s

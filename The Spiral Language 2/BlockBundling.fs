@@ -64,7 +64,7 @@ and fold_offset_macro offset a =
     let g = add_offset offset
     List.map (function
         | RawMacroText(r,a) -> RawMacroText(g r,a)
-        | RawMacroTerm(r,a) -> RawMacroTerm(g r,fold_offset_term offset a)
+        | RawMacroTerm(r,a,b) -> RawMacroTerm(g r,fold_offset_term offset a,b)
         | RawMacroType(r,a) -> RawMacroType(g r,fold_offset_ty offset a)
         | RawMacroTypeLit(r,a) -> RawMacroTypeLit(g r,fold_offset_ty offset a)
         ) a

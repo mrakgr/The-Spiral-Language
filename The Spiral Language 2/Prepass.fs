@@ -10,7 +10,7 @@ type Range = {path : string; range : VSCRange}
 
 type Macro =
     | MText of string
-    | MTerm of E
+    | MTerm of E * is_inline : bool
     | MType of T
     | MLitType of T
 and TypeMacro =
@@ -110,7 +110,7 @@ and [<ReferenceEquality>] T =
 module Printable =
     type PMacro =
         | MText of string
-        | MTerm of PE
+        | MTerm of PE * bool
         | MType of PT
         | MLitType of PT
     and PTypeMacro =
@@ -270,7 +270,7 @@ module Printable =
             | E.EMacro(_,a,b) ->
                 let a = a |> List.map (function
                     | Macro.MText a -> MText a
-                    | Macro.MTerm a -> MTerm(term a)
+                    | Macro.MTerm (a,b) -> MTerm(term a,b)
                     | Macro.MType a -> MType(ty a)
                     | Macro.MLitType a -> MLitType(ty a)
                     )
@@ -431,7 +431,7 @@ let propagate x =
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
         | EExists(_,a,b) -> List.fold (fun s a -> s + ty a) (term b) a
         | EPatternMiss a | EReal(_,a) -> term a
-        | EMacro(_,a,b) -> List.fold (fun s -> function MLitType x | MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
+        | EMacro(_,a,b) -> List.fold (fun s -> function MLitType x | MType x -> s + ty x | MTerm (x,_) -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
         | ELet(_,bind,body,on_succ) -> term on_succ - bind + term body
@@ -555,7 +555,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
         | EUnbox(_,_,_,a,b,c) | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
-            a |> List.iter (function MLitType a | MType a -> ty env a | MTerm a -> f a | MText _ -> ())
+            a |> List.iter (function MLitType a | MType a -> ty env a | MTerm (a,_) -> f a | MText _ -> ())
             ty env b
         | EPatternMemo a -> Utils.memoize dict f a
         | ERecordTest(_,l,_,a,b) -> 
@@ -698,7 +698,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | MText _ as x -> x
                 | MLitType a -> MLitType(g env a)
                 | MType a -> MType(g env a)
-                | MTerm a -> MTerm(f a)
+                | MTerm (a,b) -> MTerm(f a,b)
                 )
             EMacro(r,a,g env b)
         | EPrototypeApply(r,a,b) -> EPrototypeApply(r,a,g env b)
@@ -1141,7 +1141,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
                 | RawMacroText(r,a) -> MText a
-                | RawMacroTerm(r,a) -> MTerm(f a)
+                | RawMacroTerm(r,a,b) -> MTerm(f a,b)
                 | RawMacroType(r,a) -> MType(ty env a)
                 | RawMacroTypeLit(r,a) -> MLitType(ty env a)
                 )

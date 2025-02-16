@@ -39,7 +39,7 @@ let refc_used_vars (x : TypedBind []) =
     and op (x : TypedOp) : TyV Set =
         match x with
         | TySizeOf _ -> Set.empty
-        | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + fv d | _ -> s) Set.empty l
+        | TyMacro l -> List.fold (fun s -> function CMTerm (d,_) -> s + fv d | _ -> s) Set.empty l
         | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + fv x) Set.empty l
         | TyToLayout(x,_) | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyConv(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> fv x
         | TyWhile(cond,body) -> jp cond + binds body

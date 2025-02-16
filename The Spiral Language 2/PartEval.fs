@@ -106,7 +106,7 @@ type JoinPointCall = JoinPointKey * TyV []
 
 type CodeMacro =
     | CMText of string
-    | CMTerm of Data
+    | CMTerm of Data * is_inline : bool
     | CMType of Ty
     | CMTypeLit of Ty
 
@@ -1160,7 +1160,7 @@ let peval (env : TopEnv) (x : E) =
             else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty c_ty') (show_ty c_ty)
         | EMacro(r,a,b) ->
             let s = add_trace s r
-            let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x) | MLitType x -> CMTypeLit(ty s x |> assert_ty_lit s))
+            let a = a |> List.map (function MText x -> CMText x | MTerm (x,b) -> CMTerm(term s x |> dyn false s, b) | MType x -> CMType(ty s x) | MLitType x -> CMTypeLit(ty s x |> assert_ty_lit s))
             push_typedop_no_rewrite s (TyMacro(a)) (ty s b)
         | EPrototypeApply(_,prot_id,b) ->
             let rec loop = function
