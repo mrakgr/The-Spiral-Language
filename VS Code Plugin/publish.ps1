@@ -7,7 +7,7 @@ try {
     $keys = Get-Content -Raw -Path .\keys.json | ConvertFrom-Json
     function Publish-Vsce {
         param (
-            [string] $Rank = "patch" # Can also be "minor"
+            [string] $Rank = "patch" # Can also be "minor" and "major"
         )
         Write-Host "Publishing on VSCE."
         npx "@vscode/vsce" publish $Rank # https://marketplace.visualstudio.com/items?itemName=mrakgr.spiral-lang-vscode
