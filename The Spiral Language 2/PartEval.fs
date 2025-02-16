@@ -1427,7 +1427,7 @@ let peval (env : TopEnv) (x : E) =
                         validate_type (data_to_ty s d')
                         d <- Some d'
                     else
-                        let s = {s with seq=ResizeArray(); cse=Dictionary HashIdentity.Structural :: s.cse}
+                        let s = {s with seq=ResizeArray(); cse=Dictionary HashIdentity.Structural :: s.cse; backend=backend_strings.Add backend}
                         let d' = apply s (b, DB)
                         validate_type (data_to_ty s d')
                 )
