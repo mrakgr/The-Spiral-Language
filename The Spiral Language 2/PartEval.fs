@@ -1410,26 +1410,28 @@ let peval (env : TopEnv) (x : E) =
             | a -> raise_type_error s <| sprintf "Expected an i32 literal.\nGot: %s" (show_data a)
         | EOp(_,PragmaUnrollPop,[]) -> 
             push_op_no_rewrite' s PragmaUnrollPop [] YB
-        | EOp(_,BackendSwitch,l) ->
+        | EOp(_,BackendSwitch,[a]) ->
             let mutable t = None
             let mutable d = None
             let validate_type t' =
                 match t with
                 | Some t -> if t <> t' then raise_type_error s $"The backend switch needs to have the same type for all of its branches.\nGot: {show_ty t'}\nExpected: {show_ty t}"
                 | None -> t <- Some t'
-            l |> List.iter (function
-                | EPair(_,ELit(_,LitString backend),b) -> 
+            match term s a with
+            | DRecord l ->
+                l |> Map.iter (fun backend b ->
                     // The reason why we're evaling all the branches intead of just one and in this specific order is because otherwise
                     // compile time hashmaps could make type inference unsound.
                     if backend = s.backend.node then 
-                        let d' = term s b
+                        let d' = apply s (b, DB)
                         validate_type (data_to_ty s d')
                         d <- Some d'
                     else
-                        let _,t' = term_scope s b
-                        validate_type t'
-                | _ -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
+                        let s = {s with seq=ResizeArray(); cse=Dictionary HashIdentity.Structural :: s.cse}
+                        let d' = apply s (b, DB)
+                        validate_type (data_to_ty s d')
                 )
+            | a -> raise_type_error s <| sprintf "Expected an record.\nGot: %s" (show_data a)
             match d with
             | Some cur -> cur |> dyn true s
             | None -> raise_type_error s $"Cannot find the backend {s.backend.node} in the backend switch op."
