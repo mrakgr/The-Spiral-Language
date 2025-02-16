@@ -1,7 +1,4 @@
-# Suppresses warnings.
-$WarningPreference = 'SilentlyContinue'
-# This instructs PowerShell to treat non-terminating errors as terminating errors, which will halt script execution.
-$ErrorActionPreference = "Stop"
+$WarningPreference = 'SilentlyContinue'; $ErrorActionPreference = "Stop"; Set-StrictMode -Version Latest
 
 try {
     $keys = Get-Content -Raw -Path .\keys.json | ConvertFrom-Json
