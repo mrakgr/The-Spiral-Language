@@ -1,4 +1,5 @@
 ﻿module Spiral.Codegen.C
+#nowarn 40
 
 open Spiral
 open Spiral.Utils

@@ -1,4 +1,5 @@
 ﻿module Spiral.Codegen.Fsharp
+#nowarn 40
 
 open Spiral
 open Spiral.Tokenize

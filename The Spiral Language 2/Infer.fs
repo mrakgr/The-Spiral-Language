@@ -404,7 +404,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     and cmacro constraints term ty a =
         List.iter (function
             | RawMacroText _ -> ()
-            | RawMacroTerm(r,a) -> cterm constraints (term, ty) a
+            | RawMacroTerm(r,a,_) -> cterm constraints (term, ty) a
             | RawMacroType(r,a) | RawMacroTypeLit(r,a) -> ctype constraints term ty a
             ) a
     and ctype constraints term ty x =
@@ -932,10 +932,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawSeq(r,a,b) -> RawSeq(r,f a,f b)
             | RawHeapMutableSet(r,a,b,c) -> RawHeapMutableSet(r,f a,List.map f b,f c)
             | RawMacro(r,l) -> 
-                let l = l |> List.map (function RawMacroTerm(r,x) -> RawMacroTerm(r,f x) | x -> x )
+                let l = l |> List.map (function RawMacroTerm(r,x,b) -> RawMacroTerm(r,f x,b) | x -> x )
                 RawAnnot(r,RawMacro(r,l),annot r x)
             | RawArray(r,a) -> RawAnnot(r,RawArray(r,List.map f a),annot r x)
-        and pattern rec_term x' =
+        and pattern recbterm x' =
             let mutable rec_term = rec_term
             let rec f = function
                 | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
@@ -1450,7 +1450,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             annotations.Add(x,(r,s))
             List.iter (function
                 | RawMacroText _ -> ()
-                | RawMacroTerm(_,a) -> term scope env (fresh_var scope) a
+                | RawMacroTerm(_,a,_) -> term scope env (fresh_var scope) a
                 | RawMacroType(_,a) | RawMacroTypeLit(_,a) -> ty_init scope env (fresh_var scope) a
                 ) a
         | RawHeapMutableSet(r,a,b,c) ->

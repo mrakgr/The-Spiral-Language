@@ -7,7 +7,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
-    <NoWarn>40</NoWarn>
     <Tailcalls>True</Tailcalls>
     <WarningLevel>3</WarningLevel>
     <Optimize>False</Optimize>
@@ -15,9 +14,11 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
-    <NoWarn>40</NoWarn>
     <Optimize>True</Optimize>
     <Tailcalls>True</Tailcalls>
+  </PropertyGroup>
+  <PropertyGroup>
+    <NoWarn>3370</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <None Include="Script1.fsx" />

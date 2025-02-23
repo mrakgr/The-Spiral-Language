@@ -1531,11 +1531,10 @@ let show_parser_error = function
     | ExpectedParenthesis(Curly,Close) -> "}"
     | ExpectedParenthesis(Square,Close) -> "]"
     | ExpectedMacroExpression(MTerm,Open) -> "`("
+    | ExpectedMacroExpression(MTermInline,Open) -> "`("
     | ExpectedMacroExpression(MType,Open) -> "!("
     | ExpectedMacroExpression(MTypeLit,Open) -> "@("
-    | ExpectedMacroExpression(MTerm,Close) -> ")"
-    | ExpectedMacroExpression(MType,Close) -> ")"
-    | ExpectedMacroExpression(MTypeLit,Close) -> ")"
+    | ExpectedMacroExpression((MTerm | MTermInline | MType | MTypeLit),Close) -> ")"
     | ExpectedOpenParenthesis -> "(, { or ["
     | ExpectedOperator' -> "operator"
     | ExpectedOperator x -> x

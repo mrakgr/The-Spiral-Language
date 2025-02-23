@@ -1,4 +1,5 @@
 ﻿module Spiral.Codegen.Cuda
+#nowarn 40
 
 open Spiral
 open Spiral.Utils

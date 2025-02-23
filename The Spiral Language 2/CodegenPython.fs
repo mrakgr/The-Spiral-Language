@@ -1,4 +1,5 @@
 ﻿module Spiral.Codegen.Python
+#nowarn 40
 
 open Spiral
 open Spiral.Tokenize
