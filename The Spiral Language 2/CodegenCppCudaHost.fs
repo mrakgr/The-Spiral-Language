@@ -409,7 +409,7 @@ let codegen' backend_handler (part_evan_env : PartEvalResult) (code_env : codege
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend(a,b,c) -> return' (backend_handler (a,b,c))
+        | TyBackend(a,b,c) -> line s $"void * kernel = &{backend_handler (a,b,c)};"
         | TyWhile(a,b) ->
             let cond =
                 match a with
@@ -905,7 +905,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
                 match (fst part_eval_env.join_point_method.[jp_body]).[key] with
                 | Some a, Some _, _ -> cuda_codegen (Cuda(args, a))
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                string g.Count
+                $"entry{g.Count}"
                 ) (jp_body,key)
         | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
         ) part_eval_env host_code_env (Cpp x)
