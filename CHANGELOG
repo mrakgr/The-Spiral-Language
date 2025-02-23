@@ -1,3 +1,11 @@
+2.16.0 (WIP)
+
+New native Cuda backend and various features to support it have been added into the language.
+
+* Added the host/device C++ Cuda backend.
+* Changed the data that backend join points return.
+* Added a new macro expression. `$"call #var"` will now inline the term variables into the resuling output. This is to support calling Cuda kernels from host.
+
 2.15.6 (12/1/2024)
 
 * Actually made the __cluster_dim__ annotations work.

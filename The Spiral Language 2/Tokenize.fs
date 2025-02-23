@@ -371,7 +371,7 @@ and macro s =
         | '`' -> MType
         | '!' -> MTerm
         | '@' -> MTypeLit
-        | '$' -> MTermInline
+        | '#' -> MTermInline
         | _ -> failwith "Compiler error: Unknown char in the tokenizer."
 
     let p_special_char s =
@@ -393,7 +393,7 @@ and macro s =
     let p_var s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
     let p_text closing_char s = (range (many1SatisfyL (fun c -> c <> closing_char && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
     let p_expr s = 
-        let start = anyOf ['`'; '!'; '@'; '$']
+        let start = anyOf ['`'; '!'; '@'; '#']
         let case_paren start_char = 
             let mutable c = 1 // number of open parens.
             between (skip_char '(') (skip_char ')') (many1SatisfyL (fun x -> // Stops when the number of open parens is 0.
