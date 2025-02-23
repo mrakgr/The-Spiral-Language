@@ -391,7 +391,7 @@ and macro s =
         | _ -> error_char s.from "\\"
 
     let p_var s = (many1Satisfy2L is_var_char_starting is_var_char "variable") s
-    let p_text closing_char s = (range (many1SatisfyL (fun c -> c <> closing_char && c <> '`' && c <> '!' && c <> '@' && c <> '\\') "macro text") |>> Text) s
+    let p_text closing_char s = (range (many1SatisfyL (fun c -> c <> closing_char && c <> '`' && c <> '!' && c <> '@' && c <> '#' && c <> '\\') "macro text") |>> Text) s
     let p_expr s = 
         let start = anyOf ['`'; '!'; '@'; '#']
         let case_paren start_char = 

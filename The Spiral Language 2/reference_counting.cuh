@@ -1,3 +1,11 @@
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError error, const char *file, int line, bool abort=true) {
+    if (error != cudaSuccess) {
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(error), file, line);
+        if (abort) exit(error);
+    }
+}
+
 template <typename el>
 struct sptr // Shared pointer for the Spiral datatypes. They have to have the refc field inside them to work.
 {
