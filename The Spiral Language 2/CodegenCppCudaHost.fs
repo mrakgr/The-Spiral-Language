@@ -685,7 +685,12 @@ let codegen' backend_handler (part_evan_env : PartEvalResult) (code_env : codege
                     let () = // destructor
                         match x.funtype with
                         | FT_Pointer | FT_Vanilla -> ()
-                        | FT_Closure -> line s_typ $"{code_env.__device__}~Closure{i}() override = default;"
+                        | FT_Closure -> 
+                            let destructor_calls =
+                                x.free_vars 
+                                |> Array.map (fun (L(i,t)) -> $"destroy(_v{i});")
+                                |> String.concat " "
+                            line s_typ $"{code_env.__device__}~Closure{i}() override {{ {destructor_calls} }}"
                     ()
                 line s_typ "};"
             )
@@ -946,7 +951,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
 
     let aux_library_code =
         IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh"))
-            .Replace("__device__", "__host__ __device__")
+            .Replace("__host__", "__host__ __device__")
 
     [
         {|code = aux_library_code; file_extension = "auto.cu"|}
