@@ -1,2 +1,4 @@
-﻿234.5f
-|> (fun a ->  a.ToString("R"))
+﻿open System.IO
+
+let d = "/asdf/sadfrew/asdf.qwe"
+Path.ChangeExtension(d,null)

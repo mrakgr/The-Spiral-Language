@@ -352,7 +352,8 @@ let supervisor_server (default_env : Startup.DefaultEnv) atten (errors : Supervi
                 | BuildOk l -> 
                     Job.fromUnitTask (fun () -> task {
                         for x in l do 
-                            do! IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(file,x.file_extension), x.code)
+                            let file = Path.ChangeExtension(file,null) // null removes the extension from path.
+                            do! IO.File.WriteAllTextAsync(file + x.file_extension, x.code)
                     })
                 | BuildFatalError x -> Ch.send errors.fatal x
                 | BuildErrorTrace(a,b) -> Ch.send errors.traced {|trace=a; message=b|}
@@ -379,9 +380,9 @@ let supervisor_server (default_env : Startup.DefaultEnv) atten (errors : Supervi
                                 let build codegen backend file_extension =
                                     build_many (fun file b a -> [{|code = codegen b a; file_extension = file_extension|}]) backend
                                 match backend with
-                                | "Fsharp" -> build Codegen.Fsharp.codegen "Fsharp" "fsx"
-                                | "C" -> build Codegen.C.codegen "C" "c"
-                                | "Python + Cuda" -> build (Codegen.Python.codegen default_env) "Python" "py"
+                                | "Fsharp" -> build Codegen.Fsharp.codegen "Fsharp" ".fsx"
+                                | "C" -> build Codegen.C.codegen "C" ".c"
+                                | "Python + Cuda" -> build (Codegen.Python.codegen default_env) "Python" ".py"
                                 | "Cpp + Cuda" -> build_many (Codegen.CppCudaHost.codegen default_env) "Cpp"
                                 | "Cuda C++" -> BuildFatalError "The host C++ backend originally made for FPGAs, and then ported to Cuda has been removed in v2.10.0 of Spiral. Please use an earlier version to access it." // Date: 5/8/2024
                                 | "Python" -> BuildFatalError "The prototype Python backend has been replaced by the Python + Cuda one in v2.5.0 of Spiral. Please use an earlier version to access it." // Date: 11/3/2023

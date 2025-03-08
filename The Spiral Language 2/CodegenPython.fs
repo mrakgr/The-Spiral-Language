@@ -477,12 +477,19 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()
 
-let codegen (default_env : Startup.DefaultEnv) env x = 
+open Spiral.Codegen.CppCudaHost
+
+let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
     let g = Dictionary(HashIdentity.Structural)
-    let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
 
-    let cuda_codegen = Cuda.codegen default_env ars env
+    let host_code_env = codegen_env.Create("Python", "")
+    let device_code_env = codegen_env.Create("Cuda", "__device__ ")
+
+    let cuda_codegen = 
+        codegen' (fun (jp_body,key,r') -> 
+            raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
+            ) part_eval_env device_code_env
     let python_code =
         codegen' (fun (jp_body,key,r') ->
             let backend_name = (fst jp_body).node
@@ -490,21 +497,48 @@ let codegen (default_env : Startup.DefaultEnv) env x =
             | "Cuda" -> 
                 Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
                     let args = rdata_free_vars args
-                    match (fst env.join_point_method.[jp_body]).[key] with
-                    | Some a, Some _, _ -> cuda_codegen args a
+                    match (fst part_eval_env.join_point_method.[jp_body]).[key] with
+                    | Some a, Some _, _ -> cuda_codegen (Cuda(args,a))
                     | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
                     $"entry{g.Count}"
                     ) (jp_body,key)
             | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
-            ) env x
+            ) part_eval_env x
 
-    globals |> Seq.iter (fun x -> cuda_kernels.AppendLine(x) |> ignore)
-    fwd_dcls |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-    types |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-    functions |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
-    main_defs |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+    let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
 
-    cuda_kernels
-        .AppendLine("\"\"\"")
-        .AppendLine(IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.py")))
-        .Append(python_code).ToString()
+    let file_name = IO.Path.GetFileNameWithoutExtension file_path
+    let aux_library_code =
+        let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
+        let aux_library_code_python = dir "reference_counting.py"
+        let aux_library_code_cuda = (dir "reference_counting.cuh").Replace("__host__ ", "__device__")
+        StringBuilder()
+            .AppendLine("kernel_aux = r\"\"\"")
+            .AppendLine($"using default_int = {prim default_env.default_int};")
+            .AppendLine($"using default_uint = {prim default_env.default_uint};")
+            .AppendLine(aux_library_code_cuda)
+            .AppendLine("\"\"\"")
+            .AppendLine(aux_library_code_python)
+            .ToString()
+    let code_main = 
+        StringBuilder()
+            .AppendLine("kernel_main = r\"\"\"")
+            .Append(append_lines device_code_env.globals)
+            .AppendJoin("", device_code_env.fwd_dcls)
+            .AppendJoin("", device_code_env.types)
+            .AppendJoin("", device_code_env.functions)
+            .AppendJoin("", device_code_env.main_defs)
+            .AppendLine("\"\"\"")
+            .AppendLine($"from {file_name}_auto import *")
+            .AppendLine("kernel = kernel_aux + kernel_main")
+            .AppendJoin("", append_lines host_code_env.globals)
+            .AppendJoin("", host_code_env.fwd_dcls)
+            .AppendJoin("", host_code_env.types)
+            .AppendJoin("", host_code_env.functions)
+            .AppendJoin("", host_code_env.main_defs)
+            .ToString()
+
+    [
+        {|code = aux_library_code; file_extension = "_auto.py"|}
+        {|code = code_main; file_extension = ".py"|}
+    ]

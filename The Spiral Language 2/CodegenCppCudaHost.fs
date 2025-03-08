@@ -921,20 +921,27 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         |> Array.map (fun x -> if x <> "" then $"    {x}" else x)
         |> fun x -> StringBuilder().AppendJoin("", x)    
 
-    let code = 
-        let file_name = IO.Path.GetFileNameWithoutExtension file_path
+    let aux_library_code =
+        let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
+        let aux_library_code_cuda = (dir "reference_counting.cuh").Replace("__host__ ", "__host__ __device__")
         StringBuilder()
             .AppendLine($"using default_int = {prim default_env.default_int};")
             .AppendLine($"using default_uint = {prim default_env.default_uint};")
-            .AppendJoin("", append_lines host_code_env.globals)
+            .AppendLine(aux_library_code_cuda)
+            .ToString()
+
+    let code =
+        let file_name = IO.Path.GetFileNameWithoutExtension file_path
+        StringBuilder()
             .AppendLine($"#include \"{file_name}.auto.cu\"")
-            .AppendJoin("", append_lines device_code_env.globals)
+            .Append(append_lines host_code_env.globals)
+            .Append(append_lines device_code_env.globals)
             .Append(
                 StringBuilder()
                     .AppendLine("namespace Device {")
                     .Append(
                         StringBuilder()
-                            .AppendJoin("", device_code_env.fwd_dcls)
+                            .Append(device_code_env.fwd_dcls)
                             .AppendJoin("", device_code_env.types)
                             .AppendJoin("", device_code_env.functions)
                             .AppendJoin("", device_code_env.main_defs)
@@ -949,11 +956,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendJoin("", host_code_env.main_defs)
             .ToString()
 
-    let aux_library_code =
-        IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh"))
-            .Replace("__host__", "__host__ __device__")
-
     [
-        {|code = aux_library_code; file_extension = "auto.cu"|}
-        {|code = code.ToString(); file_extension = "cu"|}
+        {|code = aux_library_code; file_extension = ".auto.cu"|}
+        {|code = code.ToString(); file_extension = ".cu"|}
     ]
