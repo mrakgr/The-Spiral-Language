@@ -872,8 +872,13 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             | _ -> er()
 
         let s = {text=StringBuilder(); indent=0}
-        line s $"{ret_ty} main() {{"
+        line s $"{ret_ty} main_body() {{"
         binds_start (indent s) x
+        line s "}"
+        line s $"{ret_ty} main(){{"
+        line (indent s) "auto r = main_body();"
+        line (indent s) "gpuErrchk(cudaDeviceSynchronize()); // This line is here so the `__trap()` calls on the kernel aren't missed."
+        line (indent s) "return r;"
         line s "}"
         code_env.main_defs.Add(s.text.ToString())
     | Cuda(vs,x) ->
