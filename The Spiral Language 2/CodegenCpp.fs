@@ -677,12 +677,12 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                         match x.free_vars with
                         | [||] -> ()
                         | _ ->
-                            let constructor_args = 
-                                x.free_vars 
+                            let constructor_args =
+                                x.free_vars
                                 |> Array.map (fun (L(i,t)) -> $"{tyv t} _v{i}")
                                 |> String.concat ", "
-                            let initializer_args = 
-                                x.free_vars 
+                            let initializer_args =
+                                x.free_vars
                                 |> Array.map (fun (L(i,t)) -> $"v{i}(_v{i})")
                                 |> String.concat ", "
                             line s_typ $"{code_env.__device__}Closure{i}({constructor_args}) : {initializer_args} {{ }}"
@@ -693,8 +693,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                             let destructor_calls =
                                 x.free_vars 
                                 |> Array.choose (fun (L(i,t)) -> 
-                                    if is_numeric t || is_char t then Some $"destroy(_v{i});" 
-                                    else None
+                                    if is_numeric t || is_char t then None else
+                                    Some $"destroy(v{i});" 
                                     )
                                 |> String.concat " "
                             line s_typ $"{code_env.__device__}~Closure{i}() override {{ {destructor_calls} }}"
