@@ -501,7 +501,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         let aux_library_code_python = dir "corelib.py"
         let aux_library_code_cuda =
             let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
-            (dir "reference_counting.cuh").Replace("__host__", "__device__")
+            (dir "corelib.cuh").Replace("__host__", "__device__")
             |> Cpp.replace_default_types default_env
 
         StringBuilder()

@@ -692,7 +692,10 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                         | FT_Closure -> 
                             let destructor_calls =
                                 x.free_vars 
-                                |> Array.map (fun (L(i,t)) -> $"destroy(_v{i});")
+                                |> Array.choose (fun (L(i,t)) -> 
+                                    if is_numeric t || is_char t then Some $"destroy(_v{i});" 
+                                    else None
+                                    )
                                 |> String.concat " "
                             line s_typ $"{code_env.__device__}~Closure{i}() override {{ {destructor_calls} }}"
                     ()
@@ -706,7 +709,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
-                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; {code_env.__device__}virtual {range} operator()({domain_args_ty}) = 0; {code_env.__device__}virtual ~ClosureBase{i}() = default; }};"
+                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; {code_env.__device__}virtual {range} operator()({domain_args_ty}) = 0; {code_env.__device__}virtual ~ClosureBase{i}(){{}}; }};"
                 line s_fwd $"typedef csptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 

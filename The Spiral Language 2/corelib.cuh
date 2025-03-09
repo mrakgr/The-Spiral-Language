@@ -5,7 +5,7 @@ using default_int = int;
 using default_uint = unsigned int;
 
 #ifndef __NVRTC__
-// NVRTC has these includes by default so they need to be left out.
+// NVRTC has these includes by default so they need to be left out if it is used as the compiler.
 #include <new>
 #include <assert.h>
 #include <stdio.h>

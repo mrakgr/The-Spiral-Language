@@ -10,6 +10,7 @@ New native Cuda backend and various features to support it have been added into 
 * `new`, `assert.h` and `stdio.h` headers are now automatically imported in the core library. An `#ifndef` is placed to ensure compatibility with NVRTC.
 * The `default_int` and `default_uint` in `corelib.cuh` are automatically replaced at compile time with the actual defaults.
 * The core libraries have been appropriately named. `reference_counting.cuh` has been changed to `corelib.cuh`, and `reference_counting.py` has been changed to `corelib.py`.
+* Fixed the compilation of Cuda virtual closure destructors on the device.
 
 2.15.6 (12/1/2024)
 
