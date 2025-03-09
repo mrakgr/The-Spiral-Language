@@ -2,9 +2,14 @@
 
 New native Cuda backend and various features to support it have been added into the language.
 
-* Added the host/device C++ Cuda backend.
+* Added the host/device Cuda C++ backend.
 * Changed the data that backend join points return.
-* Added a new macro expression. `$"call #var"` will now inline the term variables into the resuling output. This is to support calling Cuda kernels from host.
+* Added a new macro prefix `#`. For example: `$"call #var"`. The `#` will now inline the term variables into the resuling output instead of converting them to a tuple. This is to support calling Cuda kernels from host.
+* In order to separate out the core library from the generated output and reduce code noise, the Cuda related backends will from here on out be outputting two separate files, one for the user code and one for the core library that used to be inlined.
+* Removed the old Cuda backend, and replaced the one Python uses with the new generic C++ one that is used for both host and device Cuda C++ code.
+* `new`, `assert.h` and `stdio.h` headers are now automatically imported in the core library. An `#ifndef` is placed to ensure compatibility with NVRTC.
+* The `default_int` and `default_uint` in `corelib.cuh` are automatically replaced at compile time with the actual defaults.
+* The core libraries have been appropriately named. `reference_counting.cuh` has been changed to `corelib.cuh`, and `reference_counting.py` has been changed to `corelib.py`.
 
 2.15.6 (12/1/2024)
 
