@@ -521,7 +521,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendLine("\"\"\"")
             .AppendLine($"from {file_name}_auto import *")
             .AppendLine("kernels = kernels_aux + kernels_main")
-            .AppendJoin("", append_lines host_code_env.globals)
+            .Append(append_lines host_code_env.globals)
             .AppendJoin("", host_code_env.fwd_dcls)
             .AppendJoin("", host_code_env.types)
             .AppendJoin("", host_code_env.functions)

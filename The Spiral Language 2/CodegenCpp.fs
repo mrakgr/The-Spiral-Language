@@ -57,8 +57,9 @@ let prim = function
 
 /// Replaces the default types in the corelib.cuh library.
 let replace_default_types (default_env : DefaultEnv) (x : string) =
-    RegularExpressions.Regex.Replace(x, @"(using default_int )(.*?)(;)", $"$1{prim default_env.default_int}$3")
-    |> fun x -> RegularExpressions.Regex.Replace(x, @"(using default_uint )(.*?)(;)", $"$1{prim default_env.default_uint}$3")
+    let opts = RegularExpressions.RegexOptions.Multiline
+    RegularExpressions.Regex.Replace(x, @"(^using default_int = )(.*?)(;)", $"$1{prim default_env.default_int}$3", opts)
+    |> fun x -> RegularExpressions.Regex.Replace(x, @"(^using default_uint = )(.*?)(;)", $"$1{prim default_env.default_uint}$3", opts)
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 let sizeof_tyv = function
@@ -940,7 +941,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
                     .AppendLine("namespace Device {")
                     .Append(
                         StringBuilder()
-                            .Append(device_code_env.fwd_dcls)
+                            .AppendJoin("", device_code_env.fwd_dcls)
                             .AppendJoin("", device_code_env.types)
                             .AppendJoin("", device_code_env.functions)
                             .AppendJoin("", device_code_env.main_defs)
