@@ -45,8 +45,7 @@
     <None Include="reference_counting.cuh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="CodegenCuda.fs" />
-    <Compile Include="CodegenCppCudaHost.fs" />
+    <Compile Include="CodegenCpp.fs" />
     <None Include="reference_counting.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

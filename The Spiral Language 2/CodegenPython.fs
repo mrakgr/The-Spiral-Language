@@ -101,15 +101,10 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
-    let globals = ResizeArray()
-    let fwd_dcls = ResizeArray()
-    let types = ResizeArray()
-    let functions = ResizeArray()
-
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : Cpp.codegen_env) =
     let global' =
         let has_added = HashSet()
-        fun x -> if has_added.Add(x) then globals.Add x
+        fun x -> if has_added.Add(x) then code_env.globals.Add x
 
     let import x = global' $"import {x}"
     let from x = global' $"from {x}"
@@ -118,12 +113,12 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         let s = {text=StringBuilder(); indent=0}
         show s r
         let text = s.text.ToString()
-        if is_type then types.Add(text) else functions.Add(text)
+        if is_type then code_env.types.Add(text) else code_env.functions.Add(text)
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
         let f (a : Union) : UnionRec =
-            let free_vars = a.Item.cases |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
+            let free_vars = a.Item.cases |> Map.map (fun _ -> part_eval_env.ty_to_data >> data_free_vars)
             {free_vars=free_vars; tag=dict.Count}
         fun x ->
             let mutable dirty = false
@@ -137,7 +132,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         let f x : LayoutRec = 
             match x with
             | YLayout(x,_) ->
-                let x = env.ty_to_data x
+                let x = part_eval_env.ty_to_data x
                 let a, b =
                     match x with
                     | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
@@ -159,7 +154,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             if dirty then print is_type show r
             r
 
-    let cupy_ty x = env.ty_to_data x |> data_free_vars |> cupy_ty
+    let cupy_ty x = part_eval_env.ty_to_data x |> data_free_vars |> cupy_ty
     let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (RefCounting.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
     and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
@@ -214,13 +209,13 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | YPrim a -> prim a
         | YArray a -> "cp.ndarray"
         | YFun(a,b,FT_Vanilla) -> 
-            let a = env.ty_to_data a |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", "
+            let a = part_eval_env.ty_to_data a |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", "
             $"Callable[[{a}], {tup_ty b}]"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error $"Complier error: Type not supported in the codegen.\nGot: %A{a}"
     and tup_ty x =
-        match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) with
+        match part_eval_env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) with
         | [||] -> "None"
         | [|x|] -> x
         | x -> String.concat ", " x |> sprintf "Tuple[%s]"
@@ -379,7 +374,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             |> return'
     and uheap : _ -> UnionRec = union (fun s x ->
         let cases = Array.init x.free_vars.Count (fun i -> $"\"UH{x.tag}_{i}\"") |> function [|x|] -> x | x -> x |> String.concat ", " |> sprintf "Union[%s]"
-        fwd_dcls.Add $"UH{x.tag} = {cases}"
+        code_env.fwd_dcls.Add $"UH{x.tag} = {cases}"
         let mutable i = 0
         x.free_vars |> Map.iter (fun k a ->
             line s $"class UH{x.tag}_{i}(NamedTuple): # {k}"
@@ -416,7 +411,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         )
     and method : _ -> MethodRec =
         jp false (fun ((jp_body,key & (C(args,_))),i) ->
-            match (fst env.join_point_method.[jp_body]).[key] with
+            match (fst part_eval_env.join_point_method.[jp_body]).[key] with
             | Some a, Some range, _ -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
@@ -428,7 +423,7 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         jp true (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
             | YFun(domain,range,FT_Vanilla) ->
-                match (fst env.join_point_closure.[jp_body]).[key] with
+                match (fst part_eval_env.join_point_closure.[jp_body]).[key] with
                 | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             | YFun _ -> raise_codegen_error "Non-standard functions are not supported in the Python backend."
@@ -449,45 +444,37 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             line s "return inner"
             )
 
-    import "cupy as cp"
-    from "dataclasses import dataclass"
-    from "typing import NamedTuple, Union, Callable, Tuple"
-    globals.Add "i8 = int; i16 = int; i32 = int; i64 = int; u8 = int; u16 = int; u32 = int; u64 = int; f32 = float; f64 = float; char = str; string = str"
-    globals.Add ""
+    fun (x : TypedBind []) ->
+        import "cupy as cp"
+        from "dataclasses import dataclass"
+        from "typing import NamedTuple, Union, Callable, Tuple"
+        code_env.globals.Add "i8 = int; i16 = int; i32 = int; i64 = int; u8 = int; u16 = int; u32 = int; u64 = int; f32 = float; f64 = float; char = str; string = str"
+        code_env.globals.Add ""
 
-    let main = StringBuilder()
-    let s = {text=main; indent=0}
-    
-    line s "def main_body():"
-    binds_start [||] (indent s) x
-    s.text.AppendLine() |> ignore
+        let s = {text=StringBuilder(); indent=0}
+        
+        line s "def main_body():"
+        binds_start [||] (indent s) x
+        s.text.AppendLine() |> ignore
 
-    line s "def main():"
-    line (indent s) "r = main_body()"
-    line (indent s) "cp.cuda.get_current_stream().synchronize() # This line is here so the `__trap()` calls on the kernel aren't missed."
-    line (indent s) "return r"
-    s.text.AppendLine() |> ignore
+        line s "def main():"
+        line (indent s) "r = main_body()"
+        line (indent s) "cp.cuda.get_current_stream().synchronize() # This line is here so the `__trap()` calls on the kernel aren't missed."
+        line (indent s) "return r"
+        s.text.AppendLine() |> ignore
 
-    line s "if __name__ == '__main__': print(main())"
+        line s "if __name__ == '__main__': print(main())"
+        code_env.main_defs.Add(s.text.ToString())
 
-    let program = StringBuilder()
-    globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-    fwd_dcls |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-    types |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    program.Append(main).ToString()
-
-open Spiral.Codegen.CppCudaHost
-
-let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
+let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env (x : TypedBind[]) = 
     let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
     let g = Dictionary(HashIdentity.Structural)
 
-    let host_code_env = codegen_env.Create("Python", "")
-    let device_code_env = codegen_env.Create("Cuda", "__device__ ")
+    let host_code_env = Cpp.codegen_env.Create("Python", "")
+    let device_code_env = Cpp.codegen_env.Create("Cuda", "__device__ ")
 
     let cuda_codegen = 
-        codegen' (fun (jp_body,key,r') -> 
+        Cpp.codegen' (fun (jp_body,key,r') -> 
             raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
             ) part_eval_env device_code_env
     let python_code =
@@ -495,15 +482,15 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             let backend_name = (fst jp_body).node
             match backend_name with
             | "Cuda" -> 
-                Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
+                Utils.memoize g (fun (jp_body,key & C(args,_)) ->
                     let args = rdata_free_vars args
                     match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-                    | Some a, Some _, _ -> cuda_codegen (Cuda(args,a))
+                    | Some a, Some _, _ -> cuda_codegen (Cpp.Cuda(args,a))
                     | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
                     $"entry{g.Count}"
                     ) (jp_body,key)
             | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
-            ) part_eval_env x
+            ) part_eval_env host_code_env x
 
     let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
 

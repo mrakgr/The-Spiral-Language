@@ -1,4 +1,4 @@
-﻿module Spiral.Codegen.Cuda
+﻿module Spiral.Codegen.Cpp
 #nowarn 40
 
 open Spiral
@@ -12,8 +12,48 @@ open System
 open System.Text
 open System.Collections.Generic
 
-let private backend_name = "Cuda"
+type backend_type =
+    | Cuda of args : L<int,Ty>[] * binds : TypedBind[]
+    | Cpp of binds : TypedBind[]
+
+type codegen_env =
+    {
+        globals : string ResizeArray
+        fwd_dcls : string ResizeArray
+        types : string ResizeArray
+        functions : string ResizeArray
+        main_defs : string ResizeArray
+        backend_name : string
+        __device__ : string
+    }
+
+    static member Create(backend_name,__device__) =
+        {
+            globals = ResizeArray()
+            fwd_dcls = ResizeArray()
+            types = ResizeArray()
+            functions = ResizeArray()
+            main_defs = ResizeArray()
+            backend_name = backend_name
+            __device__ = __device__
+        }
+
 let private max_tag = 255uy
+
+let prim = function
+    | Int8T -> "char" 
+    | Int16T -> "short"
+    | Int32T -> "int"
+    | Int64T -> "long long"
+    | UInt8T -> "unsigned char"
+    | UInt16T -> "unsigned short"
+    | UInt32T -> "unsigned int"
+    | UInt64T -> "unsigned long long"
+    | Float32T -> "float"
+    | Float64T -> "double"
+    | BoolT -> "bool" // part of c++ standard
+    | CharT -> "char"
+    | StringT -> "const char *"
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 let sizeof_tyv = function
@@ -40,8 +80,6 @@ type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtyp
 type TupleRec = {tag : int; tys : Ty []}
 type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : FunType}
 
-//let size_t = UInt32T
-
 // Replaces the invalid symbols in Spiral method names for the C backend.
 let fix_method_name (x : string) = x.Replace(''','_') + "_"
 
@@ -64,7 +102,7 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ ResizeArray, functions : _ ResizeArray, main_defs : _ ResizeArray) (env : PartEvalResult) =
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env) =
     let print show r =
         let s_typ_fwd = {text=StringBuilder(); indent=0}
         let s_typ = {text=StringBuilder(); indent=0}
@@ -73,9 +111,9 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         let f (a : _ ResizeArray) (b : CodegenEnv) = 
             let text = b.text.ToString()
             if text <> "" then a.Add(text)
-        f fwd_dcls s_typ_fwd
-        f types s_typ
-        f functions s_fun
+        f code_env.fwd_dcls s_typ_fwd
+        f code_env.types s_typ
+        f code_env.functions s_fun
 
     let layout show =
         let dict' = Dictionary(HashIdentity.Structural)
@@ -83,7 +121,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         let f x : LayoutRec = 
             match x with
             | YLayout(x,_) ->
-                let x = env.ty_to_data x
+                let x = part_eval_env.ty_to_data x
                 let a, b =
                     match x with
                     | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
@@ -99,7 +137,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
         let f (a : Union) : UnionRec = 
-            let free_vars = a.Item.cases |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
+            let free_vars = a.Item.cases |> Map.map (fun _ -> part_eval_env.ty_to_data >> data_free_vars)
             {free_vars=free_vars; tag=dict.Count; is_heap=a.Item.layout = UHeap}
         fun x ->
             let mutable dirty = false
@@ -142,7 +180,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
 
     let global' =
         let has_added = HashSet()
-        fun x -> if has_added.Add(x) then globals.Add x
+        fun x -> if has_added.Add(x) then code_env.globals.Add x
 
     let import x = global' $"#include <{x}>"
     let import' x = global' $"#include \"{x}\""
@@ -285,7 +323,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         | [|x|] -> tyv x
         | x -> sprintf "Tuple%i" (tup x).tag
     and tup_ty_tyvs (x : TyV []) = tup_ty_tys (tyvs_to_tys x)
-    and tup_ty x = env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
+    and tup_ty x = part_eval_env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
     and tyv = function
         | YUnion a ->
             match a.Item.layout with
@@ -297,9 +335,9 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | HeapMutable -> sprintf "sptr<Mut%i>" (mut a).tag
             | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
-            match Map.tryFind backend_name r with
+            match Map.tryFind code_env.backend_name r with
             | Some x -> tup_ty x
-            | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{backend_name}' field."
+            | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{code_env.backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "%s *" (tup_ty a)
@@ -307,20 +345,6 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
-    and prim = function
-        | Int8T -> "char" 
-        | Int16T -> "short"
-        | Int32T -> "int"
-        | Int64T -> "long long"
-        | UInt8T -> "unsigned char"
-        | UInt16T -> "unsigned short"
-        | UInt32T -> "unsigned int"
-        | UInt64T -> "unsigned long long"
-        | Float32T -> "float"
-        | Float64T -> "double"
-        | BoolT -> "bool" // part of c++ standard
-        | CharT -> "char"
-        | StringT -> "const char *"
     and lit = function
         | LitInt8 x -> sprintf "%i" x
         | LitInt16 x -> sprintf "%i" x
@@ -383,7 +407,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend(_,_,r) -> raise_codegen_error_backend r "The Cuda backend does not support the nesting of other backends."
+        | TyBackend(a,b,c) -> line s $"auto kernel = {backend_handler (a,b,c)};"
         | TyWhile(a,b) ->
             let cond =
                 match a with
@@ -563,7 +587,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
     and method_template is_while : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
-            match (fst env.join_point_method.[jp_body]).[key] with
+            match (fst part_eval_env.join_point_method.[jp_body]).[key] with
             | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=Option.map fix_method_name name}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s_fwd s_typ s_fun x ->
@@ -573,9 +597,9 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             let inline_ = 
                 if is_while then "inline "
                 else 
-                    line s_fwd $"__device__ {ret_ty} {fun_name}{x.tag}({args});"
+                    line s_fwd $"{code_env.__device__}{ret_ty} {fun_name}{x.tag}({args});"
                     if fun_name.StartsWith "noinline" then "__noinline__ " else ""
-            line s_fun $"__device__ {inline_}{ret_ty} {fun_name}{x.tag}({args}){{"
+            line s_fun $"{code_env.__device__}{inline_}{ret_ty} {fun_name}{x.tag}({args}){{"
             binds_start (indent s_fun) x.body
             line s_fun "}"
             )
@@ -589,7 +613,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
         let mutable i = 0
         loop domain |> List.choose (fun x -> 
-            let n = env.ty_to_data x |> data_free_vars 
+            let n = part_eval_env.ty_to_data x |> data_free_vars 
             let x = if n.Length <> 0 then Some(i, tup_ty_tyvs n, n |> rename) else None
             i <- i+1
             x
@@ -598,7 +622,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
         jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
             match fun_ty with
             | YFun(domain,range,t) ->
-                match (fst env.join_point_closure.[jp_body]).[key] with
+                match (fst part_eval_env.join_point_closure.[jp_body]).[key] with
                 | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; free_vars=rdata_free_vars args; funtype=t}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
@@ -621,7 +645,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 binds_start s_fun x.body
             match x.funtype with
             | FT_Pointer ->
-                $"__device__ {range} FunPointerMethod{i}({args}){{" |> line s_fun
+                $"{code_env.__device__}{range} FunPointerMethod{i}({args}){{" |> line s_fun
                 print_body s_fun
                 line s_fun "}"
             | FT_Vanilla | FT_Closure ->
@@ -639,8 +663,8 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     let () = // operator()
                         match x.funtype with
                         | FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (2)."
-                        | FT_Vanilla -> line s_typ $"__device__ {range} operator()({args}){{"
-                        | FT_Closure -> line s_typ $"__device__ {range} operator()({args}) override {{"
+                        | FT_Vanilla -> line s_typ $"{code_env.__device__}{range} operator()({args}){{"
+                        | FT_Closure -> line s_typ $"{code_env.__device__}{range} operator()({args}) override {{"
                         print_body s_typ
                         line s_typ "}"
                     let () = // constructor
@@ -655,11 +679,16 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                                 x.free_vars 
                                 |> Array.map (fun (L(i,t)) -> $"v{i}(_v{i})")
                                 |> String.concat ", "
-                            line s_typ $"__device__ Closure{i}({constructor_args}) : {initializer_args} {{ }}"
+                            line s_typ $"{code_env.__device__}Closure{i}({constructor_args}) : {initializer_args} {{ }}"
                     let () = // destructor
                         match x.funtype with
                         | FT_Pointer | FT_Vanilla -> ()
-                        | FT_Closure -> line s_typ $"__device__ ~Closure{i}() override = default;"
+                        | FT_Closure -> 
+                            let destructor_calls =
+                                x.free_vars 
+                                |> Array.map (fun (L(i,t)) -> $"destroy(_v{i});")
+                                |> String.concat " "
+                            line s_typ $"{code_env.__device__}~Closure{i}() override {{ {destructor_calls} }}"
                     ()
                 line s_typ "};"
             )
@@ -671,7 +700,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
-                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; __device__ virtual {range} operator()({domain_args_ty}) = 0; __device__ virtual ~ClosureBase{i}() = default; }};"
+                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; {code_env.__device__}virtual {range} operator()({domain_args_ty}) = 0; {code_env.__device__}virtual ~ClosureBase{i}() = default; }};"
                 line s_fwd $"typedef csptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
@@ -684,8 +713,8 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
             if args.Length <> 0 then
-                line (indent s_typ) $"__device__ {name}() = default;"
-                line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}"
+                line (indent s_typ) $"{code_env.__device__}{name}() = default;"
+                line (indent s_typ) $"{code_env.__device__}{name}({concat args}) : {concat con_init} {{}}"
             line s_typ "};"
             )
     and unions : _ -> UnionRec = 
@@ -703,8 +732,8 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     let args = v |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                     let con_init = v |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                     if v.Length <> 0 then 
-                        line s_typ $"__device__ Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
-                        line s_typ $"__device__ Union{i}_{tag}() = delete;" 
+                        line s_typ $"{code_env.__device__}Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
+                        line s_typ $"{code_env.__device__}Union{i}_{tag}() = delete;" 
                 line s_typ "};"
                 ) x.free_vars
                 
@@ -720,13 +749,13 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 if x.is_heap then line s_typ "int refc{0};"
                 if x.free_vars.Count > int max_tag then raise_codegen_error $"Too many union cases. They should not be more than {max_tag}."
                 line s_typ $"unsigned char tag{{{max_tag}}};"
-                line s_typ $"__device__ Union{i}() {{}}" // default constructor, the refc and tag have def value so we don't have to do anything here.
+                line s_typ $"{code_env.__device__}Union{i}() {{}}" // default constructor, the refc and tag have def value so we don't have to do anything here.
                 
                 map_iteri (fun tag k v -> // The constructors for all the union cases.
-                    line s_typ $"__device__ Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
+                    line s_typ $"{code_env.__device__}Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
                     ) x.free_vars
                 
-                line s_typ $"__device__ Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
+                line s_typ $"{code_env.__device__}Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -737,7 +766,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"__device__ Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
+                line s_typ $"{code_env.__device__}Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -748,7 +777,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"__device__ Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
+                line s_typ $"{code_env.__device__}Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "if (this->tag == x.tag) {" 
@@ -769,7 +798,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"__device__ Union{i} & operator=(Union{i} && x) {{" // move assignment operator
+                line s_typ $"{code_env.__device__}Union{i} & operator=(Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "if (this->tag == x.tag) {" 
@@ -790,7 +819,7 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"__device__ ~Union{i}() {{"
+                line s_typ $"{code_env.__device__}~Union{i}() {{"
                 let () = // destructor
                     let s_typ = indent s_typ
                     line s_typ "switch(this->tag){"
@@ -817,15 +846,28 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                 let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                 if args.Length <> 0 then
-                    line s_typ $"__device__ {name}() = default;"
-                    line s_typ $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
+                    line s_typ $"{code_env.__device__}{name}() = default;"
+                    line s_typ $"{code_env.__device__}{name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
     and heap : _ -> LayoutRec = layout_tmpl true "Heap"
     and mut : _ -> LayoutRec = layout_tmpl true "Mut"
     and stack_mut : _ -> LayoutRec = layout_tmpl false "StackMut"
 
-    fun vs (x : TypedBind []) ->
+    function
+    | Cpp x ->
+        let ret_ty =
+            let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
+            match binds_last_data x with
+            | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
+            | _ -> er()
+
+        let s = {text=StringBuilder(); indent=0}
+        line s $"{ret_ty} main() {{"
+        binds_start (indent s) x
+        line s "}"
+        code_env.main_defs.Add(s.text.ToString())
+    | Cuda(vs,x) ->
         let ret_ty =
             let er() = raise_codegen_error "The return type of the __global__ kernel in the Cuda backend should be a void type or a record of type {cluster_dims : {x : int; y : int; z : int}}."
             match binds_last_data x with
@@ -841,13 +883,78 @@ let codegen (default_env : Startup.DefaultEnv) (globals : _ ResizeArray, fwd_dcl
                 | _ -> er()
             | DB -> "void"
             | _ -> er()
-        let main_defs' = {text=StringBuilder(); indent=0}
+        let s = {text=StringBuilder(); indent=0}
         let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-        line main_defs' $"extern \"C\" __global__ {ret_ty} entry%i{main_defs.Count}(%s{args}) {{"
-        binds_start (indent main_defs') x
-        line main_defs' "}"
-        main_defs.Add(main_defs'.text.ToString())
+        line s $"extern \"C\" __global__ {ret_ty} entry%i{code_env.main_defs.Count}(%s{args}) {{"
+        binds_start (indent s) x
+        line s "}"
+        code_env.main_defs.Add(s.text.ToString())
 
-        global' $"using default_int = {prim default_env.default_int};"
-        global' $"using default_uint = {prim default_env.default_uint};"
-        global' (IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, "reference_counting.cuh")))
+let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
+    let g = Dictionary HashIdentity.Structural
+    let host_code_env = codegen_env.Create("Cpp", "")
+    let device_code_env = codegen_env.Create("Cuda", "__device__ ")
+
+    let cuda_codegen = 
+        codegen' (fun (jp_body,key,r') -> 
+            raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
+            ) part_eval_env device_code_env
+    codegen' (fun (jp_body,key,r') ->
+        let backend_name = (fst jp_body).node
+        match backend_name with
+        | "Cuda" ->
+            Utils.memoize g (fun (jp_body,key & C(args,_)) ->
+                let args = rdata_free_vars args
+                match (fst part_eval_env.join_point_method.[jp_body]).[key] with
+                | Some a, Some _, _ -> cuda_codegen (Cuda(args, a))
+                | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                $"Device::entry{g.Count}"
+                ) (jp_body,key)
+        | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
+        ) part_eval_env host_code_env (Cpp x)
+
+    let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
+    let indent_lines (x : string) =
+        x.Split('\n')
+        |> Array.map (fun x -> if x <> "" then $"    {x}" else x)
+        |> fun x -> StringBuilder().AppendJoin("", x)    
+
+    let aux_library_code =
+        let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
+        let aux_library_code_cuda = (dir "reference_counting.cuh").Replace("__host__ ", "__host__ __device__")
+        StringBuilder()
+            .AppendLine($"using default_int = {prim default_env.default_int};")
+            .AppendLine($"using default_uint = {prim default_env.default_uint};")
+            .AppendLine(aux_library_code_cuda)
+            .ToString()
+
+    let code =
+        let file_name = IO.Path.GetFileNameWithoutExtension file_path
+        StringBuilder()
+            .AppendLine($"#include \"{file_name}.auto.cu\"")
+            .Append(append_lines host_code_env.globals)
+            .Append(append_lines device_code_env.globals)
+            .Append(
+                StringBuilder()
+                    .AppendLine("namespace Device {")
+                    .Append(
+                        StringBuilder()
+                            .Append(device_code_env.fwd_dcls)
+                            .AppendJoin("", device_code_env.types)
+                            .AppendJoin("", device_code_env.functions)
+                            .AppendJoin("", device_code_env.main_defs)
+                            .ToString()
+                        |> indent_lines
+                    )
+            )
+            .AppendLine("}")
+            .AppendJoin("", host_code_env.fwd_dcls)
+            .AppendJoin("", host_code_env.types)
+            .AppendJoin("", host_code_env.functions)
+            .AppendJoin("", host_code_env.main_defs)
+            .ToString()
+
+    [
+        {|code = aux_library_code; file_extension = ".auto.cu"|}
+        {|code = code.ToString(); file_extension = ".cu"|}
+    ]
