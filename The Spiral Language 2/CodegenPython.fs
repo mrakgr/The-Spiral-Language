@@ -495,21 +495,24 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
 
     let file_name = IO.Path.GetFileNameWithoutExtension file_path
+    
     let aux_library_code =
         let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
-        let aux_library_code_python = dir "reference_counting.py"
-        let aux_library_code_cuda = (dir "reference_counting.cuh").Replace("__host__ ", "__device__")
+        let aux_library_code_python = dir "corelib.py"
+        let aux_library_code_cuda =
+            let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
+            (dir "reference_counting.cuh").Replace("__host__", "__device__")
+            |> Cpp.replace_default_types default_env
+
         StringBuilder()
-            .AppendLine("kernel_aux = r\"\"\"")
-            .AppendLine($"using default_int = {prim default_env.default_int};")
-            .AppendLine($"using default_uint = {prim default_env.default_uint};")
+            .AppendLine("kernels_aux = r\"\"\"")
             .AppendLine(aux_library_code_cuda)
             .AppendLine("\"\"\"")
             .AppendLine(aux_library_code_python)
             .ToString()
     let code_main = 
         StringBuilder()
-            .AppendLine("kernel_main = r\"\"\"")
+            .AppendLine("kernels_main = r\"\"\"")
             .Append(append_lines device_code_env.globals)
             .AppendJoin("", device_code_env.fwd_dcls)
             .AppendJoin("", device_code_env.types)
@@ -517,7 +520,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendJoin("", device_code_env.main_defs)
             .AppendLine("\"\"\"")
             .AppendLine($"from {file_name}_auto import *")
-            .AppendLine("kernel = kernel_aux + kernel_main")
+            .AppendLine("kernels = kernels_aux + kernels_main")
             .AppendJoin("", append_lines host_code_env.globals)
             .AppendJoin("", host_code_env.fwd_dcls)
             .AppendJoin("", host_code_env.types)

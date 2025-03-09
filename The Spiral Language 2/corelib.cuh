@@ -1,3 +1,16 @@
+// The types of these two will be replaced during compilation by the Spiral code generator. 
+// It matches on `using default_int = ` up to `;` so the form should be kept as is.
+using default_int = int;
+using default_uint = unsigned int;
+
+#ifndef __NVRTC__
+// NVRTC has these includes by default so they need to be left out.
+#include <new>
+#include <assert.h>
+#include <stdio.h>
+#endif
+
+// For error checking on the host.
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 template <typename T> inline __host__ void destroy(T& obj) { obj.~T(); }
 inline void gpuAssert(cudaError error, const char *file, int line, bool abort=true) {

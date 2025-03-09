@@ -55,6 +55,11 @@ let prim = function
     | CharT -> "char"
     | StringT -> "const char *"
 
+/// Replaces the default types in the corelib.cuh library.
+let replace_default_types (default_env : DefaultEnv) (x : string) =
+    RegularExpressions.Regex.Replace(x, @"(using default_int )(.*?)(;)", $"$1{prim default_env.default_int}$3")
+    |> fun x -> RegularExpressions.Regex.Replace(x, @"(using default_uint )(.*?)(;)", $"$1{prim default_env.default_uint}$3")
+
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 8
@@ -921,12 +926,8 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
 
     let aux_library_code =
         let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
-        let aux_library_code_cuda = (dir "reference_counting.cuh").Replace("__host__ ", "__host__ __device__")
-        StringBuilder()
-            .AppendLine($"using default_int = {prim default_env.default_int};")
-            .AppendLine($"using default_uint = {prim default_env.default_uint};")
-            .AppendLine(aux_library_code_cuda)
-            .ToString()
+        (dir "corelib.cuh").Replace("__host__", "__host__ __device__")
+        |> replace_default_types default_env
 
     let code =
         let file_name = IO.Path.GetFileNameWithoutExtension file_path

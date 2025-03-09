@@ -42,11 +42,11 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="RefCounting.fs" />
     <Compile Include="CodegenC.fs" />
-    <None Include="reference_counting.cuh">
+    <None Include="corelib.cuh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="CodegenCpp.fs" />
-    <None Include="reference_counting.py">
+    <None Include="corelib.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="CodegenPython.fs" />
