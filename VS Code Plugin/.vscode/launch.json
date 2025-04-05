@@ -11,7 +11,7 @@
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",
                 // "${workspaceFolder}/../Spiral Compilation Tests"
-                "C:/Spiral_s_ML_Library"
+                "${userHome}/Spiral-s-ML-Library"
             ],
             "outFiles": [
                 "${workspaceFolder}/out/*.js"
