@@ -1,6 +1,6 @@
 2.16.0 (WIP)
 
-New native Cuda backend and various features to support it have been added into the language.
+New native Cuda backend and various features to support it have been added into the language. Also the .NET SDK has been bumped to 9.
 
 * Added the host/device Cuda C++ backend.
 * Changed the data that backend join points return.
