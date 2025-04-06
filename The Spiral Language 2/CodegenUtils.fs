@@ -23,6 +23,10 @@ type backend_type =
     | CudaDevice
     | CudaHost
     | Python
+
+type backend_type_cpp =
+    | CppCudaDevice
+    | CppCudaHost
     
 type codegen_env =
     {
@@ -45,7 +49,12 @@ type codegen_env =
         }
 
     member t.backend_name = t.backend_type.ToString()
-    member t.__device__ =
+    member t.backend_type_cpp =
         match t.backend_type with
-        | CudaDevice -> "__device__"
-        | Python | CudaHost -> ""
+        | CudaDevice -> CppCudaDevice
+        | CudaHost -> CppCudaHost
+        | Python -> failwith "Compiler error: Python isn't a cpp backend."
+    member t.__device__ =
+        match t.backend_type_cpp with
+        | CppCudaDevice -> "__device__"
+        | CppCudaHost -> ""

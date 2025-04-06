@@ -166,8 +166,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         let has_added = HashSet()
         fun x -> if has_added.Add(x) then code_env.globals.Add x
 
-    let import x = global' $"#include <{x}>"
-    let import' x = global' $"#include \"{x}\""
+    let import x = global' $"#include <%s{x}>"
+    let import' x = global' $"#include \"%s{x}\""
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
@@ -247,12 +247,12 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                                 else
                                     raise_codegen_error "The special \\v macro requires the same number of free vars in its binding as there are \\v in the code."
                     | TyArrayLiteral(a,b') -> 
-                        let inits = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
+                        let inits = List.map tup_data b' |> String.concat ","
                         match d with
                         | [|L(i,YArray t)|] -> // For the regular arrays.
-                            match code_env.backend_type with
-                            | CudaDevice -> line s $"%s{tup_ty t} v{i}[] = %s{inits};"
-                            | CudaHost -> line s $"thrust::device_vector<%s{tup_ty t}> v{i} = %s{inits};"
+                            match code_env.backend_type_cpp with
+                            | CppCudaDevice -> line s $"%s{tup_ty t} v{i}[] = {{%s{inits}}};"
+                            | CppCudaHost -> line s $"thrust::device_vector<%s{tup_ty t}> v{i} = {{%s{inits}}};"
                             true
                         | _ ->
                             raise_codegen_error "Compiler error: Expected a single variable on the left side of an array literal op."
@@ -262,9 +262,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                             match tup_ty t with
                             | "void" -> line s "/* void array create */"
                             | t -> 
-                                match code_env.backend_type with
-                                | CudaDevice -> line s $"{t} v{i}[{tup_data b}];"
-                                | CudaHost -> line s $"thrust::device_vector<%s{t}> v{i}{{%s{tup_data b}}}];"
+                                match code_env.backend_type_cpp with
+                                | CppCudaDevice -> line s $"{t} v{i}[{tup_data b};"
+                                | CppCudaHost -> line s $"thrust::device_vector<%s{t}> v{i}{{%s{tup_data b}}};"
                             true
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | TyJoinPoint(JPClosure(a,b),b') ->
@@ -330,9 +330,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> 
-            match code_env.backend_type with
-            | CudaDevice -> $"{tup_ty a} *"
-            | CudaHost -> $"thrust::device_vector<{tup_ty a}>"
+            match code_env.backend_type_cpp with
+            | CppCudaDevice -> $"{tup_ty a} *"
+            | CppCudaHost -> $"thrust::device_vector<{tup_ty a}>"
         | YFun(a,b,t) -> $"Fun%i{(cfun (a,b,t)).tag}"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
@@ -511,7 +511,10 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 | a -> [tup_data a]
             let args = loop b |> List.filter ((<>) "") |> String.concat ", "
             $"v{i}({args})" |> return'
-        | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
+        | TyArrayLength(_,b) -> 
+            match code_env.backend_type_cpp with
+            | CppCudaHost -> return' $"{tup_data b}.size()"
+            | CppCudaDevice -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
         | TySizeOf t -> return' $"sizeof({tup_ty t})"
         | TyOp(Global,[DLit (LitString x)]) -> global' x
@@ -851,11 +854,14 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
 
     function
     | ArgsCudaHost x ->
+        if code_env.backend_type_cpp <> CppCudaHost then raise_codegen_error "Compiler error: Expected CudaHost as the backend type"
         let ret_ty =
             let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
             match binds_last_data x with
             | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
             | _ -> er()
+
+        import "thrust/device_vector.h"
 
         let s = {text=StringBuilder(); indent=0}
         line s $"{ret_ty} main_body() {{"
@@ -868,6 +874,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         line s "}"
         code_env.main_defs.Add(s.text.ToString())
     | ArgsCudaDevice(vs,x) ->
+        if code_env.backend_type_cpp <> CppCudaDevice then raise_codegen_error "Compiler error: Expected CppCudaDevice as the backend type"
         let ret_ty =
             let er() = raise_codegen_error "The return type of the __global__ kernel in the Cuda backend should be a void type or a record of type {cluster_dims : {x : int; y : int; z : int}}."
             match binds_last_data x with
@@ -917,8 +924,8 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let indent_lines (x : string) =
         x.Split('\n')
         |> Array.map (fun x -> if x <> "" then $"    {x}" else x)
-        |> fun x -> StringBuilder().AppendJoin("", x)    
-
+        |> fun x -> StringBuilder().AppendJoin("\n", x)
+        
     let aux_library_code =
         let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
         (dir "corelib.cuh").Replace("__host__", "__host__ __device__")
