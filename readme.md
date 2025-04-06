@@ -1,6 +1,7 @@
 <!-- TOC -->
 
 - [News](#news)
+    - [Date: WIP/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.](#date-wip2025---native-cuda-has-been-added-to-the-language-upgraded-the-project-to-net-9)
     - [Date: 7/28/2024 - Higher Ranked Types have been added to the language](#date-7282024---higher-ranked-types-have-been-added-to-the-language)
     - [Date: 7/5/2024 - GADTs have been added to the language](#date-752024---gadts-have-been-added-to-the-language)
     - [Date: 6/17/2024 - The Python + Cuda backend now supports all of Spiral's featues](#date-6172024---the-python--cuda-backend-now-supports-all-of-spirals-featues)
@@ -54,6 +55,10 @@
 <!-- /TOC -->
 
 # News
+
+## Date: WIP/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.
+
+As the title says. TODO.
 
 ## Date: 7/28/2024 - Higher Ranked Types have been added to the language
 
