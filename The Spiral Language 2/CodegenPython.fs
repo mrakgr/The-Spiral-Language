@@ -101,7 +101,7 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : Cpp.codegen_env) =
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env) =
     let global' =
         let has_added = HashSet()
         fun x -> if has_added.Add(x) then code_env.globals.Add x
@@ -155,8 +155,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : Cpp.co
             r
 
     let cupy_ty x = part_eval_env.ty_to_data x |> data_free_vars |> cupy_ty
-    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (RefCounting.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
-    and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+    let rec binds_start (args : TyV []) (s : string_builder_env) (x : TypedBind []) = binds (RefCounting.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
+    and binds g_decr (s : string_builder_env) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
         let tup_destruct (a,b) =
             if 0 < Array.length a then
@@ -470,8 +470,8 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
     let g = Dictionary(HashIdentity.Structural)
 
-    let host_code_env = Cpp.codegen_env.Create("Python", "")
-    let device_code_env = Cpp.codegen_env.Create("Cuda", "__device__ ")
+    let host_code_env = codegen_env.Create Python
+    let device_code_env = codegen_env.Create CudaDevice
 
     let cuda_codegen = 
         Cpp.codegen' (fun (jp_body,key,r') -> 
@@ -481,11 +481,11 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         codegen' (fun (jp_body,key,r') ->
             let backend_name = (fst jp_body).node
             match backend_name with
-            | "Cuda" -> 
+            | "CudaDevice" -> 
                 Utils.memoize g (fun (jp_body,key & C(args,_)) ->
                     let args = rdata_free_vars args
                     match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-                    | Some a, Some _, _ -> cuda_codegen (Cpp.Cuda(args,a))
+                    | Some a, Some _, _ -> cuda_codegen (Cpp.ArgsCudaDevice(args,a))
                     | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
                     $"entry{g.Count}"
                     ) (jp_body,key)

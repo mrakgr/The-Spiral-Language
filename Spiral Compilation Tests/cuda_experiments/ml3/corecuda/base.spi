@@ -42,7 +42,7 @@ inl run' ({shared_mem} : run_config) f =
     match compiler with
     | NVRTC => global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
     | NVCC => global "raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))"
-    inl kernel_i, vars = join_backend Cuda
+    inl kernel_i, vars = join_backend CudaDevice
         match compiler with
         | NVRTC => ()
         | NVCC =>

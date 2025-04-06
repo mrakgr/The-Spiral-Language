@@ -38,7 +38,7 @@ Error trace on line: 143, column: 82 in module: d:\Users\Marko\Source\Repos\The 
 inl backend_switch forall t. (x : {cuda : () -> t; python : () -> t}) : t = real backend_switch x
                                                                                  ^
 Error trace on line: 242, column: 73 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
-inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
+inl backend_switch x = !!!!BackendSwitch(("CudaDevice", x.cuda()), ("Python", x.python()))
                                                                         ^
 Error trace on line: 30, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
         python = fun () => assert (limit.max < len) "The tensors full length cannot be adequately represented by the default integer."

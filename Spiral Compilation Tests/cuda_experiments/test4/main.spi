@@ -1,7 +1,7 @@
 // Does the most basic kernel run succesfully?
 
 inl main () = 
-    let f = join_backend Cuda 
+    let f = join_backend CudaDevice 
         $'printf("Size of a pointer is %i.\\n", sizeof(int *))'
         ()
     inl kernel_i, vars = f

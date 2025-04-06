@@ -1,7 +1,7 @@
 // Does the add kernel compile?
 
 inl main () = 
-    inl add ~a ~b = join_backend Cuda
+    inl add ~a ~b = join_backend CudaDevice
         ignore (a + b)
         ()
 

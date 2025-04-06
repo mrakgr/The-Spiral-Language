@@ -13,7 +13,7 @@ type dim3 = {x : int; y : int; z : int}
 inl run' (gridDim : dim3) (blockDim : dim3) f =
     // Global statements only get executed once.
     global "raw_module = cp.RawModule(code=kernel, backend=\"nvcc\")"
-    inl kernel_i, vars = join_backend Cuda 
+    inl kernel_i, vars = join_backend CudaDevice 
         global "template <typename el, int dim> struct array { el v[dim]; };"
         f ()
         ()

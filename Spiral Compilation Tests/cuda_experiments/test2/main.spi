@@ -1,7 +1,7 @@
 // Do multiple kernels compile?
 
 inl main () = 
-    inl f (x : i32) = join_backend Cuda
+    inl f (x : i32) = join_backend CudaDevice
         inl _ = $"int \v[!x]" : $"int *"
         ()
 

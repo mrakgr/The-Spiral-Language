@@ -4,7 +4,7 @@ nominal array t = array_base t
 nominal ps t = $"`t"
 
 inl main() =
-    inl kernel_i, vars = join_backend Cuda
+    inl kernel_i, vars = join_backend CudaDevice
         inl _ = ;[ps $'1' : ps int]
         ()
     0i32

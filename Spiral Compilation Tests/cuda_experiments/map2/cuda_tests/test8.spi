@@ -8,7 +8,7 @@ inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 inl main () = 
     inl map f (a : array f32) = 
         inl len = length a
-        join_backend Cuda 
+        join_backend CudaDevice 
             loop.forBy {from=linear_id(); nearTo=len; by=grid_range()} (fun i () =>
                 set a i (index a i |> f)
                 ) ()

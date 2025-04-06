@@ -239,7 +239,7 @@ inl lit_to_type_lit x = !!!!LitToTypeLit(x)
 inl failwith forall t. msg = !!!!FailWith(`t,msg)
 
 // Backend switch for Python/Cuda.
-inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
+inl backend_switch x = !!!!BackendSwitch(("CudaDevice", x.cuda()), ("Python", x.python()))
 
 // Asserts an term. If the conditional and the message are literals it raises a type error instead.
 inl assert c msg = 

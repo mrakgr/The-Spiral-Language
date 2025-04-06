@@ -151,7 +151,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error $"Type not supported in the codegen.\nGot: %A{a}"
     and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tup_ty t)) |> String.concat ", "
-    and binds (s : CodegenEnv) (x : TypedBind []) =
+    and binds (s : string_builder_env) (x : TypedBind []) =
         Array.iter (function
             | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
             | TyLocalReturnOp(trace,a,_) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)

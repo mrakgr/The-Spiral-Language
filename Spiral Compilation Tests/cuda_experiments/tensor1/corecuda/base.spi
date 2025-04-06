@@ -34,7 +34,7 @@ inl run' ({gridDim blockDim} : runConfig) f =
     global "options.append('--diag-suppress=550')"
     
     global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
-    inl kernel_i, vars = join_backend Cuda
+    inl kernel_i, vars = join_backend CudaDevice
         f () : ()
     real
         match vars with

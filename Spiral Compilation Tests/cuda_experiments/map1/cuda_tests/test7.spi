@@ -5,7 +5,7 @@ open corebase
 inl main () = 
     inl map f (a : array f32) = 
         inl len = length a
-        join_backend Cuda 
+        join_backend CudaDevice 
             loop.for' {from=0; nearTo=len} (fun i =>
                 set a i (index a i |> f)
                 )

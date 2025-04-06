@@ -3,7 +3,7 @@
 open corebase
 
 inl main () = 
-    inl scalar_map f (a : array f32) = join_backend Cuda 
+    inl scalar_map f (a : array f32) = join_backend CudaDevice 
         set a 0 (index a 0 |> f)
         ()
 

@@ -2911,7 +2911,7 @@ As of v2.15.0, a new layout type has been added to the language.
 
 ```spiral
 inl main() : () =
-    inl _ = join_backend Cuda
+    inl _ = join_backend CudaDevice
         inl x = stack_mut {x = true; y = 1i32}
         inl _ = x.x, x.y
         x.x <- false

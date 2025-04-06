@@ -86,7 +86,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let s_typ = {text=StringBuilder(); indent=0}
         let s_fun = {text=StringBuilder(); indent=0}
         show s_typ_fwd s_typ s_fun r
-        let f (a : _ ResizeArray) (b : CodegenEnv) = 
+        let f (a : _ ResizeArray) (b : string_builder_env) = 
             let text = b.text.ToString()
             if text <> "" then a.Add(text)
         f fwd_dcls s_typ_fwd
@@ -180,7 +180,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
     
-    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (refc_prepass Set.empty (Set args) x) s BindsTailEnd x
+    let rec binds_start (args : TyV []) (s : string_builder_env) (x : TypedBind []) = binds (refc_prepass Set.empty (Set args) x) s BindsTailEnd x
     and return_local s ret (x : string) = 
         match ret with
         | [||] -> line s $"{x};"
@@ -189,7 +189,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let tmp_i = tmp()
             line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
             Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
-    and binds (vars : RefcVars) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+    and binds (vars : RefcVars) (s : string_builder_env) (ret : BindsReturn) (stmts : TypedBind []) = 
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b -> 
                 match b with

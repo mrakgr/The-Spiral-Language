@@ -28,7 +28,7 @@ type runConfig = {
 inl run' ({gridDim blockDim} : runConfig) f =
     // Global statements only get executed once.
     global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-std=c++20\", \"-I /home/mrakgr/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include\", \"-I /home/mrakgr/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include/cublasdx/include\", \"-I /home/mrakgr/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/external/cutlass/include\"))"
-    inl kernel_i, vars = join_backend Cuda 
+    inl kernel_i, vars = join_backend CudaDevice 
         global "template <typename el, int dim> struct array { el v[dim]; };"   
         f ()
         ()
