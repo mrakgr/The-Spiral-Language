@@ -56,9 +56,9 @@
 
 # News
 
-## Date: WIP/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.
+## Date: 6/8/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.
 
-As the title says. TODO.
+Still in prerelease. More info will be added later. Right now I am too busy with paid work to do full time work on Spiral.
 
 ## Date: 7/28/2024 - Higher Ranked Types have been added to the language
 

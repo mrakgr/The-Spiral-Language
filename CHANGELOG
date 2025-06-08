@@ -1,4 +1,4 @@
-2.16.0 (WIP)
+2.17.0 (prerelease) (6/8/2025)
 
 New native Cuda backend and various features to support it have been added into the language. Also the .NET SDK has been bumped to 9.
 
@@ -13,8 +13,10 @@ New native Cuda backend and various features to support it have been added into 
 * Fixed the compilation of Cuda virtual closure destructors on the device by generating the programmatically instead of having them be default. Note: Will revert this change after Nvidia fixes their compiler. I got note saying they would in the next major release.
 * Replaced the 3rd party lib OrderedDictionary with the inbuilt one in .NET 9.
 * Added the `UnsafeBackendSwitch` operation to the language. Only use it if it won't result in type inconsistencies.
-* Remove the `main_body` from both the native Cuda and Python backends. The device sync was causing screen flickering and system instability due to premature frees when combined with a debugger. It's be best that device sync be done manually after all.
-* TODO: Test whether the prerelease mode works.
+* Remove the `main_body` from both the native Cuda and Python backends. The device sync was causing screen flickering and system instability due to premature frees when combined with a debugger. It's best that device sync be done manually after all.
+* Test whether the prerelease mode works.
+* I messed up and skipped a minor version when publishing to VSCE. It should've been released as 2.16.0.
+* 2.17.x will all be prerelease versions, and 2.18.x will be released when I return to working on Spiral full time.
 
 2.15.6 (12/1/2024)
 
