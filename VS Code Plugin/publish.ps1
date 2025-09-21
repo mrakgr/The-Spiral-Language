@@ -1,9 +1,11 @@
 param (
     [string]$Rank = "patch", # Can also be "minor" and "major"
-    [bool]$Prerelease = $true
+    [switch]$Prerelease
 )
 
 $WarningPreference = 'SilentlyContinue'; $ErrorActionPreference = "Stop"; Set-StrictMode -Version Latest
+
+Write-Host $Rank, $Prerelease
 
 $prerelease_arg = if ($Prerelease) { "--pre-release" } else { $null }
 
