@@ -29,8 +29,8 @@ foreach ($file in $files) { # Copies the readme and the image files into the cur
     Copy-Item ../$file .
 }
 
-Publish-Vsce
-# Publish-Ovsx
+# Publish-Vsce
+Publish-Ovsx
 
 foreach ($file in $files) { # Removes the copied files.
     Remove-Item ./$file
