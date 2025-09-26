@@ -5,10 +5,7 @@ param (
 
 $WarningPreference = 'SilentlyContinue'; $ErrorActionPreference = "Stop"; Set-StrictMode -Version Latest
 
-Write-Host $Rank, $Prerelease
-
 $prerelease_arg = if ($Prerelease) { "--pre-release" } else { $null }
-
 $files = @(
     "readme.md"
     "spiral_logo.png"
@@ -32,7 +29,7 @@ try {
     
     Publish-Vsce
     Publish-Ovsx
-    
+
 } finally {
     foreach ($file in $files) { # Removes the copied files.
         Remove-Item ./$file
