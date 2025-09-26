@@ -2876,35 +2876,6 @@ The special \v macro requires the same number of free vars in its binding as the
 
 The Cuda codegenerator makes sure that the right amount of free vars are in the macro as they are in the generated code.
 
-### Layout type indexing returns references
-
-```spiral
-inl main() =
-    run fun () =>
-        inl x : heap (int * int * int) = heap (1,2,3)
-        inl a,b,c = !x
-        ()
-```
-```cpp
-struct Heap0;
-struct Heap0 {
-    int refc{0};
-    int v0;
-    int v1;
-    int v2;
-    __device__ Heap0() = default;
-    __device__ Heap0(int t0, int t1, int t2) : v0(t0), v1(t1), v2(t2) {}
-};
-extern "C" __global__ void entry0() {
-    sptr<Heap0> v0;
-    v0 = sptr<Heap0>{new Heap0{1l, 2l, 3l}};
-    int & v1 = v0.base->v0; int & v2 = v0.base->v1; int & v3 = v0.base->v2;
-    return ;
-}
-```
-
-As layout types in the Cuda backend would be pretty useless without this capability, it has been implemented in Spiral v2.15.0. It's necessary keep in mind that when indexing into layout types that references, and not value types will be generated in the resulting output. And trying to mutate the values on the stack will end up mutating them in the layout type itself even if they are intended to be immutable `heap` types.
-
 ### Stack mutable layout types
 
 As of v2.15.0, a new layout type has been added to the language.
@@ -2921,8 +2892,8 @@ inl main() : () =
 ```cpp
 extern "C" __global__ void entry0() {
     StackMut0 v0{true, 1};
-    bool & v1 = v0.v0;
-    int & v2 = v0.v1;
+    bool v1 = v0.v0;
+    int v2 = v0.v1;
     v0.v0 = false;
     return ;
 }
@@ -2930,7 +2901,7 @@ extern "C" __global__ void entry0() {
 
 On the stack they are constructed as value types, but in functions they are passed by reference. Since they are C++ reference types, they cannot be returned from join points and conditionals.
 
-The purpose of them is to match the forward passing semantics of heap mutable types, and easily swap between the two to see if allocating on the heap or the stack is better. Much like for the other layout types, indexing into them returns references.
+The purpose of them is to match the forward passing semantics of heap mutable types, and easily swap between the two to see if allocating on the heap or the stack is better.
 
 ## Known Bugs
 

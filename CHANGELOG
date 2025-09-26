@@ -1,3 +1,7 @@
+2.17.1 (prerelease) (9/26/2025)
+
+* Derefencing layout types doesn't generate reference types in the Cpp backends.
+
 2.17.0 (prerelease) (6/8/2025)
 
 New native Cuda backend and various features to support it have been added into the language. Also the .NET SDK has been bumped to 9.

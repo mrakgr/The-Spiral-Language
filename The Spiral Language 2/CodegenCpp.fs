@@ -199,8 +199,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     let decl_vars () = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
                     let layout_index layout (x'_i : int) (x' : TyV []) = 
                         match layout with
-                        | Heap | HeapMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
-                        | StackMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.v{i'};") d x' |> line' s
+                        | Heap | HeapMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
+                        | StackMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.v{i'};") d x' |> line' s
                     match a with
                     | TyToLayout(a,YLayout(_,StackMutable) & b) ->
                         match d with
