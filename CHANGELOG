@@ -1,3 +1,7 @@
+2.17.2 (prerelease) (9/27/2025)
+
+* Fixed the erroneus panics in the cuda host generator.
+
 2.17.1 (prerelease) (9/26/2025)
 
 * Derefencing layout types doesn't generate reference types in the Cpp backends.

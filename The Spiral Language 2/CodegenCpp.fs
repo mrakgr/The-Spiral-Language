@@ -326,7 +326,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind code_env.backend_name r with
             | Some x -> tup_ty x
-            | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{code_env.backend_name}' field."
+            | None -> raise_codegen_error $"In the Cpp type backend_switch, expected a record with the '{code_env.backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> 
@@ -457,7 +457,12 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     let s = indent s
                     match on_fail with
                     | Some b -> binds s ret b
-                    | None -> line s "assert(\"Invalid tag.\" && false); __trap();"
+                    | None -> 
+                        line s "assert(\"Invalid tag.\" && false);"
+                        match code_env.backend_type with
+                        | CudaDevice -> line s "__trap();"
+                        | CudaHost -> line s "exit(-1);"
+                        | Python -> failwith "Compiler error: This is a Cpp codegen so we don't have to handle Python."
                 line s "}"
             line s "}"
         | TyUnionBox(a,b,c') ->
@@ -503,7 +508,10 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             let string_in_op = function DLit (LitString b) -> lit_string b | b -> raise_codegen_error "In the Cuda backend, the exception string must be a literal."
             let fmt = @"%s\n"
             line s $"printf(\"{fmt}\", {string_in_op b});"
-            line s "__trap();" // TODO: Print out the error traces as well.
+            match code_env.backend_type with
+            | CudaDevice -> line s "__trap();"
+            | CudaHost -> line s "exit(-1);"
+            | Python -> failwith "Compiler error: This is a Cpp codegen so we don't have to handle Python."
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 
             let rec loop = function

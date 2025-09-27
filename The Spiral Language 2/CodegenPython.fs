@@ -204,7 +204,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind backend_name r with
             | Some x -> tup_ty x
-            | None -> raise_codegen_error $"In the backend_switch, expected a record with the '{backend_name}' field."
+            | None -> raise_codegen_error $"In the Python type backend_switch, expected a record with the '{backend_name}' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> "cp.ndarray"
