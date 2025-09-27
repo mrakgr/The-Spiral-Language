@@ -1,7 +1,8 @@
 <!-- TOC -->
 
 - [News](#news)
-    - [Date: WIP/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.](#date-wip2025---native-cuda-has-been-added-to-the-language-upgraded-the-project-to-net-9)
+    - [Date: 9/27/2025 - I am back and making a new series on Hopfield Dictionary CFR](#date-9272025---i-am-back-and-making-a-new-series-on-hopfield-dictionary-cfr)
+    - [Date: 6/8/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.](#date-682025---native-cuda-has-been-added-to-the-language-upgraded-the-project-to-net-9)
     - [Date: 7/28/2024 - Higher Ranked Types have been added to the language](#date-7282024---higher-ranked-types-have-been-added-to-the-language)
     - [Date: 7/5/2024 - GADTs have been added to the language](#date-752024---gadts-have-been-added-to-the-language)
     - [Date: 6/17/2024 - The Python + Cuda backend now supports all of Spiral's featues](#date-6172024---the-python--cuda-backend-now-supports-all-of-spirals-featues)
@@ -48,13 +49,18 @@
     - [Special behaviors in the Cuda backend](#special-behaviors-in-the-cuda-backend)
         - [noinline_ prefix in named join points](#noinline_-prefix-in-named-join-points)
         - [v variables in macros](#v-variables-in-macros)
-        - [Layout type indexing returns references](#layout-type-indexing-returns-references)
         - [Stack mutable layout types](#stack-mutable-layout-types)
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
 
 # News
+
+## Date: 9/27/2025 - I am back and making a new series on Hopfield Dictionary CFR
+
+Check it out here: https://www.youtube.com/playlist?list=PL04PGV4cTuIUwzFPqC-zPEMU-2U82JubO
+
+The paid work I've been doing is finally over and I am back to working on Spiral and making Youtube vids. Hopefully I can get the latest version out of prerelease along the way. There will be some breaking changes in the new minor version.
 
 ## Date: 6/8/2025 - Native Cuda has been added to the language. Upgraded the project to .NET 9.
 
