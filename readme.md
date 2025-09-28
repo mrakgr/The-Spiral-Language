@@ -2914,7 +2914,29 @@ The purpose of them is to match the forward passing semantics of heap mutable ty
 
 Added in v2.17.3. They are exactly the same as heap mutable and stack mutable layout types, but indexing into them generates references in the resulting code.
 
-TODO: Code examples.
+```spiral
+inl main() : i32 =
+    inl x = heap_refs {x = 0i32}
+    inl y = stack_refs {x = 1i32}
+    x.x <- 5
+    y.x <- 10
+    inl _ = x.x, y.x
+    0
+```
+```cpp
+int main() {
+    sptr<HeapRefs0> v0;
+    v0 = sptr<HeapRefs0>{new HeapRefs0{0}};
+    StackRefs0 v1{1};
+    v0.base->v0 = 5;
+    v1.v0 = 10;
+    int & v2 = v0.base->v0;
+    int & v3 = v1.v0;
+    return 0;
+}
+```
+
+They are necessary for when large stack based arrays are passed in structs. Without being able to utilize reference semantics when indexing, the arrays indexes would be handled using value semantics. In other words, they would be copied in their entirety whenever indexed and it would be impossible to mutate the original array as intended.
 
 ## Known Bugs
 

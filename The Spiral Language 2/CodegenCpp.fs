@@ -202,8 +202,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     let layout_index layout (x'_i : int) (x' : TyV []) = 
                         match layout with
                         | Heap | HeapMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
+                        | HeapRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
                         | StackMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.v{i'};") d x' |> line' s
-                        | StackRefs | HeapRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.v{i'};") d x' |> line' s
+                        | StackRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.v{i'};") d x' |> line' s
                     match a with
                     | TyToLayout(a,YLayout(_,(StackMutable | StackRefs)) & b) ->
                         match d with
@@ -329,9 +330,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             match lay with
             | Heap -> sprintf "sptr<Heap%i>" (heap a).tag
             | HeapMutable -> sprintf "sptr<Mut%i>" (mut a).tag
+            | HeapRefs -> sprintf "sptr<HeapRefs%i>" (heap_refs a).tag
             | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
             | StackRefs -> sprintf "StackRefs%i &" (stack_refs a).tag
-            | HeapRefs -> sprintf "HeapRefs%i &" (heap_refs a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind code_env.backend_name r with
             | Some x -> tup_ty x
@@ -512,7 +513,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 | StackMutable | StackRefs -> 
                     let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (stack_mut t).data b
                     Array.map2 (fun (L(i',_)) b -> $"v{i}.v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
-                | Heap -> raise_codegen_error "Compiler error (1): TyLayoutMutableSet should only be HeapMutable or StackMutable."
+                | Heap -> raise_codegen_error "Compiler error (1): TyLayoutMutableSet should only be HeapMutable, StackMutable, HeapRefs and StackRefs."
             | _ -> raise_codegen_error "Compiler error (2): TyLayoutMutableSet should only be HeapMutable or StackMutable."
             |> String.concat " " |> line s
         | TyArrayLiteral(a,b') -> raise_codegen_error "Compiler error: TyArrayLiteral should have been taken care of in TyLet."

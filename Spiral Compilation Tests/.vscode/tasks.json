@@ -39,8 +39,36 @@
             "problemMatcher": [],
             "group": {
                 "kind": "build",
+                "isDefault": false
+            }
+        },
+		{
+            "label": "Build Cuda Program",
+            "type": "shell",
+            "command": "pwsh",
+            "args": ["build.ps1", "-Path", "${file}", "-BuildOnly"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$nvcc"],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+		{
+            "label": "Run Cuda Program",
+            "type": "shell",
+            "command": "pwsh",
+            "args": ["build.ps1", "-Path", "${file}"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": ["$nvcc"],
+            "group": {
+                "kind": "build",
                 "isDefault": true
             }
-        }
+        },
     ]
   }
