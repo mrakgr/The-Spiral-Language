@@ -847,7 +847,7 @@ let peval (env : TopEnv) (x : E) =
                         | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the layout type's record." b
                     | _ -> raise_type_error s <| sprintf "Expected a record inside the layout type.\nGot: %s" (show_ty ty)
                 match layout with
-                | Heap | StackMutable | HeapMutable -> push_typedop_no_rewrite s key ret_ty
+                | Heap | StackMutable | HeapMutable | StackRefs | HeapRefs -> push_typedop_no_rewrite s key ret_ty
             | DV(L(_,YLayout _)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
             | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type possibly inside a nominal.\nGot: %s" (show_data a)
 
@@ -1135,8 +1135,10 @@ let peval (env : TopEnv) (x : E) =
             let s = add_trace s r
             let a,a_layout_ty =
                 match term s a with
-                | DV(L(i,YLayout(a_layout_ty,(StackMutable | HeapMutable))) & a) -> a,a_layout_ty
-                | DV(L(_,YLayout _)) -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
+                | DV(L(i,YLayout(a_layout_ty,layout)) & a) -> 
+                    match layout with
+                    | StackMutable | HeapMutable | StackRefs | HeapRefs -> a,a_layout_ty
+                    | Heap -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
                 | a -> raise_type_error s <| sprintf "Expected a mutable layout type.\nGot: %s" (show_data a)
             let b = 
                 List.map (fun (r,b) -> 
@@ -1461,7 +1463,7 @@ let peval (env : TopEnv) (x : E) =
                     | _, ty -> raise_type_error s <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
                 | _ -> raise_type_error s <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
             | _ -> raise_type_error s "The body of the conditional of the while loop must be a solitary join point."
-        | EOp(_,(LayoutToHeap | LayoutToHeapMutable | LayoutToStackMutable as op),[a]) -> 
+        | EOp(_,(LayoutToHeap | LayoutToHeapMutable | LayoutToStackMutable | LayoutToStackRefs | LayoutToHeapRefs as op),[a]) -> 
             let x = dyn false s (term s a)
             let ty = data_to_ty s x
             let layout =
@@ -1469,6 +1471,8 @@ let peval (env : TopEnv) (x : E) =
                 | LayoutToHeap -> Heap
                 | LayoutToHeapMutable -> HeapMutable
                 | LayoutToStackMutable -> StackMutable
+                | LayoutToStackRefs -> StackRefs
+                | LayoutToHeapRefs -> HeapRefs
                 | _ -> raise_type_error s "Compiler error: Forgot a case in LayoutTo."
             let ret_ty = YLayout(ty,layout)
             let key = TyToLayout(x,ret_ty)
@@ -1477,7 +1481,7 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DV(L(i,YLayout(ty,layout)) as tyv) as a -> 
                 match layout with
-                | StackMutable | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll tyv) ty
+                | StackMutable | HeapMutable | StackRefs | HeapRefs -> push_typedop_no_rewrite s (TyLayoutIndexAll tyv) ty
                 | Heap ->
                     match ty with
                     | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyLayoutIndexByKey(tyv,b)) ty) l)

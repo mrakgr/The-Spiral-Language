@@ -185,6 +185,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         | Heap -> heap a 
         | HeapMutable -> mut a
         | StackMutable -> stack_mut a
+        | StackRefs -> stack_refs a
+        | HeapRefs -> heap_refs a
     and binds (unroll : Stack<int>) (s : string_builder_env) (ret : BindsReturn) (stmts : TypedBind []) =
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b ->
@@ -201,15 +203,20 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                         match layout with
                         | Heap | HeapMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
                         | StackMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.v{i'};") d x' |> line' s
+                        | StackRefs | HeapRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.v{i'};") d x' |> line' s
                     match a with
-                    | TyToLayout(a,YLayout(_,StackMutable) & b) ->
+                    | TyToLayout(a,YLayout(_,(StackMutable | StackRefs)) & b) ->
                         match d with
                         | [|L(i,YLayout(_,StackMutable))|] -> // For the regular arrays.
                             let tag = (stack_mut b).tag
                             line s $"StackMut{tag} v{i}{{{args' a}}};"
                             true
+                        | [|L(i,YLayout(_,StackRefs))|] -> // For the regular arrays.
+                            let tag = (stack_refs b).tag
+                            line s $"StackRefs{tag} v{i}{{{args' a}}};"
+                            true
                         | _ ->
-                            raise_codegen_error "Compiler error: Expected a stack mutable layout type."
+                            raise_codegen_error "Compiler error: Expected a stack mutable or a stack refs layout type."
                     | TyLayoutIndexAll(x) -> 
                         match x with 
                         | L(i,YLayout(_,lay) & a) -> (get_layout_rec lay a).free_vars |> layout_index lay i 
@@ -323,6 +330,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             | Heap -> sprintf "sptr<Heap%i>" (heap a).tag
             | HeapMutable -> sprintf "sptr<Mut%i>" (mut a).tag
             | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
+            | StackRefs -> sprintf "StackRefs%i &" (stack_refs a).tag
+            | HeapRefs -> sprintf "HeapRefs%i &" (heap_refs a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
             match Map.tryFind code_env.backend_name r with
             | Some x -> tup_ty x
@@ -484,7 +493,11 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 | HeapMutable ->
                     let tag = (mut b).tag
                     $"sptr<Mut{tag}>{{new Mut{tag}{{{args' a}}}}}"
-                | StackMutable -> raise_codegen_error "The Cuda backend doesn't support stack mutable layout types."
+                | HeapRefs -> 
+                    let tag = (heap_refs b).tag
+                    $"sptr<HeapRefs{tag}>{{new HeapRefs{tag}{{{args' a}}}}}"
+                | StackMutable -> raise_codegen_error "Compiler error: The Cuda backend handles stack mutable layout types as statements and they should never be generated as expressions."
+                | StackRefs -> raise_codegen_error "Compiler error: The Cuda backend handles stack refs layout types as statements and they should never be generated as expressions."
             | _ -> raise_codegen_error "Compiler error: Expected a layout type (2)."
             |> return'
         | TyLayoutIndexAll(x) -> raise_codegen_error "Compiler error: TyLayoutIndexAll should have been taken care of in TyLet."
@@ -493,10 +506,10 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             match t with
             | YLayout(_,lay) ->
                 match lay with
-                | HeapMutable -> 
+                | HeapMutable | HeapRefs -> 
                     let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
                     Array.map2 (fun (L(i',_)) b -> $"v{i}.base->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
-                | StackMutable -> 
+                | StackMutable | StackRefs -> 
                     let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (stack_mut t).data b
                     Array.map2 (fun (L(i',_)) b -> $"v{i}.v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
                 | Heap -> raise_codegen_error "Compiler error (1): TyLayoutMutableSet should only be HeapMutable or StackMutable."
@@ -859,6 +872,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
     and heap : _ -> LayoutRec = layout_tmpl true "Heap"
     and mut : _ -> LayoutRec = layout_tmpl true "Mut"
     and stack_mut : _ -> LayoutRec = layout_tmpl false "StackMut"
+    and heap_refs : _ -> LayoutRec = layout_tmpl true "HeapRefs"
+    and stack_refs : _ -> LayoutRec = layout_tmpl false "StackRefs"
 
     function
     | ArgsCudaHost x ->

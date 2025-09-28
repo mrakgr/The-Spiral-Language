@@ -528,7 +528,7 @@ let show_kind x =
 
 let show_constraints env x = Set.toList x |> List.map (constraint_name env) |> String.concat "; " |> sprintf "{%s}"
 let show_nominal (env : TopEnv) i = match Map.tryFind i env.nominals_aux with Some x -> x.name | None -> "?"
-let show_layout_type = function Heap -> "heap" | HeapMutable -> "mut" | StackMutable -> "stack_mut"
+let show_layout_type = function Heap -> "heap" | HeapMutable -> "mut" | StackMutable -> "stack_mut" | StackRefs -> "stack_refs" | HeapRefs -> "heap_refs"
 
 let show_t (env : TopEnv) x =
     let show_var (a : Var) =
@@ -1462,7 +1462,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMetavar _ -> raise (TypeErrorException [r, LayoutSetMustBeAnnotated])
                 | TyLayout(v,lay) ->
                     match lay with
-                    | HeapMutable | StackMutable ->
+                    | HeapMutable | StackMutable | StackRefs | HeapRefs ->
                         if i <> errors.Count then raise (TypeErrorException [])
                         let b = List.map (fun x -> range_of_expr x, f' x) b
                         List.fold (fun (r,a') (r',b') ->
@@ -2026,6 +2026,8 @@ let base_types (default_env : Startup.DefaultEnv) =
     "heap", inl (fun x -> TyLayout(tyvar x,Layout.Heap))
     "mut", inl (fun x -> TyLayout(tyvar x,Layout.HeapMutable))
     "stack_mut", inl (fun x -> TyLayout(tyvar x,Layout.StackMutable))
+    "stack_refs", inl (fun x -> TyLayout(tyvar x,Layout.StackRefs))
+    "heap_refs", inl (fun x -> TyLayout(tyvar x,Layout.HeapRefs))
     "fptr", inl2 (fun x y -> TyFun(tyvar x,tyvar y,FT_Pointer))
     "closure", inl2 (fun x y -> TyFun(tyvar x,tyvar y,FT_Closure))
     "int", TyPrim default_env.default_int

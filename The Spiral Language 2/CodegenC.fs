@@ -287,7 +287,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match lay with
             | Heap -> sprintf "Heap%i *" (heap a).tag
             | HeapMutable -> sprintf "Mut%i *" (mut a).tag
-            | StackMutable -> raise_codegen_error "Compiler error: The C backend doesn't support stack mutable layout types."
+            | StackMutable | StackRefs | HeapRefs -> raise_codegen_error "Compiler error: The C backend doesn't support stack mutable, stack refs or heap refs layout types."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "Array%i *" (carray a).tag
@@ -444,20 +444,20 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match layout with
                 | Heap -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a)
                 | HeapMutable -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a)
-                | StackMutable -> raise_codegen_error "The C backend doesn't support stack mutable layout types."
+                | StackMutable | StackRefs | HeapRefs -> raise_codegen_error "The C backend doesn't support stack mutable, stack refs or heap refs layout types."
             | _ -> raise_codegen_error $"Compiler error: Expected a layout type (8).\nGot: %s{show_ty b}"
             |> return'
         | TyLayoutIndexAll(L(i,YLayout(_,lay) & a)) ->
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a
-            | StackMutable -> raise_codegen_error "The C backend doesn't support indexing into stack mutable layout types."
+            | StackMutable | StackRefs | HeapRefs -> raise_codegen_error "The C backend doesn't support indexing into stack mutable, stack refs or heap refs layout types."
             |> fun x -> x.free_vars |> layout_index i 
         | TyLayoutIndexByKey(L(i,YLayout(_,lay) & a),key) ->
             match lay with
             | Heap -> heap a 
             | HeapMutable -> mut a
-            | StackMutable -> raise_codegen_error "The C backend doesn't support indexing into stack mutable layout types."
+            | StackMutable | StackRefs | HeapRefs -> raise_codegen_error "The C backend doesn't support indexing into stack mutable, stack refs or heap refs layout types."
             |> fun x -> x.free_vars_by_key.[key] |> layout_index i
         | TyLayoutIndexAll _ | TyLayoutIndexByKey _ -> raise_codegen_error "Compiler error: Expected the TyV in layout index to be a layout type."
         | TyLayoutMutableSet(L(i,t),b,c) ->

@@ -50,6 +50,7 @@
         - [noinline_ prefix in named join points](#noinline_-prefix-in-named-join-points)
         - [v variables in macros](#v-variables-in-macros)
         - [Stack mutable layout types](#stack-mutable-layout-types)
+        - [Stack refs and heap refs layout types](#stack-refs-and-heap-refs-layout-types)
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
@@ -2908,6 +2909,12 @@ extern "C" __global__ void entry0() {
 On the stack they are constructed as value types, but in functions they are passed by reference. Since they are C++ reference types, they cannot be returned from join points and conditionals.
 
 The purpose of them is to match the forward passing semantics of heap mutable types, and easily swap between the two to see if allocating on the heap or the stack is better.
+
+### Stack refs and heap refs layout types
+
+Added in v2.17.3. They are exactly the same as heap mutable and stack mutable layout types, but indexing into them generates references in the resulting code.
+
+TODO: Code examples.
 
 ## Known Bugs
 
