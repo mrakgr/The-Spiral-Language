@@ -916,7 +916,7 @@ With this, the functionality of layout types has been covered. Here is how to tu
 inl main () = 
     inl a = heap 1i32
     inl b = mut 2i32
-    !a, *b
+    *a, *b
 ```
 ```fs
 type Heap0 = {l0 : int32}
@@ -928,7 +928,7 @@ let v3 : int32 = v1.l0
 struct (v2, v3)
 ```
 
-`!` and `*` are not keywords, they are plain unary operators defined in the core library. Similarly to in F#, unary operators can be defined with `~` prefixed to their name. For example, `inl (~!) x = ...`.
+`*` is a special unary operator that works to unbox any kind of layout type, but as for regular unary operators they are handled similarly to how the are in F#. Unary operators in Spiral can be defined with `~` prefixed to their name. For example, `inl (~-) x = 0 - x`.
 
 ### Nominals
 
@@ -2937,6 +2937,29 @@ int main() {
 ```
 
 They are necessary for when large stack based arrays are passed in structs. Without being able to utilize reference semantics when indexing, the arrays indexes would be handled using value semantics. In other words, they would be copied in their entirety whenever indexed and it would be impossible to mutate the original array as intended.
+
+Also, the `stack_refs` type in particular holds reference types inside its fields rather than value types in the generated code.
+
+```spiral
+inl main() = 
+    inl _ = stack_refs (1i32, 2f32, 3u64)
+    0i32
+```
+```cpp
+struct StackRefs0 {
+    unsigned long long & v2;
+    float & v1;
+    int & v0;
+    StackRefs0() = default;
+    StackRefs0(int & t0, float & t1, unsigned long long & t2) : v0(t0), v1(t1), v2(t2) {}
+};
+int main() {
+    StackRefs0 v0{1, 2.0f, 3ull};
+    return 0;
+}
+```
+
+This is to avoid copies for objects that might not be intended to use that way like locks and cooperative group objects.
 
 ## Known Bugs
 
