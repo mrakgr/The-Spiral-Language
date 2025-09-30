@@ -2959,7 +2959,41 @@ int main() {
 }
 ```
 
-This is to avoid copies for objects that might not be intended to use that way like locks and cooperative group objects.
+This is to avoid copies for objects that might not be intended to use that way like locks and cooperative group objects. Much like the stack mutable layout types, the `stack_refs` are C++ reference types in the generated code.
+
+```spiral
+inl main() = 
+    inl a = heap 1i32
+    inl b = mut 2i32
+    inl c = stack_mut 3i32
+    inl d = stack_refs 4i32
+    inl _ = join
+        *a, *b, *c, *d
+    0i32
+```
+```cpp
+Tuple0 method_0(sptr<Heap0> v0, sptr<Mut0> v1, StackMut0 & v2, StackRefs0 & v3){
+    int v4 = v0.base->v0;
+    int v5 = v1.base->v0;
+    int v6 = v2.v0;
+    int & v7 = v3.v0;
+    return Tuple0{v4, v5, v6, v7};
+}
+int main() {
+    sptr<Heap0> v0;
+    v0 = sptr<Heap0>{new Heap0{1}};
+    sptr<Mut0> v1;
+    v1 = sptr<Mut0>{new Mut0{2}};
+    StackMut0 v2{3};
+    int v3;
+    v3 = 4;
+    StackRefs0 v4{v3};
+    int v5; int v6; int v7; int v8;
+    Tuple0 tmp0 = method_0(v0, v1, v2, v4);
+    v5 = tmp0.v0; v6 = tmp0.v1; v7 = tmp0.v2; v8 = tmp0.v3;
+    return 0;
+}
+```
 
 ## Known Bugs
 
