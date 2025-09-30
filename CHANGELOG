@@ -1,3 +1,9 @@
+2.17.4 (prerelease) (9/30/2025)
+
+* Changed the semantics of the `stack_refs` type in the codegen so it has references as its fields instead of values.
+* Introduced a universal layout type destructuring unary operator `*`. It works on any kind of layout type.
+* Fixed a bug in how `__device__` was missing a whitespace at the end in the Cuda codegen.
+
 2.17.3 (prerelease) (9/27/2025)
 
 * Added the `stack_refs` and `heap_refs` layout types to the language. Indexing into them will generate references in the resulting. Works only in the C++ backend.

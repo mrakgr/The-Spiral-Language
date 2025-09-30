@@ -1,8 +1,8 @@
 // Testing the new heap refs and stack refs layout types.
 inl main() : i32 =
     inl x = heap_refs {x = 0i32}
-    inl y = stack_refs {x = 1i32}
+    inl y = stack_refs {x = 1i32; y = true; z=5f32}
     x.x <- 5
     y.x <- 10
-    inl _ = x.x, y.x
+    inl _ = x.x, *y
     0

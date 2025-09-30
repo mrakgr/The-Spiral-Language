@@ -1112,6 +1112,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 | RawRecordWithoutSymbol(r,a) -> WSymbol(p r,a)
                 | RawRecordWithoutInjectVar(r,a) -> WVar(p r,v_term env a))
             ERecordWith(p r,a,b,c)
+        | RawLayoutIndex(r,a) -> EOp(p r,LayoutIndex,[f a])
         | RawOp(r,a,b) -> EOp(p r,a,List.map f b)
         | RawJoinPoint(r,q,a,name) -> EJoinPoint(p r,f a,None,Option.map (fun (r',w) -> p r',w) q,name)
         | RawAnnot(_,RawJoinPoint(r,q,a,name),b) -> EJoinPoint(p r,f a,Some (ty env b),Option.map (fun (r',w) -> p r',w) q,name)

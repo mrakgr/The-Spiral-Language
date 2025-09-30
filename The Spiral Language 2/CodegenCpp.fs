@@ -202,8 +202,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     let layout_index layout (x'_i : int) (x' : TyV []) = 
                         match layout with
                         | Heap | HeapMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
-                        | HeapRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
                         | StackMutable -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} v{i} = v{x'_i}.v{i'};") d x' |> line' s
+                        | HeapRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.base->v{i'};") d x' |> line' s
                         | StackRefs -> Array.map2 (fun (L(i,t)) (L(i',_)) -> $"{tyv t} & v{i} = v{x'_i}.v{i'};") d x' |> line' s
                     match a with
                     | TyToLayout(a,YLayout(_,(StackMutable | StackRefs)) & b) ->
@@ -506,13 +506,17 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         | TyLayoutMutableSet(L(i,t),b,c) ->
             match t with
             | YLayout(_,lay) ->
-                match lay with
-                | HeapMutable | HeapRefs -> 
-                    let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
+                let heap is_refs =
+                    let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (if is_refs then heap_refs t else mut t).data b
                     Array.map2 (fun (L(i',_)) b -> $"v{i}.base->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
-                | StackMutable | StackRefs -> 
-                    let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (stack_mut t).data b
+                let stack is_refs =
+                    let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (if is_refs then stack_refs t else stack_mut t).data b
                     Array.map2 (fun (L(i',_)) b -> $"v{i}.v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
+                match lay with
+                | HeapMutable -> heap false
+                | HeapRefs -> heap true
+                | StackMutable -> stack false
+                | StackRefs -> stack true
                 | Heap -> raise_codegen_error "Compiler error (1): TyLayoutMutableSet should only be HeapMutable, StackMutable, HeapRefs and StackRefs."
             | _ -> raise_codegen_error "Compiler error (2): TyLayoutMutableSet should only be HeapMutable or StackMutable."
             |> String.concat " " |> line s
@@ -600,8 +604,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 |> sprintf "v%i%s" i
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
-    and print_ordered_args s v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
-        order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
+    and print_ordered_args' s (type_suffix : string) v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
+        order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x}{type_suffix} v{i};")
+    and print_ordered_args s v = print_ordered_args' s "" v
     and method_template is_while : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst part_eval_env.join_point_method.[jp_body]).[key] with
@@ -853,7 +858,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 line s_typ "}"
             line s_typ "};"
             )
-    and layout_tmpl is_heap name : _ -> LayoutRec =
+    and layout_tmpl is_heap is_refs name : _ -> LayoutRec =
         layout (fun s_fwd s_typ s_fun (x : LayoutRec) ->
             let name = sprintf "%s%i" name x.tag
             line s_fwd $"struct {name};"
@@ -861,20 +866,21 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             let () =
                 let s_typ = indent s_typ
                 if is_heap then line s_typ "int refc{0};"
-                x.free_vars |> print_ordered_args s_typ
+                let type_suffix = if is_refs then " &" else ""
+                print_ordered_args' s_typ type_suffix x.free_vars
                 let concat x = String.concat ", " x
-                let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
+                let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x}{type_suffix} t{i}")
                 let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                 if args.Length <> 0 then
                     line s_typ $"{code_env.__device__}{name}() = default;"
                     line s_typ $"{code_env.__device__}{name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
-    and heap : _ -> LayoutRec = layout_tmpl true "Heap"
-    and mut : _ -> LayoutRec = layout_tmpl true "Mut"
-    and stack_mut : _ -> LayoutRec = layout_tmpl false "StackMut"
-    and heap_refs : _ -> LayoutRec = layout_tmpl true "HeapRefs"
-    and stack_refs : _ -> LayoutRec = layout_tmpl false "StackRefs"
+    and heap : _ -> LayoutRec = layout_tmpl true false "Heap"
+    and mut : _ -> LayoutRec = layout_tmpl true false "Mut"
+    and stack_mut : _ -> LayoutRec = layout_tmpl false false "StackMut"
+    and heap_refs : _ -> LayoutRec = layout_tmpl true false "HeapRefs"
+    and stack_refs : _ -> LayoutRec = layout_tmpl false true "StackRefs"
 
     function
     | ArgsCudaHost x ->

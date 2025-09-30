@@ -331,6 +331,7 @@ and RawExpr =
     | RawIfThen of VSCRange * RawExpr * RawExpr
     | RawPair of VSCRange * RawExpr * RawExpr
     | RawSeq of VSCRange * RawExpr * RawExpr
+    | RawLayoutIndex of VSCRange * RawExpr
     | RawHeapMutableSet of VSCRange * RawExpr * RawExpr list * RawExpr
     | RawReal of VSCRange * RawExpr
     | RawMacro of VSCRange * RawMacro list
@@ -397,6 +398,7 @@ let range_of_pat_record_member = function
 let range_of_expr = function
     | RawB r
     | RawMissingBody r
+    | RawLayoutIndex(r,_)
     | RawMacro(r,_)
     | RawV(r,_,_)
     | RawLit(r,_)
@@ -1301,7 +1303,7 @@ and root_term d =
                     if d.is_top_down then (range (squares sequence_body) |>> fun (r,x) -> RawApply(o,RawV(o,unintern "array",true), RawArray(o,x))) d
                     else Error [o, ArrayLiteralsNotAllowedInBottomUp]
                 | "!!!!" -> 
-                    (range (read_big_var .>>. (rounds (sepBy (fun d -> unary_op {d with is_top_down=false}) (skip_op ","))))
+                    (range (read_big_var .>>. rounds (sepBy (fun d -> unary_op {d with is_top_down=false}) (skip_op ",")))
                     >>= fun (r,((ra,a), b)) _ ->
                         match string_to_op a with
                         | true, op' -> Ok(RawOp(r,op',b))
@@ -1315,6 +1317,7 @@ and root_term d =
                             ) d
                 | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
                 | "`$" -> (read_var'' |>> fun (r,x) -> RawV(r,x,false)) d
+                | "*" -> (range (choice [|read_var'' |>> rawv; rounds root_term|]) |>> fun (r,x) -> RawLayoutIndex(r,x)) d
                 | _ -> (next |>> fun b -> RawApply(o +. range_of_expr b,rawv(o, "~" + a),b)) d
         (f <|> next) d
 

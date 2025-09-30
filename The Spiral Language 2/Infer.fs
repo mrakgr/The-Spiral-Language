@@ -90,6 +90,8 @@ type TypeError =
     | ExpectedNominalInApply of T
     | MalformedNominal
     | LayoutSetMustBeAnnotated
+    | LayoutIndexMustBeAnnotated
+    | ExpectedLayout of T
     | ExpectedMutableLayout of T
     | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
@@ -377,6 +379,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm constraints (term, ty) e
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
+        | RawLayoutIndex(_,a) -> cterm constraints (term, ty) a
         | RawOp(_,_,l) -> List.iter (cterm constraints (term, ty)) l
         | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints (term, ty) x
         | RawExists(_,(_,a),b) -> Option.iter (List.iter (ctype constraints term ty)) a; cterm constraints (term, ty) b
@@ -622,7 +625,9 @@ let show_type_error (env : TopEnv) x =
     | TypeVarScopeError(a,_,_) -> sprintf "Tried to unify the type variable %s with a metavar outside its scope." a
     | ForallVarConstraintError(n,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall var %s's.\nGot: %s\nExpected: %s" n (show_constraints env a) (show_constraints env b)
     | MetavarsNotAllowedInRecordWith -> sprintf "In the top-down segment the record keys need to be fully known. Please add an annotation."
+    | LayoutIndexMustBeAnnotated -> sprintf "The layout type being destructured must be annotated."
     | LayoutSetMustBeAnnotated -> sprintf "The layout type being set must be annotated."
+    | ExpectedLayout a -> sprintf "Expected a layout type.\nGot: %s" (f a)
     | ExpectedMutableLayout a -> sprintf "Expected a mutable layout type.\nGot: %s" (f a)
     | ExpectedRecord a -> sprintf "Expected a record.\nGot: %s" (f a)
     | ExpectedRecordInsideALayout a -> sprintf "Expected a record inside a layout type.\nGot: %s" (f a)
@@ -892,6 +897,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r [] x))) x
                 | _ -> x
             | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
+            | RawLayoutIndex(r,a) -> RawLayoutIndex(r,f a)
             | RawForall(r,a,b) -> RawForall(r,a,f b)
             | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
                 let _,body = foralls_get body
@@ -1480,6 +1486,17 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | v -> raise (TypeErrorException [r, ExpectedMutableLayout v])
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var scope
             |> fun v -> f v c
+        | RawLayoutIndex(r,a) ->
+            try let v = fresh_var scope
+                let i = errors.Count
+                f v a
+                match visit_t v with
+                | TyMetavar _ -> raise (TypeErrorException [r, LayoutSetMustBeAnnotated])
+                | TyLayout(v,lay) ->
+                    if i <> errors.Count then raise (TypeErrorException [])
+                    unify r s v
+                | v -> raise (TypeErrorException [r, ExpectedLayout v])
+            with :? TypeErrorException as e -> errors.AddRange e.Data0
         | RawArray(r,a) ->
             annotations.Add(x,(r,s))
             let v = fresh_var scope

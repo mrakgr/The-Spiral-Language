@@ -75,6 +75,7 @@ and fold_offset_term offset x =
     match x with
     | RawB r -> RawB (g r)
     | RawV(r,a,b) -> RawV (g r,a,b)
+    | RawLayoutIndex(r,a) -> RawLayoutIndex (g r,f a)
     | RawLit(r,a) -> RawLit (g r,a)
     | RawDefaultLit(r,a) -> RawDefaultLit (g r,a)
     | RawSymbol(r,a) -> RawSymbol (g r,a)

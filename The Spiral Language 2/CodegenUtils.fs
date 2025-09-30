@@ -56,5 +56,5 @@ type codegen_env =
         | Python -> failwith "Compiler error: Python isn't a cpp backend."
     member t.__device__ =
         match t.backend_type_cpp with
-        | CppCudaDevice -> "__device__"
+        | CppCudaDevice -> "__device__ "
         | CppCudaHost -> ""

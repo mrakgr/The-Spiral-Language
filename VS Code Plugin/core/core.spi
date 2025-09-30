@@ -94,16 +94,12 @@ inl conv forall a {number} b {number}. (x : a) : b = !!!!Conv(`b, x)
 
 // Creates a heap mutable layout type.
 inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
-// Unboxes a heap mutable layout type.
-inl (~*) forall t. (x : mut t): t = !!!!LayoutIndex(x)
 // Creates a heap layout type.
 inl heap forall t. (x : t): heap t = !!!!LayoutToHeap(x)
 // Creates a heap refs layout type.
 inl heap_refs forall t. (x : t): heap_refs t = !!!!LayoutToHeapRefs(x)
 // Creates a stack refs layout type.
-inl stack_refs forall t. (x : t): stack_refs t = !!!!LayoutToStackRefs(x)
-// Unboxes a heap layout type.
-inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
+inl stack_refs forall t. ~(x : t): stack_refs t = !!!!LayoutToStackRefs(x)
 
 // Returns the absolute value.
 inl abs x = max x -x
