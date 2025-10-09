@@ -59,10 +59,10 @@ let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyL
 
 type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>; is_heap : bool}
-type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option}
-type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : FunType; body : TypedBind[]}
+type MethodRec = {tag : int; free_vars : TyV[]; range : Ty; body : TypedBind[]; name : string option; backend : backend_cuda}
+type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtype : FunType; body : TypedBind[]; backend : backend_cuda}
 type TupleRec = {tag : int; tys : Ty []}
-type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : FunType}
+type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : FunType; backend : backend_cuda}
 
 // Replaces the invalid symbols in Spiral method names for the C backend.
 let fix_method_name (x : string) = x.Replace(''','_') + "_"
@@ -87,6 +87,15 @@ let lit_string x =
     strb.ToString()
 
 let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env) =
+    let mutable backend_ref = backend_cuda.CudaHost
+    let backend() = backend_ref
+    /// Runs the closure with the new backend. Restores the old one after the backend has been executed.
+    let inline substitute_backend_with backend f = 
+        let old_backend = backend_ref
+        backend_ref <- backend
+        f()
+        backend_ref <- old_backend
+
     let print show r =
         let s_typ_fwd = {text=StringBuilder(); indent=0}
         let s_typ = {text=StringBuilder(); indent=0}
@@ -134,7 +143,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         let f x = f (x, dict.Count)
         fun x ->
             let mutable dirty = false
-            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) (x, backend())
             if dirty then print show r
             r
 
@@ -149,10 +158,10 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
 
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f (a : Ty, b : Ty, t : FunType) = {tag=dict.Count; domain=a; range=b; funtype=t}
+        let f ((a : Ty, b : Ty, t : FunType), backend) = {tag=dict.Count; domain=a; range=b; funtype=t; backend=backend}
         fun x ->
             let mutable dirty = false
-            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) (x, backend())
             if dirty then print show r
             r
 
@@ -258,9 +267,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                         let inits = List.map tup_data b' |> String.concat ","
                         match d with
                         | [|L(i,YArray t)|] -> // For the regular arrays.
-                            match code_env.backend_type_cpp with
-                            | CppCudaDevice -> line s $"%s{tup_ty t} v{i}[] = {{%s{inits}}};"
-                            | CppCudaHost -> line s $"thrust::device_vector<%s{tup_ty t}> v{i} = {{%s{inits}}};"
+                            match backend() with
+                            | backend_cuda.CudaDevice -> line s $"%s{tup_ty t} v{i}[] = {{%s{inits}}};"
+                            | backend_cuda.CudaHost -> line s $"thrust::device_vector<%s{tup_ty t}> v{i} = {{%s{inits}}};"
                             true
                         | _ ->
                             raise_codegen_error "Compiler error: Expected a single variable on the left side of an array literal op."
@@ -270,9 +279,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                             match tup_ty t with
                             | "void" -> line s "/* void array create */"
                             | t -> 
-                                match code_env.backend_type_cpp with
-                                | CppCudaDevice -> line s $"{t} v{i}[{tup_data b};"
-                                | CppCudaHost -> line s $"thrust::device_vector<%s{t}> v{i}{{%s{tup_data b}}};"
+                                match backend() with
+                                | backend_cuda.CudaDevice -> line s $"{t} v{i}[{tup_data b};"
+                                | backend_cuda.CudaHost -> line s $"thrust::device_vector<%s{t}> v{i}{{%s{tup_data b}}};"
                             true
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | TyJoinPoint(JPClosure(a,b),b') ->
@@ -334,15 +343,15 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
             | StackRefs -> sprintf "StackRefs%i &" (stack_refs a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
-            match Map.tryFind code_env.backend_name r with
+            match Map.tryFind "Cpp" r with
             | Some x -> tup_ty x
-            | None -> raise_codegen_error $"In the Cpp type backend_switch, expected a record with the '{code_env.backend_name}' field."
+            | None -> raise_codegen_error $"In the Cpp type backend_switch, expected a record with the 'Cpp' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> 
-            match code_env.backend_type_cpp with
-            | CppCudaDevice -> $"{tup_ty a} *"
-            | CppCudaHost -> $"thrust::device_vector<{tup_ty a}>"
+            match backend() with
+            | backend_cuda.CudaDevice -> $"{tup_ty a} *"
+            | backend_cuda.CudaHost-> $"thrust::device_vector<{tup_ty a}>"
         | YFun(a,b,t) -> $"Fun%i{(cfun (a,b,t)).tag}"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
@@ -409,7 +418,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend(a,b,c) -> line s $"auto kernel = {backend_handler (a,b,c)};"
+        | TyBackend(a,b,c) -> line s $"auto kernel = {backend_handler (a,b,c) (backend())};"
         | TyWhile(a,b) ->
             let cond =
                 match a with
@@ -469,10 +478,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     | Some b -> binds s ret b
                     | None -> 
                         line s "assert(\"Invalid tag.\" && false);"
-                        match code_env.backend_type with
-                        | CudaDevice -> line s "__trap();"
-                        | CudaHost -> line s "exit(-1);"
-                        | Python -> failwith "Compiler error: This is a Cpp codegen so we don't have to handle Python."
+                        match backend() with
+                        | backend_cuda.CudaDevice -> line s "__trap();"
+                        | backend_cuda.CudaHost -> line s "exit(-1);"
                 line s "}"
             line s "}"
         | TyUnionBox(a,b,c') ->
@@ -526,10 +534,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             let string_in_op = function DLit (LitString b) -> lit_string b | b -> raise_codegen_error "In the Cuda backend, the exception string must be a literal."
             let fmt = @"%s\n"
             line s $"printf(\"{fmt}\", {string_in_op b});"
-            match code_env.backend_type with
-            | CudaDevice -> line s "__trap();"
-            | CudaHost -> line s "exit(-1);"
-            | Python -> failwith "Compiler error: This is a Cpp codegen so we don't have to handle Python."
+            match backend() with
+            | backend_cuda.CudaDevice -> line s "__trap();"
+            | backend_cuda.CudaHost -> line s "exit(-1);"
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 
             let rec loop = function
@@ -538,9 +545,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             let args = loop b |> List.filter ((<>) "") |> String.concat ", "
             $"v{i}({args})" |> return'
         | TyArrayLength(_,b) -> 
-            match code_env.backend_type_cpp with
-            | CppCudaHost -> return' $"{tup_data b}.size()"
-            | CppCudaDevice -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
+            match backend() with
+            | backend_cuda.CudaHost -> return' $"{tup_data b}.size()"
+            | backend_cuda.CudaDevice -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
         | TySizeOf t -> return' $"sizeof({tup_ty t})"
         | TyOp(Global,[DLit (LitString x)]) -> global' x
@@ -608,20 +615,24 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x}{type_suffix} v{i};")
     and print_ordered_args s v = print_ordered_args' s "" v
     and method_template is_while : _ -> MethodRec =
-        jp (fun ((jp_body,key & (C(args,_))),i) ->
+        jp (fun (((jp_body,key & (C(args,_))),backend),i) ->
             match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-            | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=Option.map fix_method_name name}
+            | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=Option.map fix_method_name name; backend=backend}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s_fwd s_typ s_fun x ->
             let ret_ty = tup_ty x.range
             let fun_name = Option.defaultValue (if is_while then "while_method_" else "method_") x.name
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+            let __device__ =
+                match x.backend with
+                | backend_cuda.CudaHost -> ""
+                | backend_cuda.CudaDevice -> "__device__ "
             let inline_ = 
                 if is_while then "inline "
                 else 
-                    line s_fwd $"{code_env.__device__}{ret_ty} {fun_name}{x.tag}({args});"
+                    line s_fwd $"{__device__}{ret_ty} {fun_name}{x.tag}({args});"
                     if fun_name.StartsWith "noinline" then "__noinline__ " else ""
-            line s_fun $"{code_env.__device__}{inline_}{ret_ty} {fun_name}{x.tag}({args}){{"
+            line s_fun $"{__device__}{inline_}{ret_ty} {fun_name}{x.tag}({args}){{"
             binds_start (indent s_fun) x.body
             line s_fun "}"
             )
@@ -641,11 +652,11 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             x
             )
     and closure : _ -> ClosureRec =
-        jp (fun ((jp_body,key & (C(args,_,fun_ty))),i) ->
+        jp (fun (((jp_body,key & (C(args,_,fun_ty))),backend),i) ->
             match fun_ty with
             | YFun(domain,range,t) ->
                 match (fst part_eval_env.join_point_closure.[jp_body]).[key] with
-                | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; free_vars=rdata_free_vars args; funtype=t}
+                | Some(domain_args, body) -> {tag=i; domain=domain; range=range; body=body; free_vars=rdata_free_vars args; funtype=t; backend=backend}
                 | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             | _ -> raise_codegen_error "Compiler error: Unexpected type in the closure join point."
             ) (fun _ s_typ s_fun x ->
@@ -665,9 +676,13 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     |> String.concat " "
                     ) |> String.concat " " |> line s_fun
                 binds_start s_fun x.body
+            let __device__ =
+                match x.backend with
+                | backend_cuda.CudaHost -> ""
+                | backend_cuda.CudaDevice -> "__device__ "
             match x.funtype with
             | FT_Pointer ->
-                $"{code_env.__device__}{range} FunPointerMethod{i}({args}){{" |> line s_fun
+                $"{__device__}{range} FunPointerMethod{i}({args}){{" |> line s_fun
                 print_body s_fun
                 line s_fun "}"
             | FT_Vanilla | FT_Closure ->
@@ -685,8 +700,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     let () = // operator()
                         match x.funtype with
                         | FT_Pointer -> raise_codegen_error "Compiler error: The pointer case have been taken care of (2)."
-                        | FT_Vanilla -> line s_typ $"{code_env.__device__}{range} operator()({args}){{"
-                        | FT_Closure -> line s_typ $"{code_env.__device__}{range} operator()({args}) override {{"
+                        | FT_Vanilla -> line s_typ $"{__device__}{range} operator()({args}){{"
+                        | FT_Closure -> line s_typ $"{__device__}{range} operator()({args}) override {{"
                         print_body s_typ
                         line s_typ "}"
                     let () = // constructor
@@ -701,19 +716,19 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                                 x.free_vars
                                 |> Array.map (fun (L(i,t)) -> $"v{i}(_v{i})")
                                 |> String.concat ", "
-                            line s_typ $"{code_env.__device__}Closure{i}({constructor_args}) : {initializer_args} {{ }}"
+                            line s_typ $"{__device__}Closure{i}({constructor_args}) : {initializer_args} {{ }}"
                     let () = // destructor
                         match x.funtype with
                         | FT_Pointer | FT_Vanilla -> ()
                         | FT_Closure -> 
-                            let destructor_calls =
+                            let destructor_calls = // Cuda didn't support default destructors at the time of implementation.
                                 x.free_vars 
                                 |> Array.choose (fun (L(i,t)) -> 
                                     if is_numeric t || is_char t then None else
                                     Some $"destroy(v{i});" 
                                     )
                                 |> String.concat " "
-                            line s_typ $"{code_env.__device__}~Closure{i}() override {{ {destructor_calls} }}"
+                            line s_typ $"{__device__}~Closure{i}() override {{ {destructor_calls} }}"
                     ()
                 line s_typ "};"
             )
@@ -725,7 +740,11 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             | FT_Vanilla -> raise_codegen_error "Regular functions do not have a composable type in the Cuda backend. Consider explicitly converting them to either closures or pointers using `to_closure` or `to_fptr` if you want to pass them through boundaries."
             | FT_Pointer -> line s_fwd $"typedef {range} (* Fun{i})({domain_args_ty});"
             | FT_Closure ->
-                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; {code_env.__device__}virtual {range} operator()({domain_args_ty}) = 0; {code_env.__device__}virtual ~ClosureBase{i}(){{}}; }};"
+                let __device__ =
+                    match x.backend with
+                    | backend_cuda.CudaHost -> ""
+                    | backend_cuda.CudaDevice -> "__device__ "
+                line s_fwd $"struct ClosureBase{i} {{ int refc{{0}}; {__device__}virtual {range} operator()({domain_args_ty}) = 0; {__device__}virtual ~ClosureBase{i}(){{}}; }};"
                 line s_fwd $"typedef csptr<ClosureBase{i}> Fun{i};"
             )
     and tup : _ -> TupleRec = 
@@ -738,8 +757,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
             if args.Length <> 0 then
-                line (indent s_typ) $"{code_env.__device__}{name}() = default;"
-                line (indent s_typ) $"{code_env.__device__}{name}({concat args}) : {concat con_init} {{}}"
+                line (indent s_typ) $"__host__ __device__ {name}() = default;"
+                line (indent s_typ) $"__host__ __device__ {name}({concat args}) : {concat con_init} {{}}"
             line s_typ "};"
             )
     and unions : _ -> UnionRec = 
@@ -757,8 +776,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     let args = v |> Array.map (fun (L(i,x)) -> $"{tyv x} t{i}")
                     let con_init = v |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                     if v.Length <> 0 then 
-                        line s_typ $"{code_env.__device__}Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
-                        line s_typ $"{code_env.__device__}Union{i}_{tag}() = delete;" 
+                        line s_typ $"__host__ __device__ Union{i}_{tag}({concat args}) : {concat con_init} {{}}" 
+                        line s_typ $"__host__ __device__ Union{i}_{tag}() = delete;" 
                 line s_typ "};"
                 ) x.free_vars
                 
@@ -774,13 +793,13 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 if x.is_heap then line s_typ "int refc{0};"
                 if x.free_vars.Count > int max_tag then raise_codegen_error $"Too many union cases. They should not be more than {max_tag}."
                 line s_typ $"unsigned char tag{{{max_tag}}};"
-                line s_typ $"{code_env.__device__}Union{i}() {{}}" // default constructor, the refc and tag have def value so we don't have to do anything here.
+                line s_typ $"__host__ __device__ Union{i}() {{}}" // default constructor, the refc and tag have def value so we don't have to do anything here.
                 
                 map_iteri (fun tag k v -> // The constructors for all the union cases.
-                    line s_typ $"{code_env.__device__}Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
+                    line s_typ $"__host__ __device__ Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
                     ) x.free_vars
                 
-                line s_typ $"{code_env.__device__}Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
+                line s_typ $"__host__ __device__ Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -791,7 +810,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"{code_env.__device__}Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
+                line s_typ $"__host__ __device__ Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -802,7 +821,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"{code_env.__device__}Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
+                line s_typ $"__host__ __device__ Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "if (this->tag == x.tag) {" 
@@ -823,7 +842,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"{code_env.__device__}Union{i} & operator=(Union{i} && x) {{" // move assignment operator
+                line s_typ $"__host__ __device__ Union{i} & operator=(Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "if (this->tag == x.tag) {" 
@@ -844,7 +863,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"{code_env.__device__}~Union{i}() {{"
+                line s_typ $"__host__ __device__ ~Union{i}() {{"
                 let () = // destructor
                     let s_typ = indent s_typ
                     line s_typ "switch(this->tag){"
@@ -872,8 +891,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x}{type_suffix} t{i}")
                 let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                 if args.Length <> 0 then
-                    line s_typ $"{code_env.__device__}{name}() = default;"
-                    line s_typ $"{code_env.__device__}{name}({concat args}) : {concat con_init} {{}}" 
+                    line s_typ $"__host__ __device__ {name}() = default;"
+                    line s_typ $"__host__ __device__ {name}({concat args}) : {concat con_init} {{}}" 
             line s_typ "};"
             )
     and heap : _ -> LayoutRec = layout_tmpl true false "Heap"
@@ -884,66 +903,68 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
 
     function
     | ArgsCudaHost x ->
-        if code_env.backend_type_cpp <> CppCudaHost then raise_codegen_error "Compiler error: Expected CudaHost as the backend type"
-        let ret_ty =
-            let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
-            match binds_last_data x with
-            | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
-            | _ -> er()
-
-        import "thrust/device_vector.h"
-
-        let s = {text=StringBuilder(); indent=0}
-        line s $"{ret_ty} main() {{"
-        binds_start (indent s) x
-        line s "}"
-        code_env.main_defs.Add(s.text.ToString())
-    | ArgsCudaDevice(vs,x) ->
-        if code_env.backend_type_cpp <> CppCudaDevice then raise_codegen_error "Compiler error: Expected CppCudaDevice as the backend type"
-        let ret_ty =
-            let er() = raise_codegen_error "The return type of the __global__ kernel in the Cuda backend should be a void type or a record of type {cluster_dims : {x : int; y : int; z : int}}."
-            match binds_last_data x with
-            | DRecord m when m.Count = 1 ->
-                match Map.tryFind "cluster_dims" m with
-                | Some(DRecord m) when m.Count = 3 ->
-                    match Map.tryFind "x" m, Map.tryFind "y" m, Map.tryFind "z" m with
-                    | Some(DSymbol x), Some(DSymbol y), Some(DSymbol z) ->  $"void __cluster_dims__({x},{y},{z})"
-                    | Some(DV _), _, _
-                    | _, Some(DV _), _
-                    | _, _, Some(DV _) ->  raise_codegen_error "All the variables have to be known at compile time."
-                    | _ -> er()
+        substitute_backend_with backend_cuda.CudaHost <| fun () ->
+            let ret_ty =
+                let er() = raise_codegen_error "The return type of main function in the Cuda host backend should be a i32."
+                match binds_last_data x with
+                | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
                 | _ -> er()
-            | DB -> "void"
-            | _ -> er()
-        let s = {text=StringBuilder(); indent=0}
-        let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-        line s $"extern \"C\" __global__ {ret_ty} entry%i{code_env.main_defs.Count}(%s{args}) {{"
-        binds_start (indent s) x
-        line s "}"
-        code_env.main_defs.Add(s.text.ToString())
+
+            import "thrust/device_vector.h"
+
+            let s = {text=StringBuilder(); indent=0}
+            line s $"{ret_ty} main() {{"
+            binds_start (indent s) x
+            line s "}"
+            code_env.main_defs.Add(s.text.ToString())
+    | ArgsCudaDevice(vs,x) ->
+        substitute_backend_with backend_cuda.CudaDevice <| fun () ->
+            let ret_ty =
+                let er() = raise_codegen_error "The return type of the __global__ kernel in the Cuda backend should be a void type or a record of type {cluster_dims : {x : int; y : int; z : int}}."
+                match binds_last_data x with
+                | DRecord m when m.Count = 1 ->
+                    match Map.tryFind "cluster_dims" m with
+                    | Some(DRecord m) when m.Count = 3 ->
+                        match Map.tryFind "x" m, Map.tryFind "y" m, Map.tryFind "z" m with
+                        | Some(DSymbol x), Some(DSymbol y), Some(DSymbol z) ->  $"void __cluster_dims__({x},{y},{z})"
+                        | Some(DV _), _, _
+                        | _, Some(DV _), _
+                        | _, _, Some(DV _) ->  raise_codegen_error "All the variables have to be known at compile time."
+                        | _ -> er()
+                    | _ -> er()
+                | DB -> "void"
+                | _ -> er()
+            let s = {text=StringBuilder(); indent=0}
+            let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+            line s $"extern \"C\" __global__ {ret_ty} global_entry%i{code_env.main_defs.Count}(%s{args}) {{"
+            binds_start (indent s) x
+            line s "}"
+            code_env.main_defs.Add(s.text.ToString())
 
 let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
-    let host_code_env = codegen_env.Create CudaHost
-    let device_code_env = codegen_env.Create CudaDevice
+    let code_env = codegen_env.Create()
 
-    let cuda_codegen = 
-        codegen' (fun (jp_body,key,r') -> 
-            raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
-            ) part_eval_env device_code_env
-    codegen' (fun (jp_body,key,r') ->
-        let backend_name = (fst jp_body).node
-        match backend_name with
-        | "CudaDevice" ->
-            Utils.memoize g (fun (jp_body,key & C(args,_)) ->
-                let args = rdata_free_vars args
-                match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-                | Some a, Some _, _ -> cuda_codegen (ArgsCudaDevice(args, a))
-                | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                $"Device::entry{g.Count}"
-                ) (jp_body,key)
-        | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
-        ) part_eval_env host_code_env (ArgsCudaHost x)
+    let rec main_codegen =
+        codegen' (fun (jp_body,key,r') previous_backend ->
+            match previous_backend with
+            | backend_cuda.CudaHost ->
+                let backend_name = (fst jp_body).node
+                match backend_name with
+                | "CudaDevice" ->
+                    Utils.memoize g (fun (jp_body,key & C(args,_)) ->
+                        let args = rdata_free_vars args
+                        match (fst part_eval_env.join_point_method.[jp_body]).[key] with
+                        | Some a, Some _, _ -> main_codegen (ArgsCudaDevice(args, a))
+                        | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                        $"global_entry{g.Count}"
+                        ) (jp_body,key)
+                | x -> raise_codegen_error_backend r' $"The Cuda backend does not support the {x} backend."            
+            | backend_cuda.CudaDevice -> 
+                raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
+            ) part_eval_env code_env
+
+    main_codegen (ArgsCudaHost x)
 
     let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
     let indent_lines (x : string) =
@@ -960,26 +981,11 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         let file_name = IO.Path.GetFileNameWithoutExtension file_path
         StringBuilder()
             .AppendLine($"#include \"{file_name}.auto.cu\"")
-            .Append(append_lines host_code_env.globals)
-            .Append(append_lines device_code_env.globals)
-            .Append(
-                StringBuilder()
-                    .AppendLine("namespace Device {")
-                    .Append(
-                        StringBuilder()
-                            .AppendJoin("", device_code_env.fwd_dcls)
-                            .AppendJoin("", device_code_env.types)
-                            .AppendJoin("", device_code_env.functions)
-                            .AppendJoin("", device_code_env.main_defs)
-                            .ToString()
-                        |> indent_lines
-                    )
-            )
-            .AppendLine("}")
-            .AppendJoin("", host_code_env.fwd_dcls)
-            .AppendJoin("", host_code_env.types)
-            .AppendJoin("", host_code_env.functions)
-            .AppendJoin("", host_code_env.main_defs)
+            .Append(append_lines code_env.globals)
+            .AppendJoin("", code_env.fwd_dcls)
+            .AppendJoin("", code_env.types)
+            .AppendJoin("", code_env.functions)
+            .AppendJoin("", code_env.main_defs)
             .ToString()
 
     [

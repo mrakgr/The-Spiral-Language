@@ -468,11 +468,11 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
     let g = Dictionary(HashIdentity.Structural)
 
-    let host_code_env = codegen_env.Create Python
-    let device_code_env = codegen_env.Create CudaDevice
+    let host_code_env = codegen_env.Create()
+    let device_code_env = codegen_env.Create()
 
     let cuda_codegen = 
-        Cpp.codegen' (fun (jp_body,key,r') -> 
+        Cpp.codegen' (fun (jp_body,key,r') previous_backend -> 
             raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
             ) part_eval_env device_code_env
     let python_code =
@@ -517,6 +517,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendJoin("", device_code_env.functions)
             .AppendJoin("", device_code_env.main_defs)
             .AppendLine("\"\"\"")
+            .Replace("__host__ __device__", "__device__")
             .AppendLine($"from {file_name}_auto import *")
             .AppendLine("kernels = kernels_aux + kernels_main")
             .Append(append_lines host_code_env.globals)
