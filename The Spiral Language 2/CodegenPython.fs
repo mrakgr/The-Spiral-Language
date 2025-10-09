@@ -474,7 +474,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let cuda_codegen = 
         Cpp.codegen' (fun (jp_body,key,r') previous_backend -> 
             raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
-            ) part_eval_env device_code_env
+            ) part_eval_env (fun _ -> device_code_env)
     let python_code =
         codegen' (fun (jp_body,key,r') ->
             let backend_name = (fst jp_body).node

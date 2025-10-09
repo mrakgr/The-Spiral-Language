@@ -86,7 +86,7 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env) =
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cuda -> codegen_env) =
     let mutable backend_ref = backend_cuda.CudaHost
     let backend() = backend_ref
     /// Runs the closure with the new backend. Restores the old one after the backend has been executed.
@@ -104,9 +104,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         let f (a : _ ResizeArray) (b : string_builder_env) = 
             let text = b.text.ToString()
             if text <> "" then a.Add(text)
-        f code_env.fwd_dcls s_typ_fwd
-        f code_env.types s_typ
-        f code_env.functions s_fun
+        f (code_env (backend())).fwd_dcls s_typ_fwd
+        f (code_env (backend())).types s_typ
+        f (code_env (backend())).functions s_fun
 
     let layout show =
         let dict' = Dictionary(HashIdentity.Structural)
@@ -173,7 +173,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
 
     let global' =
         let has_added = HashSet()
-        fun x -> if has_added.Add(x) then code_env.globals.Add x
+        fun x -> if has_added.Add(x) then (code_env (backend())).globals.Add x
 
     let import x = global' $"#include <%s{x}>"
     let import' x = global' $"#include \"%s{x}\""
@@ -343,9 +343,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
             | StackRefs -> sprintf "StackRefs%i &" (stack_refs a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
-            match Map.tryFind "Cpp" r with
+            match Map.tryFind "Cuda" r with
             | Some x -> tup_ty x
-            | None -> raise_codegen_error $"In the Cpp type backend_switch, expected a record with the 'Cpp' field."
+            | None -> raise_codegen_error $"In the type backend_switch, expected a record with the 'Cuda' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> 
@@ -916,7 +916,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             line s $"{ret_ty} main() {{"
             binds_start (indent s) x
             line s "}"
-            code_env.main_defs.Add(s.text.ToString())
+            (code_env (backend())).main_defs.Add(s.text.ToString())
     | ArgsCudaDevice(vs,x) ->
         substitute_backend_with backend_cuda.CudaDevice <| fun () ->
             let ret_ty =
@@ -936,14 +936,18 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
                 | _ -> er()
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-            line s $"extern \"C\" __global__ {ret_ty} global_entry%i{code_env.main_defs.Count}(%s{args}) {{"
+            line s $"extern \"C\" __global__ {ret_ty} global_entry%i{(code_env (backend())).main_defs.Count}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
-            code_env.main_defs.Add(s.text.ToString())
+            (code_env (backend())).main_defs.Add(s.text.ToString())
 
 let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
-    let code_env = codegen_env.Create()
+    let code_env_host = codegen_env.Create()
+    let code_env_device = {code_env_host with functions = ResizeArray(); main_defs = ResizeArray() }
+    let code_env = function
+        | backend_cuda.CudaHost -> code_env_host
+        | backend_cuda.CudaDevice -> code_env_device
 
     let rec main_codegen =
         codegen' (fun (jp_body,key,r') previous_backend ->
@@ -981,11 +985,13 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         let file_name = IO.Path.GetFileNameWithoutExtension file_path
         StringBuilder()
             .AppendLine($"#include \"{file_name}.auto.cu\"")
-            .Append(append_lines code_env.globals)
-            .AppendJoin("", code_env.fwd_dcls)
-            .AppendJoin("", code_env.types)
-            .AppendJoin("", code_env.functions)
-            .AppendJoin("", code_env.main_defs)
+            .Append(append_lines code_env_host.globals)
+            .AppendJoin("", code_env_host.fwd_dcls)
+            .AppendJoin("", code_env_host.types)
+            .AppendJoin("", code_env_device.functions)
+            .AppendJoin("", code_env_device.main_defs)
+            .AppendJoin("", code_env_host.functions)
+            .AppendJoin("", code_env_host.main_defs)
             .ToString()
 
     [

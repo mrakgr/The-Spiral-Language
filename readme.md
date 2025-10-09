@@ -46,6 +46,7 @@
             - [Print Static](#print-static)
         - [Type Inference In Bottom-Up Style](#type-inference-in-bottom-up-style)
         - [Real Nominals And Inverse Arrays](#real-nominals-and-inverse-arrays)
+        - [Backend Switch](#backend-switch)
     - [Special behaviors in the Cuda backend](#special-behaviors-in-the-cuda-backend)
         - [noinline_ prefix in named join points](#noinline_-prefix-in-named-join-points)
         - [v variables in macros](#v-variables-in-macros)
@@ -2723,6 +2724,10 @@ v6
 ```
 
 F# has value structs so maybe this functionality on its own is not a big deal. It certainly has been advantageous in the old Cython backend which allocated composite types on the heap, but in the old Spiral what I've particularly found this functionality useful for is getting arrays past language boundaries. Different languages, F# and C for example, have structs of different sizes and it is hard to keep them straight. Primitive types on the other hand are much easier to pass around.
+
+### Backend Switch
+
+WIP
 
 ## Special behaviors in the Cuda backend
 

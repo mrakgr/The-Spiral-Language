@@ -1,3 +1,8 @@
+2.17.5 (prerelease) (10/9/2025)
+
+* Redesigned the Cuda backend so that value types such as static arrays, unions and tuples can be seamlessly passed through language boundaries.
+* The `backend_switch` at the type level work on `Cuda` on both backends.
+
 2.17.4 (prerelease) (9/30/2025)
 
 * Changed the semantics of the `stack_refs` type in the codegen so it has references as its fields instead of values.
