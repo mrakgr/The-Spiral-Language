@@ -799,7 +799,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                     line s_typ $"__host__ __device__ Union{i}(Union{i}_{tag} t) : tag({tag}), case{tag}(t) {{}} // {k}"
                     ) x.free_vars
                 
-                line s_typ $"__host__ __device__ Union{i}(Union{i} & x) : tag(x.tag) {{" // copy constructor
+                line s_typ $"__host__ __device__ Union{i}(const Union{i} & x) : tag(x.tag) {{" // copy constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -810,7 +810,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"__host__ __device__ Union{i}(Union{i} && x) : tag(x.tag) {{" // move constructor
+                line s_typ $"__host__ __device__ Union{i}(const Union{i} && x) : tag(x.tag) {{" // move constructor
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "switch(x.tag){"
@@ -821,7 +821,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                             ) x.free_vars
                     line s_typ "}"
                 line s_typ "}"
-                line s_typ $"__host__ __device__ Union{i} & operator=(Union{i} & x) {{" // copy assignment operator
+                line s_typ $"__host__ __device__ Union{i} & operator=(const Union{i} & x) {{" // copy assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "if (this->tag == x.tag) {" 
@@ -842,7 +842,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                     line s_typ "}"
                     line s_typ "return *this;"
                 line s_typ "}"
-                line s_typ $"__host__ __device__ Union{i} & operator=(Union{i} && x) {{" // move assignment operator
+                line s_typ $"__host__ __device__ Union{i} & operator=(const Union{i} && x) {{" // move assignment operator
                 let () =
                     let s_typ = indent s_typ
                     line s_typ "if (this->tag == x.tag) {" 

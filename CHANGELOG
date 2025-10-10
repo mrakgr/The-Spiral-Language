@@ -1,3 +1,8 @@
+2.17.6 (prerelease) (10/10/2025)
+
+* Fixed an premature delete in the `corelib.cuh`'s `sptr` class.
+* Added the const qualifiers on the union types' constructors and assignment operators.
+
 2.17.5 (prerelease) (10/9/2025)
 
 * Redesigned the Cuda backend so that value types such as static arrays, unions and tuples can be seamlessly passed through language boundaries.

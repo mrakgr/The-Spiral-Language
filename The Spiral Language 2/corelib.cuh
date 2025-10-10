@@ -38,7 +38,7 @@ struct sptr // Shared pointer for the Spiral datatypes. They have to have the re
         }
     }
 
-    __host__ sptr(sptr& x)
+    __host__ sptr(const sptr& x)
     {
         this->base = x.base;
         this->base->refc++;
@@ -50,22 +50,22 @@ struct sptr // Shared pointer for the Spiral datatypes. They have to have the re
         x.base = nullptr;
     }
 
-    __host__ sptr& operator=(sptr& x)
+    __host__ sptr& operator=(const sptr& x)
     {
         if (this->base != x.base)
         {
-            delete this->base;
+            if (this->base != nullptr && --this->base->refc == 0) { delete this->base; }
             this->base = x.base;
             this->base->refc++;
         }
         return *this;
     }
-
+    
     __host__ sptr& operator=(sptr&& x)
     {
         if (this->base != x.base)
         {
-            delete this->base;
+            if (this->base != nullptr && --this->base->refc == 0) { delete this->base; }
             this->base = x.base;
             x.base = nullptr;
         }
@@ -104,11 +104,11 @@ struct static_array_list
         assert("The index has to be in range." && 0 <= i && i < this->length);
         return this->ptr[i];
     }
-    __host__ void push(el& x) {
+    __host__ void push(const el& x) {
         ptr[this->length++] = x;
         assert("The array after pushing should not be greater than max length." && this->length <= max_length);
     }
-    __host__ void push(el&& x) {
+    __host__ void push(const el&& x) {
         ptr[this->length++] = std::move(x);
         assert("The array after pushing should not be greater than max length." && this->length <= max_length);
     }
@@ -168,11 +168,11 @@ struct dynamic_array_list_base
         assert("The index has to be in range." && 0 <= i && i < this->length);
         return this->ptr[i];
     }
-    __host__ void push(el& x) {
+    __host__ void push(const el& x) {
         ptr[this->length++] = x;
         assert("The array after pushing should not be greater than max length." && this->length <= max_length);
     }
-    __host__ void push(el&& x) {
+    __host__ void push(const el&& x) {
         ptr[this->length++] = std::move(x);
         assert("The array after pushing should not be greater than max length." && this->length <= max_length);
     }
@@ -201,10 +201,10 @@ struct dynamic_array_list
     __host__ el& operator[](default_int i) {
         return this->ptr.base->operator[](i);
     }
-    __host__ void push(el& x) {
+    __host__ void push(const el& x) {
         this->ptr.base->push(x);
     }
-    __host__ void push(el&& x) {
+    __host__ void push(const el&& x) {
         this->ptr.base->push(std::move(x));
     }
     __host__ el pop() {
