@@ -1,6 +1,6 @@
 2.17.7 (prerelease) (10/12/2025)
 
-* Modified the parser so that in the bottom up segment it wraps join points in their let rec return types.
+* Modified the parser so that in the bottom up segment it wraps join points in their let statement annotation's return type. Previously, it was wrapping the body rather than the join point which caused the downstream passes to miss it.
 
 2.17.6 (prerelease) (10/10/2025)
 
