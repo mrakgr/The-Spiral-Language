@@ -763,7 +763,9 @@ let patterns_validate pats =
 
 let join_point is_let name = function // Has the effect of removing nested join points due to not duplicating them.
     | RawJoinPoint(a,b,c,_) -> RawJoinPoint(a,b,c,name)
-    | x -> if is_let then RawJoinPoint(range_of_expr x, None, x, name) else x
+    | RawAnnot(r,a,b) when is_let -> RawAnnot(r, RawJoinPoint(r, None, a, name), b)
+    | x when is_let -> RawJoinPoint(range_of_expr x, None, x, name) 
+    | x -> x
 let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b, None)
 
 /// Some places need unique string refs, so this is to keep the compiler from interning static strings.

@@ -1,0 +1,8 @@
+// Is the parser is wrapping the function annotation around the join point correctly in the bottom up segment.
+// Before v2.17.7 this would have cause a compile time error. Don't run this one. 
+
+inl main() =
+    real
+        let rec f x : () = f x
+        f ()
+    0i32
