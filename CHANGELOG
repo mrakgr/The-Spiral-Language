@@ -1,3 +1,7 @@
+2.17.8 (prerelease) (10/26/2025)
+
+* Changed the generated array type from the `thrust::device_vector` to a regular pointer in the Cuda host backend.
+
 2.17.7 (prerelease) (10/12/2025)
 
 * Modified the parser so that in the bottom up segment it wraps join points in their let statement annotation's return type. Previously, it was wrapping the body rather than the join point which caused the downstream passes to miss it.

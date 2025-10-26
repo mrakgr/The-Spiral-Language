@@ -64,7 +64,7 @@ type ClosureRec = {tag : int; free_vars : TyV[]; domain : Ty; range : Ty; funtyp
 type TupleRec = {tag : int; tys : Ty []}
 type CFunRec = {tag : int; domain : Ty; range : Ty; funtype : FunType; backend : backend_cuda}
 
-// Replaces the invalid symbols in Spiral method names for the C backend.
+// Replaces the invalid symbols in Spiral method names for the C++ backend.
 let fix_method_name (x : string) = x.Replace(''','_') + "_"
 
 let unroll_pop (s : Stack<int>) = if s.Count > 0 then s.Pop() else -1
@@ -267,9 +267,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                         let inits = List.map tup_data b' |> String.concat ","
                         match d with
                         | [|L(i,YArray t)|] -> // For the regular arrays.
-                            match backend() with
-                            | backend_cuda.CudaDevice -> line s $"%s{tup_ty t} v{i}[] = {{%s{inits}}};"
-                            | backend_cuda.CudaHost -> line s $"thrust::device_vector<%s{tup_ty t}> v{i} = {{%s{inits}}};"
+                            line s $"%s{tup_ty t} v{i}[] = {{%s{inits}}};"
                             true
                         | _ ->
                             raise_codegen_error "Compiler error: Expected a single variable on the left side of an array literal op."
@@ -278,10 +276,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                         | [|L(i,YArray t)|] -> 
                             match tup_ty t with
                             | "void" -> line s "/* void array create */"
-                            | t -> 
-                                match backend() with
-                                | backend_cuda.CudaDevice -> line s $"{t} v{i}[{tup_data b};"
-                                | backend_cuda.CudaHost -> line s $"thrust::device_vector<%s{t}> v{i}{{%s{tup_data b}}};"
+                            | t -> line s $"{t} v{i}[{tup_data b};"
                             true
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | TyJoinPoint(JPClosure(a,b),b') ->
@@ -348,10 +343,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             | None -> raise_codegen_error $"In the type backend_switch, expected a record with the 'Cuda' field."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> 
-            match backend() with
-            | backend_cuda.CudaDevice -> $"{tup_ty a} *"
-            | backend_cuda.CudaHost-> $"thrust::device_vector<{tup_ty a}>"
+        | YArray a -> $"{tup_ty a} *"
         | YFun(a,b,t) -> $"Fun%i{(cfun (a,b,t)).tag}"
         | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | YForall -> raise_codegen_error "Foralls are not supported at runtime. They are a compile time feature only."
@@ -558,7 +550,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             | Dyn,[a] -> tup_data a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup_data a) (tup_data b)
-            | StringSlice, [a;b;c] -> raise_codegen_error "String slice is not supported natively in the C backend. Use a library implementation instead."
+            | StringSlice, [a;b;c] -> raise_codegen_error "String slice is not supported natively in the C++ backend. Use a library implementation instead."
             | ArrayIndex, [DV(L(_,YArray t)) & a;b] -> 
                 match tup_ty t with
                 | "void" -> "/* void array index */"
@@ -909,8 +901,6 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                 match binds_last_data x with
                 | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
                 | _ -> er()
-
-            import "thrust/device_vector.h"
 
             let s = {text=StringBuilder(); indent=0}
             line s $"{ret_ty} main() {{"
