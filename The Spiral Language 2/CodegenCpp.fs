@@ -276,7 +276,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                         | [|L(i,YArray t)|] -> 
                             match tup_ty t with
                             | "void" -> line s "/* void array create */"
-                            | t -> line s $"{t} v{i}[{tup_data b};"
+                            | t -> line s $"{t} v{i}[{tup_data b}];"
                             true
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | TyJoinPoint(JPClosure(a,b),b') ->
