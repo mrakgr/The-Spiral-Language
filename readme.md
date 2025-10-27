@@ -53,6 +53,7 @@
         - [Stack mutable layout types](#stack-mutable-layout-types)
         - [Stack refs and heap refs layout types](#stack-refs-and-heap-refs-layout-types)
     - [Known Bugs](#known-bugs)
+        - [Function application does not pass information into the left branch](#function-application-does-not-pass-information-into-the-left-branch)
 
 <!-- /TOC -->
 
@@ -3003,3 +3004,71 @@ int main() {
 ## Known Bugs
 
 * There is a name collision between Spiral and a [DSL](https://www.spiral.net/) by the same name. This is purely coincidental and there is no association between the two.
+
+### Function application does not pass information into the left branch
+
+Consider the following F# fragment.
+
+```fsharp
+[{|x = 1|}] |> List.fold (fun a b -> b.x) 0
+```
+
+In F# the information flowing from the pipe operator and into the `List.fold (fun a b -> b.x)` would make the above fragment without issue. In Spiral however...
+
+```spiral
+[{x=1}] |> listm.fold (fun a b => b.x) 0i32
+```
+```
+Unification failure.
+Got:      list (.x -> i32) -> i32
+Expected: list {x : _} -> 'a
+```
+
+The reason for this discrepancy between the two languages is that F# doesn't have symbol types, so it can peek at the right side of the function application to see if it's a method call, and react appropriately. Because Spiral has a more powerful type system, it at the same time requires more handholding and it wasn't possible to do inference in function application nodes the same way as in F#.
+
+Assuming you have a fragment `f a` where `f` is potentially a function and `a` can be of any type, F# will assume that `f` is a function, while Spiral also has to account that `f` might be a record, a module, or a record wrapped in a nominal in addition to being a function. So as a consequence, the type inferencer does do the usual outside in type inference, but instead evaluates `f` first to see what type it actually is before applying it.
+
+This has the effect of not passing information from other parts of the program into the left side of the function application, so you might need a type annotation where in F# the pipe operator `|>` would have sufficed.
+
+Alternatively, you could write the above as...
+
+```
+(0i32, [{x=1}]) ||> listm.fold (fun a b => b.x) 
+```
+
+Now `(fun a b => b.x)` is on the right side of a function application so the information gets propagated into it as you'd expect.
+
+Just for demonstration purposes, it would have also worked to write the `fold` function as...
+
+```
+inl fold s f l = listm.fold f s l
+[{x=1}] |> fold 0i32 (fun a b => b.x) 
+```
+
+Here the `fun a b => b.x` is on the right side of the function application and the type information gets propagated into it from the outside as you'd expect.
+
+When writing an expression that makes use of the pipe operator such as `a |> f b` just keep in mind that `f` will initially get unified with a bare metavariable which might lead to some confusing error messages. Here is a recent example (as of 10/27/2025) that I ran into while working on the pickler library for Hopfield dictionaries...
+
+```
+l |> listm.fold (fun s (exists k v. k, v) => s + loop v) 0
+```
+```
+The variable being destructured in the pattern match need to be explicitly annotated and with an existential type.
+Got: exists k v. k * pickler v
+```
+
+The error message is incredibly misleading here because the type is right there in the error message! If you just copy paste it into the function like in the follwing example it starts working.
+
+```
+l |> listm.fold (fun s (exists k v. k, v : exists k v. k * pickler v) => s + loop v) 0
+```
+
+Internally, this is because when the error happens, it does not in fact have the necessary information and only sees a metavariable. It's only later that the metavariable gets unified with the information coming from the pipe operator and gets displayed as an actual type to the user.
+
+Of course, it's possible to also write it like this...
+
+```
+(0i32, l) ||> listm.fold (fun s (exists k v. k, v) => s + loop v)
+```
+
+This also works and doesn't require an annotation. It seems like it would be so easy to fix this and I dislike that this is the current behavior of the type inferencer, but I cannot think of a way to do it at the moment.
