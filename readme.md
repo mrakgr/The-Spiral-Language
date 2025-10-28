@@ -1585,6 +1585,20 @@ inl eq forall a b. (a : a) (b : b) =
 
 If you hover over the variables in the editor you'll see that both `a` and `b` have the same `b` type in the true branch. This functionality could have otherwise be gotten with just GADTs, but it would be unwieldy to compare types directly using them.
 
+Note that `if type` doesn't allow the usual `&&` or `||` boolean operators, it's a special construct that compares two types, and the use of the `=` operator is built into the parser. If you want to compare more than two types at the same time for equality what you could do is put them in a tuple.
+
+```
+inl eq forall a b. (a : a) (b : b) =
+    if type a * a = b * b then
+        inl q : a = a
+        inl w : b = a
+        a = b
+    else
+        false
+```
+
+The use of the product types makes the && operator unnecessary.
+
 ### Higher Ranked Types
 
 Spiral (as of v.2.13.0) has support for higher ranked types in the top down segment. The foralls can be written as types anywhere, and types containing them can be stored in nominals and union types. Here is an example.
