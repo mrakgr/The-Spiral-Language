@@ -1585,7 +1585,7 @@ inl eq forall a b. (a : a) (b : b) =
 
 If you hover over the variables in the editor you'll see that both `a` and `b` have the same `b` type in the true branch. This functionality could have otherwise be gotten with just GADTs, but it would be unwieldy to compare types directly using them.
 
-Note that `if type` doesn't allow the usual `&&` or `||` boolean operators, it's a special construct that compares two types, and the use of the `=` operator is built into the parser. If you want to compare more than two types at the same time for equality what you could do is put them in a tuple.
+Note that `if type` doesn't allow the usual `&&` or `||` boolean operators, it's a special construct for type equality comparison, and the use of the `=` operator is built into the parser. It's not possible to use `<>` to compare for unequality. And if you want to compare more than two types at the same time for equality without nesting `if type` expressions, what you should do is put them in a tuple.
 
 ```
 inl eq forall a b. (a : a) (b : b) =
