@@ -35,6 +35,7 @@
         - [Prototypes](#prototypes)
         - [Existentials](#existentials)
         - [GADTs](#gadts)
+            - [if type for type equality](#if-type-for-type-equality)
         - [Higher Ranked Types](#higher-ranked-types)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
     - [Notes On Arrays](#notes-on-arrays)
@@ -1545,6 +1546,44 @@ union option t =
 These two types are otherwise equivalent, but while vanilla unions are fully generic, GADTs can be specialized making them a lot more powerful and expressive.
 
 It's possible to mix and match regular and GADT union cases without issue.
+
+#### `if type` for type equality
+
+Since v2.17.9 it is possible to check for type equality in the top down segment using the `if type` expressions.
+
+```spiral
+inl is_type_equal forall a b. (a : a) (b : b) =
+    if type a = b then
+        true
+    else
+        false
+```
+
+It was possible to do this previously in the bottom up segment using an expression like 
+
+```
+if `(a) `= `(b) then ()
+```
+
+Now this can be rewritten like the following and works in the top down segment...
+
+```
+if type a = b then ()
+```
+
+The big benefit of this is that if you try using the variables in the top down segment, the compiler will know that inside the true branches they have equal types. For example...
+
+```
+inl eq forall a b. (a : a) (b : b) =
+    if type a = b then
+        inl q : a = a
+        inl w : b = a
+        a = b
+    else
+        false
+```
+
+If you hover over the variables in the editor you'll see that both `a` and `b` have the same `b` type in the true branch. This functionality could have otherwise be gotten with just GADTs, but it would be unwieldy to compare types directly using them.
 
 ### Higher Ranked Types
 

@@ -403,6 +403,8 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawHeapMutableSet(_,a,b,c) -> cterm constraints (term, ty) a; List.iter (cterm constraints (term, ty)) b; cterm constraints (term, ty) c
         | RawSeq(_,a,b) | RawPair(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints (term, ty) a; cterm constraints (term, ty) b
         | RawIfThenElse(_,a,b,c) -> cterm constraints (term, ty) a; cterm constraints (term, ty) b; cterm constraints (term, ty) c
+        | RawTypeIfThenElse(_,a,b,c,d) -> ctype constraints term ty a; ctype constraints term ty b; cterm constraints (term, ty) c; cterm constraints (term, ty) d
+        | RawTypeIfThen(_,a,b,c) -> ctype constraints term ty a; ctype constraints term ty b; cterm constraints (term, ty) c
         | RawMissingBody r -> errors.Add(r,MissingBody)
     and cmacro constraints term ty a =
         List.iter (function
@@ -934,6 +936,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | _ -> q
             | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,f a,f b,f c)
             | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
+            | RawTypeIfThenElse(r,a,b,c,d) -> RawTypeIfThenElse(r,a,b,f c,f d)
+            | RawTypeIfThen(r,a,b,c) -> RawTypeIfThen(r,a,b,f c)
             | RawPair(r,a,b) -> RawPair(r,f a,f b)
             | RawSeq(r,a,b) -> RawSeq(r,f a,f b)
             | RawHeapMutableSet(r,a,b,c) -> RawHeapMutableSet(r,f a,List.map f b,f c)
@@ -1261,6 +1265,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             term scope env w b
             dispose_gadt_links gadt_links
             gadt_typecases.Add(b,gadt_typecases')
+        let inline type_if_then_else r type_a type_b tr =
+            let gadt_links = ResizeArray()
+            let q,w = fresh_var scope, fresh_var scope
+            ty_init scope env q type_a; ty_init scope env w type_b
+            unify_gadt (Some gadt_links) r q w
+            f s tr
+            dispose_gadt_links gadt_links
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a,is_tvar_applied) -> rawv (r,a,is_tvar_applied)
@@ -1269,6 +1280,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawSymbol(r,x) -> unify r s (TySymbol x)
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
         | RawIfThen(r,cond,tr) -> f (TyPrim BoolT) cond; unify r s TyB; f TyB tr
+        | RawTypeIfThenElse(r,type_a,type_b,tr,fl) -> type_if_then_else r type_a type_b tr; f s fl
+        | RawTypeIfThen(r,type_a,type_b,tr) -> unify r s TyB; type_if_then_else r type_a type_b tr
         | RawPair(r,a,b) ->
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyPair(q, w))

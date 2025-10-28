@@ -329,6 +329,8 @@ and RawExpr =
     | RawApply of VSCRange * RawExpr * RawExpr
     | RawIfThenElse of VSCRange * RawExpr * RawExpr * RawExpr
     | RawIfThen of VSCRange * RawExpr * RawExpr
+    | RawTypeIfThenElse of VSCRange * RawTExpr * RawTExpr * RawExpr * RawExpr
+    | RawTypeIfThen of VSCRange * RawTExpr * RawTExpr * RawExpr
     | RawPair of VSCRange * RawExpr * RawExpr
     | RawSeq of VSCRange * RawExpr * RawExpr
     | RawLayoutIndex of VSCRange * RawExpr
@@ -423,8 +425,10 @@ let range_of_expr = function
     | RawSeq(r,_,_)
     | RawHeapMutableSet(r,_,_,_)
     | RawRecordWith(r,_,_,_)
+    | RawTypeIfThen(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
-    | RawOpen(r,_,_,_) -> r
+    | RawOpen(r,_,_,_) 
+    | RawTypeIfThenElse(r,_,_,_,_) -> r
 
 let rawv (r,x) = RawV(r,x,true)
     
@@ -1176,17 +1180,28 @@ and root_term d =
                     | ers -> Error ers) d
 
         let case_default_value = read_default_value RawDefaultLit RawLit
+        let case_type_if_then_else d =
+            let i = col d
+            let inline f' keyword = range (skip_keyword keyword >>. next)
+            let inline f keyword = indent i (<=) (f' keyword)
+            let f_init = indent i (<=) (range (attempt (skip_keyword SpecIf >>. skip_keyword SpecType) >>. (root_type_annot .>>. (skip_op "=" >>. root_type_annot))))
+            pipe3 f_init (f SpecThen) (opt (f SpecElse))
+                (fun cond tr fl -> 
+                    match fl with
+                    | Some fl -> RawTypeIfThenElse(fst cond +. fst fl,(snd >> fst) cond, (snd >> snd) cond,snd tr,snd fl)
+                    | None -> RawTypeIfThen(fst cond +. fst tr,(snd >> fst) cond, (snd >> snd) cond,snd tr)
+                    ) d
         let case_if_then_else d =
             let i = col d
             let inline f' keyword = range (skip_keyword keyword >>. next)
             let inline f keyword = indent i (<=) (f' keyword)
-            (pipe4 (f' SpecIf) (f SpecThen) (many (f SpecElif .>>. f SpecThen)) (opt (f SpecElse))
+            pipe4 (f' SpecIf) (f SpecThen) (many (f SpecElif .>>. f SpecThen)) (opt (f SpecElse))
                 (fun cond tr elifs fl -> 
                     let f cond tr = function
                         | Some fl -> fst fl, RawIfThenElse(fst cond +. fst fl,snd cond,snd tr,snd fl)
                         | None -> fst tr, RawIfThen(fst cond +. fst tr,snd cond,snd tr)
                     let fl = List.foldBack (fun (cond,tr) fl -> f cond tr fl |> Some) elifs fl
-                    f cond tr fl |> snd)) d
+                    f cond tr fl |> snd) d
         
         let case_match =
             let clauses d = 
@@ -1274,7 +1289,7 @@ and root_term d =
 
         (case_value + case_default_value + case_var + case_join_point + case_join_point_backend + case_real + case_symbol
         + case_typecase + case_match + case_typecase + case_rounds + case_list + case_record
-        + case_if_then_else + case_fun + case_forall + case_string + case_macro + case_exists) d
+        + case_type_if_then_else + case_if_then_else + case_fun + case_forall + case_string + case_macro + case_exists) d
 
     and application_tight d =
         let next = expressions

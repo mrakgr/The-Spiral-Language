@@ -1,33 +1,12 @@
-// A test to see if the type information is flowing from left to right in the correct way.
-union rec list a = Nil | Cons : a * list a
+// Does `if type` work?
 
-// forall 'a 'b. 'a -> ('a -> 'b) -> 'b
-inl (|>) forall a b. (a : a) (f : a -> b) : b = real ()
-// forall 'a 'b. ('a -> 'b -> 'a) -> 'a -> list 'b -> 'a
-inl fold forall a b. (f : a -> b -> a) (s : a) (l : list b) : a = real ()
+inl is_type_equal forall a b. (a : a) (b : b) =
+    if type a = b then
+        true
+    else
+        false
 
-inl qwe (l : list {x : int}) : int =
-    l |> fold (fun a b => b.x) 0
-
-// RawApply
-//   (,
-//    RawApply
-//      (,
-//       RawV (, "|>", true),
-//       RawV (, "l", true)),
-//    RawApply
-//      (,
-//       RawApply
-//         (,
-//          RawV (, "fold", true),
-//          RawFun
-//            (,
-//             [(PatVar (, "a"),
-//               RawFun
-//                 (,
-//                  [(PatVar (, "b"),
-//                    RawApply
-//                      (,
-//                       RawV (, "b", true),
-//                       RawSymbol (, "x")))]))])),
-//       RawDefaultLit (, "0")))
+inl main() =
+    inl ~_ = is_type_equal true 0i32
+    inl ~_ = is_type_equal true false
+    0i32

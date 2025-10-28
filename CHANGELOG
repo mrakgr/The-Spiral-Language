@@ -1,3 +1,7 @@
+2.17.9 (prerelease) (10/28/2025)
+
+* Added `if type` expressions to the language.
+
 2.17.8 (prerelease) (10/26/2025)
 
 * Changed the generated array type from the `thrust::device_vector` to a regular pointer in the Cuda host backend.

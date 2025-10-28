@@ -107,6 +107,8 @@ and fold_offset_term offset x =
     | RawOpen(r,a,b,c) -> RawOpen(g r,add_offset_hovar offset a,add_offset_hovar_list offset b,f c)
     | RawApply(r,a,b) -> RawApply(g r,f a,f b)
     | RawIfThenElse(r,a,b,c) -> RawIfThenElse(g r,f a,f b,f c)
+    | RawTypeIfThenElse(r,a,b,c,d) -> RawTypeIfThenElse(g r,ty a,ty b,f c, f d)
+    | RawTypeIfThen(r,a,b,c) -> RawTypeIfThen(g r,ty a,ty b,f c)
     | RawIfThen(r,a,b) -> RawIfThen(g r,f a,f b)
     | RawPair(r,a,b) -> RawPair(g r,f a,f b)
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
