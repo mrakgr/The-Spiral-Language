@@ -1,3 +1,14 @@
+2.18.0 (prerelease) (10/31/2025)
+
+Extended the Cuda backend so it does host side compilation using g++. In essence, another layer has been added to the backend, making it a triple nested backend. This will allow easy use of the C++ libraries that NVCC cannot handle. The motivation for this work was getting max performance out of Eigen and also getting the Crow web library to work. I am also decently sure that NVCC would choke on Boost, but now since g++ is being used for host side compilation that won't be an issue anymore. 
+
+Currently the C++ backend supports 3 different ones:
+* CppHost (g++)
+* CudaHost (nvcc)
+* CudaDevice (nvcc)
+
+It's possible to write Cuda host side code that will get compiled using nvcc, by using the `CudaHost` backend. More info will be added to the docs.
+
 2.17.9 (prerelease) (10/28/2025)
 
 * Added `if type` expressions to the language.

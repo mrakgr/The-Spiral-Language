@@ -940,11 +940,10 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             let code_env = code_env (backend())
-            // TODO: Bring back extern "C". The Python backend will need it.
             code_env.fwd_dcls.Add $"#ifdef __CUDACC__\n"
-            code_env.fwd_dcls.Add $"__global__ {ret_ty} {backend_entry_name}(%s{args});\n"
+            code_env.fwd_dcls.Add $"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args});\n"
             code_env.fwd_dcls.Add $"#endif\n"
-            line s $"__global__ {ret_ty} {backend_entry_name}(%s{args}) {{"
+            line s $"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
             code_env.main_defs.Add(s.text.ToString())
