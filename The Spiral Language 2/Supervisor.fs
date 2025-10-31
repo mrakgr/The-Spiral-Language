@@ -373,9 +373,9 @@ let supervisor_server (default_env : Startup.DefaultEnv) atten (errors : Supervi
                                 let d = Dictionary()
                                 env.nominals |> Map.iter (fun k v -> d.Add(k, t.Add {|v with id=k|}))
                                 d
-                            try
+                            try 
                                 let inline build_many codegen backend =
-                                    let (a,ty),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals; backend=backend} main
+                                    let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals; backend=backend} main
                                     BuildOk (codegen file b a)
                                 let build codegen backend file_extension =
                                     build_many (fun file b a -> [{|code = codegen b a; file_extension = file_extension|}]) backend
@@ -383,7 +383,7 @@ let supervisor_server (default_env : Startup.DefaultEnv) atten (errors : Supervi
                                 | "Fsharp" -> build Codegen.Fsharp.codegen "Fsharp" ".fsx"
                                 | "C" -> build Codegen.C.codegen "C" ".c"
                                 | "Python + Cuda" -> build_many (Codegen.Python.codegen default_env) "Python"
-                                | "Cpp + Cuda" -> build_many (Codegen.Cpp.codegen default_env) "CppHost"
+                                | "Cpp + Cuda" -> build_many (Codegen.Cpp.codegen default_env) "CudaHost"
                                 | "Cuda C++" -> BuildFatalError "The host C++ backend originally made for FPGAs, and then ported to Cuda has been removed in v2.10.0 of Spiral. Please use an earlier version to access it." // Date: 5/8/2024
                                 | "Python" -> BuildFatalError "The prototype Python backend has been replaced by the Python + Cuda one in v2.5.0 of Spiral. Please use an earlier version to access it." // Date: 11/3/2023
                                 | "UPMEM: Python + C" -> BuildFatalError "The UPMEM Python + C backend has been replaced by the Python + Cuda one in v2.5.0 of Spiral. Please use an earlier version to access it." // Date: 11/3/2023

@@ -13,9 +13,9 @@ open System.Text
 open System.Collections.Generic
 
 type backend_args =
-    | ArgsCudaDevice of args : L<int,Ty>[] * binds : TypedBind[]
-    | ArgsCudaHost of args : L<int,Ty>[] * binds: TypedBind[]
-    | ArgsCppHost of binds : TypedBind[]
+    | ArgsCudaDevice of args : L<int,Ty>[] * binds : TypedBind[] * backend_entry_name : string
+    | ArgsCudaHost of args : L<int,Ty>[] * binds: TypedBind[] * backend_entry_name : string
+    | ArgsCppHost of binds : TypedBind[] * backend_entry_name : string
 
 let private max_tag = 255uy
 
@@ -88,7 +88,7 @@ let lit_string x =
     strb.ToString()
 
 let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env) =
-    let mutable backend_ref = backend_cpp.CudaHost
+    let mutable backend_ref = backend_cpp.CppHost
     let backend() = backend_ref
     /// Runs the closure with the new backend. Restores the old one after the backend has been executed.
     let inline substitute_backend_with backend f = 
@@ -895,31 +895,34 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
     and stack_refs : _ -> LayoutRec = layout_tmpl false true "StackRefs"
 
     function
-    | ArgsCppHost x ->
+    | ArgsCppHost(x,backend_entry_name) ->
         substitute_backend_with backend_cpp.CppHost <| fun () ->
             let ret_ty =
-                let er() = raise_codegen_error "The return type of main function in the Cpp host backend should be a i32."
+                let er() = raise_codegen_error $"The return type of {backend_entry_name} function in the Cpp host backend should be a i32."
                 match binds_last_data x with
                 | DLit(LitInt32 _) | DV(L(_, YPrim Int32T)) -> "int"
                 | _ -> er()
 
             let s = {text=StringBuilder(); indent=0}
-            line s $"{ret_ty} main() {{"
+            line s $"{ret_ty} {backend_entry_name}() {{"
             binds_start (indent s) x
             line s "}"
             (code_env (backend())).main_defs.Add(s.text.ToString())
-    | ArgsCudaHost(vs,x) ->
+    | ArgsCudaHost(vs,x,backend_entry_name) ->
         substitute_backend_with backend_cpp.CudaHost <| fun () ->
-            let ret_ty = binds_last_data x |> tup_data
+            let ret_ty =
+                match binds_last_data x with
+                | DB -> "void"
+                | _ -> raise_codegen_error "The return type of the entry in the Cuda host backend should be a void type."
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             let code_env = code_env (backend())
-            code_env.fwd_dcls.Add $"{ret_ty} cuda_host_entry%i{code_env.main_defs.Count}(%s{args});"
-            line s $"{ret_ty} cuda_host_entry%i{code_env.main_defs.Count}(%s{args}) {{"
+            code_env.fwd_dcls.Add $"{ret_ty} {backend_entry_name}(%s{args});\n"
+            line s $"{ret_ty} {backend_entry_name}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
             code_env.main_defs.Add(s.text.ToString())
-    | ArgsCudaDevice(vs,x) ->
+    | ArgsCudaDevice(vs,x,backend_entry_name) ->
         substitute_backend_with backend_cpp.CudaDevice <| fun () ->
             let ret_ty =
                 let er() = raise_codegen_error "The return type of the __global__ kernel in the Cuda backend should be a void type or a record of type {cluster_dims : {x : int; y : int; z : int}}."
@@ -937,8 +940,11 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             let code_env = code_env (backend())
-            code_env.fwd_dcls.Add $"__global__ {ret_ty} cuda_device_entry%i{code_env.main_defs.Count}(%s{args});"
-            line s $"__global__ {ret_ty} cuda_device_entry%i{code_env.main_defs.Count}(%s{args}) {{"
+            // TODO: Bring back extern "C". The Python backend will need it.
+            code_env.fwd_dcls.Add $"#ifdef __CUDACC__\n"
+            code_env.fwd_dcls.Add $"__global__ {ret_ty} {backend_entry_name}(%s{args});\n"
+            code_env.fwd_dcls.Add $"#endif\n"
+            line s $"__global__ {ret_ty} {backend_entry_name}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
             code_env.main_defs.Add(s.text.ToString())
@@ -946,8 +952,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
 let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
     let code_env_cpp_host = codegen_env.Create()
-    let code_env_cuda_host = {code_env_cpp_host with functions = ResizeArray(); main_defs = ResizeArray() }
-    let code_env_cuda_device = {code_env_cpp_host with functions = ResizeArray(); main_defs = ResizeArray() }
+    let code_env_cuda_host = {code_env_cpp_host with globals = ResizeArray(); functions = ResizeArray(); main_defs = ResizeArray() }
+    let code_env_cuda_device = {code_env_cuda_host with functions = ResizeArray(); main_defs = ResizeArray() }
     let code_env = function
         | backend_cpp.CppHost -> code_env_cpp_host
         | backend_cpp.CudaHost -> code_env_cuda_host
@@ -962,28 +968,30 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
                 | "CudaDevice" ->
                     Utils.memoize g (fun (jp_body,key & C(args,_)) ->
                         let args = rdata_free_vars args
+                        let backend_entry_name = $"cuda_device_entry{g.Count}"
                         match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _, _ -> main_codegen (ArgsCudaDevice(args, a))
+                        | Some a, Some _, _ -> main_codegen (ArgsCudaDevice(args, a, backend_entry_name))
                         | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                        $"cuda_device_entry{g.Count}"
+                        backend_entry_name
                         ) (jp_body,key)
-                | x -> raise_codegen_error_backend r' $"The Cuda backend does not support the {x} backend."
+                | x -> raise_codegen_error_backend r' $"The Cuda host backend does not support the {x} backend."
             | backend_cpp.CppHost ->
                 match backend_name with
                 | "CudaHost" ->
                     Utils.memoize g (fun (jp_body,key & C(args,_)) ->
                         let args = rdata_free_vars args
+                        let backend_entry_name = $"cuda_host_entry{g.Count}"
                         match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _, _ -> main_codegen (ArgsCudaHost(args, a))
+                        | Some a, Some _, _ -> main_codegen (ArgsCudaHost(args, a, backend_entry_name))
                         | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                        $"cuda_host_entry{g.Count}"
+                        backend_entry_name
                         ) (jp_body,key)
-                | x -> raise_codegen_error_backend r' $"The Cuda backend does not support the {x} backend."
+                | x -> raise_codegen_error_backend r' $"The C++ host backend does not support the {x} backend."
             | backend_cpp.CudaDevice -> 
-                raise_codegen_error_backend r' $"The Cuda backend does not support nesting of backends."
+                raise_codegen_error_backend r' $"The Cuda device backend does not support nesting of backends."
             ) part_eval_env code_env
 
-    main_codegen (ArgsCppHost x)
+    main_codegen (ArgsCppHost(x, "main"))
 
     let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
     let indent_lines (x : string) =
@@ -1000,19 +1008,20 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         StringBuilder()
             .AppendLine($"#pragma once")
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
-            .Append(append_lines code_env_cpp_host.globals)
             .AppendJoin("", code_env_cpp_host.fwd_dcls)
             .AppendJoin("", code_env_cpp_host.types)
             .ToString()
     let code_cpp =
         StringBuilder()
             .AppendLine($"#include \"{file_name}.hpp\"")
+            .Append(append_lines code_env_cpp_host.globals)
             .AppendJoin("", code_env_cpp_host.functions)
             .AppendJoin("", code_env_cpp_host.main_defs)
             .ToString()
     let code_cu =
         StringBuilder()
             .AppendLine($"#include \"{file_name}.hpp\"")
+            .Append(append_lines code_env_cuda_host.globals)
             .AppendJoin("", code_env_cuda_device.functions)
             .AppendJoin("", code_env_cuda_device.main_defs)
             .AppendJoin("", code_env_cuda_host.functions)

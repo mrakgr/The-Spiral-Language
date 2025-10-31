@@ -482,10 +482,11 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             | "CudaDevice" -> 
                 Utils.memoize g (fun (jp_body,key & C(args,_)) ->
                     let args = rdata_free_vars args
+                    let backend_entry_name = $"entry{g.Count}"
                     match (fst part_eval_env.join_point_method.[jp_body]).[key] with
-                    | Some a, Some _, _ -> cuda_codegen (Cpp.ArgsCudaDevice(args,a))
+                    | Some a, Some _, _ -> cuda_codegen (Cpp.ArgsCudaDevice(args,a,backend_entry_name))
                     | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                    $"entry{g.Count}"
+                    backend_entry_name
                     ) (jp_body,key)
             | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
             ) part_eval_env host_code_env x
