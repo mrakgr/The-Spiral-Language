@@ -1,3 +1,5 @@
+#pragma once
+
 // The types of these two will be replaced during compilation by the Spiral code generator. 
 // It matches on `using default_int = ` and `;` with the inner part being replaced so the form should be kept as is. 
 // The two statements need to begin at the start of a line.
@@ -22,6 +24,7 @@ using default_uint = unsigned int;
 #define __global__
 #endif
 
+#ifdef __CUDACC__
 // For error checking on the host.
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 template <typename T> inline __host__ __device__ void destroy(T& obj) { obj.~T(); }
@@ -31,6 +34,7 @@ inline void gpuAssert(cudaError error, const char *file, int line, bool abort=tr
         if (abort) exit(error);
     }
 }
+#endif
 
 template <typename el>
 struct sptr // Shared pointer for the Spiral datatypes. They have to have the refc field inside them to work.

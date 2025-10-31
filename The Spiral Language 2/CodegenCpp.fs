@@ -998,6 +998,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let file_name = IO.Path.GetFileNameWithoutExtension file_path
     let code_hpp =
         StringBuilder()
+            .AppendLine($"#pragma once")
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
             .Append(append_lines code_env_cpp_host.globals)
             .AppendJoin("", code_env_cpp_host.fwd_dcls)
@@ -1005,13 +1006,13 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .ToString()
     let code_cpp =
         StringBuilder()
-            .AppendLine($"#include \"{file_name}.cpp\"")
+            .AppendLine($"#include \"{file_name}.hpp\"")
             .AppendJoin("", code_env_cpp_host.functions)
             .AppendJoin("", code_env_cpp_host.main_defs)
             .ToString()
     let code_cu =
         StringBuilder()
-            .AppendLine($"#include \"{file_name}.cu\"")
+            .AppendLine($"#include \"{file_name}.hpp\"")
             .AppendJoin("", code_env_cuda_device.functions)
             .AppendJoin("", code_env_cuda_device.main_defs)
             .AppendJoin("", code_env_cuda_host.functions)
