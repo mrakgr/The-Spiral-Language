@@ -20,9 +20,10 @@ let raise_codegen_error_backend r x = raise (CodegenError (Some r,x))
 let raise_codegen_error' trace (r,x) = raise (CodegenErrorWithPos(Option.fold (fun s x -> x :: s) trace r,x))
 
 [<RequireQualifiedAccess>]
-type backend_cuda =
+type backend_cpp =
     | CudaDevice
     | CudaHost
+    | CppHost
 
     member t.Name = t.ToString()
 
