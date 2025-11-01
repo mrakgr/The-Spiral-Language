@@ -940,9 +940,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             let code_env = code_env (backend())
-            code_env.fwd_dcls.Add $"#ifdef __CUDACC__\n"
             code_env.fwd_dcls.Add $"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args});\n"
-            code_env.fwd_dcls.Add $"#endif\n"
             line s $"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
@@ -1002,12 +1000,23 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
         dir "corelib.cuh" |> replace_default_types default_env
 
+    let fwd_dcls_cuda_device,fwd_dcls = 
+        code_env_cpp_host.fwd_dcls 
+        |> Seq.toArray 
+        |> Array.partition (fun x -> 
+            let x = x.TrimStart()
+            x.StartsWith "__device__" || x.StartsWith "extern" || x.StartsWith "global"
+            )
+
     let file_name = IO.Path.GetFileNameWithoutExtension file_path
     let code_hpp =
         StringBuilder()
             .AppendLine($"#pragma once")
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
-            .AppendJoin("", code_env_cpp_host.fwd_dcls)
+            .AppendJoin("", fwd_dcls)
+            .AppendLine($"#ifdef __CUDACC__")
+            .AppendJoin("", fwd_dcls_cuda_device)
+            .AppendLine($"#endif")
             .AppendJoin("", code_env_cpp_host.types)
             .ToString()
     let code_cpp =
