@@ -102,9 +102,9 @@ type BindsReturn =
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
 let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env) =
-    let global' =
-        let has_added = HashSet()
-        fun x -> if has_added.Add(x) then code_env.globals.Add x
+    let global' x =
+        let has_added, ar = code_env.globals
+        if has_added.Add x then ar.Add x
 
     let import x = global' $"import {x}"
     let from x = global' $"from {x}"
@@ -452,8 +452,8 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
         import "cupy as cp"
         from "dataclasses import dataclass"
         from "typing import NamedTuple, Union, Callable, Tuple"
-        code_env.globals.Add "i8 = int; i16 = int; i32 = int; i64 = int; u8 = int; u16 = int; u32 = int; u64 = int; f32 = float; f64 = float; char = str; string = str"
-        code_env.globals.Add ""
+        (snd code_env.globals).Add "i8 = int; i16 = int; i32 = int; i64 = int; u8 = int; u16 = int; u32 = int; u64 = int; f32 = float; f64 = float; char = str; string = str"
+        (snd code_env.globals).Add ""
 
         let s = {text=StringBuilder(); indent=0}
         
@@ -512,7 +512,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let code_main = 
         StringBuilder()
             .AppendLine("kernels_main = r\"\"\"")
-            .Append(append_lines device_code_env.globals)
+            .Append(device_code_env.globals |> snd |> append_lines)
             .AppendJoin("", device_code_env.fwd_dcls)
             .AppendJoin("", device_code_env.types)
             .AppendJoin("", device_code_env.functions)
@@ -521,7 +521,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .Replace("__host__ __device__", "__device__")
             .AppendLine($"from {file_name}_auto import *")
             .AppendLine("kernels = kernels_aux + kernels_main")
-            .Append(append_lines host_code_env.globals)
+            .Append(host_code_env.globals |> snd |> append_lines)
             .AppendJoin("", host_code_env.fwd_dcls)
             .AppendJoin("", host_code_env.types)
             .AppendJoin("", host_code_env.functions)

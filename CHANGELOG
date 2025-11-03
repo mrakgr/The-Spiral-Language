@@ -1,3 +1,7 @@
+2.18.2 (prerelease) (11/3/2025)
+
+* Added the ` @ ` operators in type macros to replace the term level global calls. Currently it only works in the C++ backend.
+
 2.18.1 (prerelease) (11/1/2025)
 
 * Minor adjustment to the way `__device__` function forward declarations are being printed in the `.hpp` files.

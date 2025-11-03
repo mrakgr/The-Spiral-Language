@@ -172,9 +172,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let mutable i = 0u
         fun () -> let x = i in i <- i + 1u; x
 
-    let global' =
-        let has_added = HashSet()
-        fun x -> if has_added.Add(x) then (code_env (backend())).globals.Add x
+    let global' x =
+        let has_added, ar = (code_env (backend())).globals
+        if has_added.Add x then ar.Add x
 
     let import x = global' $"#include <%s{x}>"
     let import' x = global' $"#include \"%s{x}\""
@@ -339,10 +339,21 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             | StackMutable -> sprintf "StackMut%i &" (stack_mut a).tag
             | StackRefs -> sprintf "StackRefs%i &" (stack_refs a).tag
         | YMacro [Text "backend_switch "; Type (YRecord r)] ->
-            match Map.tryFind "Cuda" r with
+            match Map.tryFind "Cpp" r with
             | Some x -> tup_ty x
-            | None -> raise_codegen_error $"In the type backend_switch, expected a record with the 'Cuda' field."
-        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
+            | None -> raise_codegen_error $"In the type backend_switch, expected a record with the 'Cpp' field."
+        | YMacro a -> 
+            a 
+            |> List.map (function 
+                | Text a -> 
+                    match a.Split " @ "  with
+                    | [|a|] -> a
+                    | [|a;b|] -> global' b; a
+                    | _ -> raise_codegen_error $"Encountered a malformed type macro. Got: {a}"
+                | Type a -> tup_ty a 
+                | TypeLit a -> type_lit a
+                )
+            |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> $"{tup_ty a} *"
         | YFun(a,b,t) -> $"Fun%i{(cfun (a,b,t)).tag}"
@@ -949,7 +960,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
 let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
     let code_env_cpp_host = codegen_env.Create()
-    let code_env_cuda_host = {code_env_cpp_host with globals = ResizeArray(); functions = ResizeArray(); main_defs = ResizeArray() }
+    let code_env_cuda_host = {code_env_cpp_host with globals = HashSet(), ResizeArray(); functions = ResizeArray(); main_defs = ResizeArray() }
     let code_env_cuda_device = {code_env_cuda_host with functions = ResizeArray(); main_defs = ResizeArray() }
     let code_env = function
         | backend_cpp.CppHost -> code_env_cpp_host
@@ -1013,6 +1024,11 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         StringBuilder()
             .AppendLine($"#pragma once")
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
+            .AppendLine($"#ifdef __CUDACC__")
+            .Append(code_env_cuda_host.globals |> snd |> append_lines)
+            .AppendLine($"#else")
+            .Append(code_env_cpp_host.globals |> snd |> append_lines)
+            .AppendLine($"#endif")
             .AppendJoin("", fwd_dcls)
             .AppendLine($"#ifdef __CUDACC__")
             .AppendJoin("", fwd_dcls_cuda_device)
@@ -1022,14 +1038,12 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let code_cpp =
         StringBuilder()
             .AppendLine($"#include \"{file_name}.hpp\"")
-            .Append(append_lines code_env_cpp_host.globals)
             .AppendJoin("", code_env_cpp_host.functions)
             .AppendJoin("", code_env_cpp_host.main_defs)
             .ToString()
     let code_cu =
         StringBuilder()
             .AppendLine($"#include \"{file_name}.hpp\"")
-            .Append(append_lines code_env_cuda_host.globals)
             .AppendJoin("", code_env_cuda_device.functions)
             .AppendJoin("", code_env_cuda_device.main_defs)
             .AppendJoin("", code_env_cuda_host.functions)
