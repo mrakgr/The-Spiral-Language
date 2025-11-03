@@ -378,7 +378,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codege
             |> return'
     and uheap : _ -> UnionRec = union (fun s x ->
         let cases = Array.init x.free_vars.Count (fun i -> $"\"UH{x.tag}_{i}\"") |> function [|x|] -> x | x -> x |> String.concat ", " |> sprintf "Union[%s]"
-        code_env.fwd_dcls.Add $"UH{x.tag} = {cases}"
+        code_env.fwd_dcls_types.Add $"UH{x.tag} = {cases}"
         let mutable i = 0
         x.free_vars |> Map.iter (fun k a ->
             line s $"class UH{x.tag}_{i}(NamedTuple): # {k}"
@@ -513,7 +513,9 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         StringBuilder()
             .AppendLine("kernels_main = r\"\"\"")
             .Append(device_code_env.globals |> snd |> append_lines)
-            .AppendJoin("", device_code_env.fwd_dcls)
+            .AppendJoin("", device_code_env.fwd_dcls_types)
+            .AppendJoin("", device_code_env.fwd_dcls_methods)
+            .AppendJoin("", device_code_env.fwd_dcls_main_defs)
             .AppendJoin("", device_code_env.types)
             .AppendJoin("", device_code_env.functions)
             .AppendJoin("", device_code_env.main_defs)
@@ -522,7 +524,9 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendLine($"from {file_name}_auto import *")
             .AppendLine("kernels = kernels_aux + kernels_main")
             .Append(host_code_env.globals |> snd |> append_lines)
-            .AppendJoin("", host_code_env.fwd_dcls)
+            .AppendJoin("", host_code_env.fwd_dcls_types)
+            .AppendJoin("", host_code_env.fwd_dcls_methods)
+            .AppendJoin("", host_code_env.fwd_dcls_main_defs)
             .AppendJoin("", host_code_env.types)
             .AppendJoin("", host_code_env.functions)
             .AppendJoin("", host_code_env.main_defs)
