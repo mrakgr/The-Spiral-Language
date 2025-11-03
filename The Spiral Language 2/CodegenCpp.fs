@@ -963,7 +963,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let code_env_cpp_host = codegen_env.Create()
     let code_env_cuda_host = 
         {code_env_cpp_host with 
-            globals = HashSet(), ResizeArray(); functions = ResizeArray(); main_defs = ResizeArray()
+            functions = ResizeArray(); main_defs = ResizeArray()
             fwd_dcls_methods = ResizeArray() 
             fwd_dcls_main_defs = ResizeArray() 
             }
@@ -1026,14 +1026,9 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let code_hpp =
         StringBuilder()
             .AppendLine($"#pragma once")
+            .AppendLine("// Globals") // Includes both Cuda host and Cuda device
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
-            .AppendLine($"#ifdef __CUDACC__")
-            .AppendLine("// Cuda globals") // Includes both Cuda host and Cuda device
-            .Append(code_env_cuda_host.globals |> snd |> append_lines)
-            .AppendLine($"#else")
-            .AppendLine("// Cpp host globals")
             .Append(code_env_cpp_host.globals |> snd |> append_lines)
-            .AppendLine($"#endif")
             .AppendLine("// The type forward declarations") // Includes the type forward declarations for all 3 of the backends.
             .AppendJoin("", code_env_cpp_host.fwd_dcls_types)
             .AppendLine($"#ifdef __CUDACC__")
