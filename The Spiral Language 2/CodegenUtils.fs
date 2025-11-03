@@ -30,7 +30,9 @@ type backend_cpp =
 type codegen_env =
     {
         globals : string System.Collections.Generic.HashSet * string ResizeArray
-        fwd_dcls : string ResizeArray
+        fwd_dcls_types : string ResizeArray
+        fwd_dcls_methods : string ResizeArray
+        fwd_dcls_main_defs : string ResizeArray
         types : string ResizeArray
         functions : string ResizeArray
         main_defs : string ResizeArray
@@ -39,7 +41,9 @@ type codegen_env =
     static member Create() =
         {
             globals = System.Collections.Generic.HashSet<string>(), ResizeArray()
-            fwd_dcls = ResizeArray()
+            fwd_dcls_types = ResizeArray()
+            fwd_dcls_methods = ResizeArray()
+            fwd_dcls_main_defs = ResizeArray()
             types = ResizeArray()
             functions = ResizeArray()
             main_defs = ResizeArray()

@@ -1,6 +1,7 @@
 2.18.2 (prerelease) (11/3/2025)
 
 * Added the ` @ ` operators in type macros to replace the term level global calls. Currently it only works in the C++ backend.
+* Reworked the .hpp file compilation so the Cuda and the Cpp parts are properly segregated.
 
 2.18.1 (prerelease) (11/1/2025)
 
