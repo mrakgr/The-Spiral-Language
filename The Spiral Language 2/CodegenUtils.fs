@@ -27,24 +27,26 @@ type backend_cpp =
 
     member t.Name = t.ToString()
 
+open System.Collections.Generic
+
 type codegen_env =
     {
-        globals : string System.Collections.Generic.HashSet * string ResizeArray
-        fwd_dcls_types : string ResizeArray
-        fwd_dcls_methods : string ResizeArray
-        fwd_dcls_main_defs : string ResizeArray
-        types : string ResizeArray
-        functions : string ResizeArray
-        main_defs : string ResizeArray
+        globals : OrderedDictionary<int, string ResizeArray>
+        fwd_dcls_types : OrderedDictionary<int, string ResizeArray>
+        fwd_dcls_methods : OrderedDictionary<int, string ResizeArray>
+        fwd_dcls_main_defs : OrderedDictionary<int, string ResizeArray>
+        types : OrderedDictionary<int, string ResizeArray>
+        functions : OrderedDictionary<int, string ResizeArray>
+        main_defs : OrderedDictionary<int, string ResizeArray>
     }
 
     static member Create() =
         {
-            globals = System.Collections.Generic.HashSet<string>(), ResizeArray()
-            fwd_dcls_types = ResizeArray()
-            fwd_dcls_methods = ResizeArray()
-            fwd_dcls_main_defs = ResizeArray()
-            types = ResizeArray()
-            functions = ResizeArray()
-            main_defs = ResizeArray()
+            globals = OrderedDictionary()
+            fwd_dcls_types = OrderedDictionary()
+            fwd_dcls_methods = OrderedDictionary()
+            fwd_dcls_main_defs = OrderedDictionary()
+            types = OrderedDictionary()
+            functions = OrderedDictionary()
+            main_defs = OrderedDictionary()
         }

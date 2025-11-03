@@ -90,6 +90,9 @@ let lit_string x =
 let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env) =
     let mutable backend_ref = backend_cpp.CppHost
     let backend() = backend_ref
+    let tag =
+        let mutable i = 0
+        fun () -> let x = i in i <- i+1; x
     /// Runs the closure with the new backend. Restores the old one after the backend has been executed.
     let inline substitute_backend_with backend f = 
         let old_backend = backend_ref
@@ -97,22 +100,27 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         f()
         backend_ref <- old_backend
 
-    let print show r =
+    let print show key r =
+        let s_globals = {text=StringBuilder(); indent=0}
         let s_fwd_dcls_types = {text=StringBuilder(); indent=0}
         let s_fwd_dcls_methods = {text=StringBuilder(); indent=0}
         let s_fwd_dcls_main_defs = {text=StringBuilder(); indent=0}
         let s_typ = {text=StringBuilder(); indent=0}
         let s_fun = {text=StringBuilder(); indent=0}
-        show {|types = s_fwd_dcls_types; methods = s_fwd_dcls_methods; main_defs = s_fwd_dcls_main_defs|} s_typ s_fun r
+        show {|globals = s_globals; types = s_fwd_dcls_types; methods = s_fwd_dcls_methods; main_defs = s_fwd_dcls_main_defs; types = s_typ; functions = s_fun|} r
         let f (a : _ ResizeArray) (b : string_builder_env) = 
             let text = b.text.ToString()
             if text <> "" then a.Add(text)
         let code_env = code_env (backend())
-        f code_env.fwd_dcls_types s_fwd_dcls_types
-        f code_env.fwd_dcls_methods s_fwd_dcls_methods
-        f code_env.fwd_dcls_main_defs s_fwd_dcls_main_defs
-        f code_env.types s_typ
-        f code_env.functions s_fun
+        let get (m : OrderedDictionary<int, string ResizeArray>) = 
+            match m.TryGetValue key with 
+            | true, v -> v 
+            | _ -> let v = ResizeArray() in m[key] <- v; v
+        f (get code_env.fwd_dcls_types) s_fwd_dcls_types
+        f (get code_env.fwd_dcls_methods) s_fwd_dcls_methods
+        f (get code_env.fwd_dcls_main_defs) s_fwd_dcls_main_defs
+        f (get code_env.types) s_typ
+        f (get code_env.functions) s_fun
 
     let layout show =
         let dict' = Dictionary(HashIdentity.Structural)
@@ -125,61 +133,60 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                     match x with
                     | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
                     | _ -> data_free_vars x, Map.empty
-                {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+                {data=x; free_vars=a; free_vars_by_key=b; tag=tag()}
             | _ -> raise_codegen_error $"Compiler error: Expected a layout type (1).\nGot: %s{show_ty x}"
         fun x ->
-            let mutable dirty = false
-            let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
-            if dirty then print show r
+            let r,dirty = Utils.memoize dict (Utils.memoize dict' (fun x -> f x, HashSet())) x
+            if dirty.Add (backend()) then print show r.tag r
             r
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
         let f (a : Union) : UnionRec = 
             let free_vars = a.Item.cases |> Map.map (fun _ -> part_eval_env.ty_to_data >> data_free_vars)
-            {free_vars=free_vars; tag=dict.Count; is_heap=a.Item.layout = UHeap}
+            {free_vars=free_vars; tag=tag(); is_heap=a.Item.layout = UHeap}
         fun x ->
-            let mutable dirty = false
-            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
-            if dirty then print show r
+            let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
+            if dirty.Add (backend()) then print show r.tag r
             r
 
     let jp f show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f x = f (x, dict.Count)
+        let f x = f (x, tag())
         fun x ->
-            let mutable dirty = false
-            let r = Utils.memoize dict (fun x -> dirty <- true; f x) (x, backend())
-            if dirty then print show r
+            let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) (x, backend())
+            if dirty.Add (backend()) then print show r.tag r
             r
 
     let tuple show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f x = {tag=dict.Count; tys=x}
+        let f x = {tag=tag(); tys=x}
         fun x ->
-            let mutable dirty = false
-            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
-            if dirty then print show r
+            let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
+            if dirty.Add (backend()) then print show r.tag r
             r
 
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f ((a : Ty, b : Ty, t : FunType), backend) = {tag=dict.Count; domain=a; range=b; funtype=t; backend=backend}
+        let f ((a : Ty, b : Ty, t : FunType), backend) = {tag=tag(); domain=a; range=b; funtype=t; backend=backend}
         fun x ->
-            let mutable dirty = false
-            let r = Utils.memoize dict (fun x -> dirty <- true; f x) (x, backend())
-            if dirty then print show r
+            let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
+            if dirty.Add (backend()) then print show r.tag r
             r
 
+    let global' =
+        let dict = Dictionary(HashIdentity.Structural)
+        let f x = {|tag = tag(); text = x|}
+        fun x ->
+            let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
+            if dirty.Add (backend()) then print (fun x q -> let _ = x.globals.text.Append(r.text : string) in ()) r.tag r
+            r
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
 
     let tmp =
         let mutable i = 0u
         fun () -> let x = i in i <- i + 1u; x
 
-    let global' x =
-        let has_added, ar = (code_env (backend())).globals
-        if has_added.Add x then ar.Add x
 
     let import x = global' $"#include <%s{x}>"
     let import' x = global' $"#include \"%s{x}\""
