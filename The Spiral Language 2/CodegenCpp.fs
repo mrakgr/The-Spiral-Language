@@ -122,6 +122,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let text = b.text.ToString()
             if text <> "" then a.Add(key, text)
         let code_env = code_env (backend())
+        f code_env.globals s_globals
         f code_env.fwd_dcls_types s_fwd_dcls_types
         f code_env.fwd_dcls_methods s_fwd_dcls_methods
         f code_env.fwd_dcls_main_defs s_fwd_dcls_main_defs
@@ -163,6 +164,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) (x, backend())
             if dirty.Add (backend()) then print show r.tag r
             r
+
     let jp_closure f show =
         let dict = Dictionary(HashIdentity.Structural)
         let f x = f (x, tag()) : ClosureRec
@@ -195,6 +197,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
             if dirty.Add (backend()) then print show r.tag r
             r
+
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
 
     let tmp =
@@ -910,15 +913,15 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             line s.types $"struct {name} {{"
             let () =
                 let s_typ = indent s.types
-                if is_heap then line s.types "int refc{0};"
+                if is_heap then line s_typ "int refc{0};"
                 let type_suffix = if is_refs then " &" else ""
-                print_ordered_args' s.types type_suffix x.free_vars
+                print_ordered_args' s_typ type_suffix x.free_vars
                 let concat x = String.concat ", " x
                 let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x}{type_suffix} t{i}")
                 let con_init = x.free_vars |> Array.map (fun (L(i,x)) -> $"v{i}(t{i})")
                 if args.Length <> 0 then
-                    line s.types $"__host__ __device__ {name}() = default;"
-                    line s.types $"__host__ __device__ {name}({concat args}) : {concat con_init} {{}}" 
+                    line s_typ $"__host__ __device__ {name}() = default;"
+                    line s_typ $"__host__ __device__ {name}({concat args}) : {concat con_init} {{}}" 
             line s.types "};"
             )
     and heap : _ -> LayoutRec = layout_tmpl true false "Heap"
@@ -1054,10 +1057,10 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
                 | true, v -> v
                 | _ -> raise_codegen_error "Cannot find the key for the given Cpp global."
                 )
-        Seq.rev cuda_globals, Seq.rev cpp_globals
+        cuda_globals, cpp_globals
     let merge (a' : OrderedDictionary<int, string>) =
         let strb = StringBuilder()
-        a' |> Seq.rev |> Seq.iter (fun (KeyValue(_,v)) -> strb.Append v |> ignore)
+        a' |> Seq.iter (fun (KeyValue(_,v)) -> strb.Append v |> ignore)
         strb.ToString()
     let cuda_globals, cpp_globals = split_into_cuda_and_cpp code_env_cuda_host.globals code_env_cuda_device.globals code_env_cpp_host.globals
     let cuda_fwd_types, cpp_fwd_types = split_into_cuda_and_cpp code_env_cuda_host.fwd_dcls_types code_env_cuda_device.fwd_dcls_types code_env_cpp_host.fwd_dcls_types
@@ -1070,10 +1073,10 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
             .AppendLine("// Cuda globals")
             .AppendLine($"#ifdef __CUDACC__")
-            .Append(cuda_globals |> append_lines)
+            .AppendJoin("", cuda_globals)
             .AppendLine($"#endif")
             .AppendLine("// Cpp globals")
-            .Append(cpp_globals |> append_lines)
+            .AppendJoin("", cpp_globals)
             .AppendLine("// The Cuda type forward declarations")
             .AppendLine($"#ifdef __CUDACC__")
             .AppendJoin("", cuda_fwd_types)

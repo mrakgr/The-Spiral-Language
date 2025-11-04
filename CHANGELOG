@@ -1,7 +1,8 @@
 2.18.2 (prerelease) (11/3/2025)
 
+* Redesigned the backend so that Cuda and Cpp globals, type forward declarations and types are segregated by their grouping.
+* Removed the Python backend. Will put it back in upon request.
 * Added the ` @ ` operators in type macros to replace the term level global calls. Currently it only works in the C++ backend.
-* Reworked the .hpp file compilation so the Cuda and the Cpp parts are properly segregated.
 
 2.18.1 (prerelease) (11/1/2025)
 

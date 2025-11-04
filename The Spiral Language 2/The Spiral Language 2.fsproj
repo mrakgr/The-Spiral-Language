@@ -46,10 +46,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="CodegenCpp.fs" />
-    <None Include="corelib.py">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <Compile Include="CodegenPython.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />
     <Compile Include="SpiProj.fs" />
