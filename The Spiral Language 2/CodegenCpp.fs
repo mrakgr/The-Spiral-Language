@@ -1093,7 +1093,7 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendLine("// The Cuda host main defs forward declarations")
             .AppendJoin("", merge code_env_cuda_host.fwd_dcls_main_defs)
             .AppendLine($"#endif")
-            .AppendLine("// The Cuda type definitions") // Includes the types for all 3 of the backends.
+            .AppendLine("// The Cuda type definitions")
             .AppendLine($"#ifdef __CUDACC__")
             .AppendJoin("", cuda_types)
             .AppendLine($"#endif")
