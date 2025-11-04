@@ -1013,7 +1013,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             let rec subst_vars_with_metavars vars a =
                 let f = subst_vars_with_metavars vars
                 match a with
-                | RawTNominalTypeVarPlaceholder _ | RawTTypecase _ | RawTUnion _ -> failwith "Compiler error: Not expecting typecase or union here."
+                | RawTTypecase _ | RawTUnion _ -> failwith "Compiler error: Not expecting typecase or union here."
                 | RawTVar(r,n) -> if List.contains n vars then RawTMetaVar(r,n) else a
                 | RawTPrim _ | RawTFilledNominal _ | RawTTerm _ | RawTSymbol _ | RawTLit _ | RawTMetaVar _ | RawTB _ | RawTWildcard _ -> a
                 | RawTPair(r,a,b) -> RawTPair(r,f a,f b)
@@ -1167,7 +1167,13 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
         TArrow(id,on_succ env)
+    let rec put_placeholder l x =
+        match x with
+        | TArrow(id,x) -> TArrow(id, put_placeholder (TV id :: l) x)
+        | TJoinPoint(r,x) -> TJoinPoint(r,put_placeholder l x)
+        | x -> TNominalTypeVarPlaceholder(x, l)
     let eval_type' env l body = List.foldBack eval_type l body env |> process_ty
+    let eval_type_nominal env l body = List.foldBack eval_type l body env |> put_placeholder [] |> process_ty
 
     {|
     base_type = process_ty
@@ -1181,7 +1187,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 let r = p r
                 let at_tag_i = at_tag i
                 let nom = TNominal at_tag_i
-                let bodyt = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
+                let bodyt = eval_type_nominal env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
                 let term =
                     match body with
                     | RawTUnion(_,l,_,_) -> 

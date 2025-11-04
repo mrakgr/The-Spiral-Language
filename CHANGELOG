@@ -1,6 +1,6 @@
-2.18.3 (prerelease) (WIP)
+2.18.3 (prerelease) (11/4/2025)
 
-* Fixed a critical bug in how nominals are being created.
+* Fixed a critical bug in how nominals are being created. The nominal type vars weren't being applied properly when they weren't present in the body of the nominal.
 
 2.18.2 (prerelease) (11/3/2025)
 
