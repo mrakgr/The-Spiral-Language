@@ -31,13 +31,13 @@ open System.Collections.Generic
 
 type codegen_env =
     {
-        globals : OrderedDictionary<int, string ResizeArray>
-        fwd_dcls_types : OrderedDictionary<int, string ResizeArray>
-        fwd_dcls_methods : OrderedDictionary<int, string ResizeArray>
-        fwd_dcls_main_defs : OrderedDictionary<int, string ResizeArray>
-        types : OrderedDictionary<int, string ResizeArray>
-        functions : OrderedDictionary<int, string ResizeArray>
-        main_defs : OrderedDictionary<int, string ResizeArray>
+        globals : OrderedDictionary<int, string>
+        fwd_dcls_types : OrderedDictionary<int, string>
+        fwd_dcls_methods : OrderedDictionary<int, string>
+        fwd_dcls_main_defs : OrderedDictionary<int, string>
+        types : OrderedDictionary<int, string>
+        functions : OrderedDictionary<int, string>
+        main_defs : OrderedDictionary<int, string>
     }
 
     static member Create() =
