@@ -102,6 +102,7 @@ and [<ReferenceEquality>] T =
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
     | TNominal of GlobalId
+    | TNominalTypeVarPlaceholder of T * T list // This is here so that the prepass passes don't accientally filter out the nominal vars.
     | TArray of T
     | TLayout of T * BlockParsing.Layout
     | TMetaV of Id
@@ -204,6 +205,7 @@ module Printable =
         | TTerm of PE
         | TMacro of PTypeMacro list
         | TNominal of GlobalId
+        | TNominalTypeVarPlaceholder of PT * PT list
         | TArray of PT
         | TLayout of PT * BlockParsing.Layout
 
@@ -326,6 +328,7 @@ module Printable =
                     )
                 TMacro(a)
             | T.TNominal a -> TNominal a
+            | T.TNominalTypeVarPlaceholder(a,l) -> TNominalTypeVarPlaceholder(ty a,List.map ty l)
             | T.TArray a -> TArray(ty a)
             | T.TLayout(a,b) -> TLayout(ty a,b)
 
@@ -480,6 +483,7 @@ let propagate x =
         | TForall(_,i,a) | TArrow(i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(a) | TLayout(a,_) -> ty a
+        | TNominalTypeVarPlaceholder(a,l) -> List.fold (fun s x -> s + ty x) (ty a) l
     
     let _ = match x with Choice1Of2 x -> term x | Choice2Of2 x -> ty x
     scope_dict
@@ -573,6 +577,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | TForall(_,_,a)
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(a,b,_) | TPair(_,a,b) -> f a; f b
+        | TNominalTypeVarPlaceholder(a,l) -> f a; List.iter f l
         | TUnion(_,(a,_)) -> a |> Map.iter (fun _ (a,b) -> f a; Option.iter f b)
         | TRecord(_,a) | TModule a -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
@@ -800,6 +805,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             TArrow'(scope,a,ty env_rec env b)
         | TV i -> TV(env.ty.var.[i])
         | TPair(r,a,b) -> TPair(r,f a,f b)
+        | TNominalTypeVarPlaceholder(a,l) -> f a // We get rid of the placeholder here.
         | TFun(a,b,t) -> TFun(f a,f b,t)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
         | TModule a -> TModule(Map.map (fun _ -> f) a)
@@ -1007,7 +1013,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             let rec subst_vars_with_metavars vars a =
                 let f = subst_vars_with_metavars vars
                 match a with
-                | RawTTypecase _ | RawTUnion _ -> failwith "Compiler error: Not expecting typecase or union here."
+                | RawTNominalTypeVarPlaceholder _ | RawTTypecase _ | RawTUnion _ -> failwith "Compiler error: Not expecting typecase or union here."
                 | RawTVar(r,n) -> if List.contains n vars then RawTMetaVar(r,n) else a
                 | RawTPrim _ | RawTFilledNominal _ | RawTTerm _ | RawTSymbol _ | RawTLit _ | RawTMetaVar _ | RawTB _ | RawTWildcard _ -> a
                 | RawTPair(r,a,b) -> RawTPair(r,f a,f b)

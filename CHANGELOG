@@ -1,3 +1,7 @@
+2.18.3 (prerelease) (WIP)
+
+* Fixed a critical bug in how nominals are being created.
+
 2.18.2 (prerelease) (11/3/2025)
 
 * Redesigned the backend so that Cuda and Cpp globals, type forward declarations and types are segregated by their grouping.

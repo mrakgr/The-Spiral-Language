@@ -1,0 +1,25 @@
+// Do the type vars get applied correctly.
+
+nominal dict2 k v e = ()
+
+inl qwer forall k v e. () : dict2 k v e =
+    inl qq : dict2 k v e = real dict2 `k `v `e
+    !!!!PrintStatic("234432 *****")
+    !!!!PrintRaw((dict2))
+    !!!!PrintStatic(`k)
+    !!!!PrintStatic(`v)
+    !!!!PrintStatic(`e)
+    !!!!PrintStatic(qq)
+    qq
+
+
+inl main() =
+    inl d : dict2 {x : int} {y : float} {z : int} = qwer ()
+    !!!!PrintStatic("=========")
+    real
+        typecase `d with
+        | dict2 ~kk ~vv ~zz =>
+            !!!!PrintStatic(`kk)
+            !!!!PrintStatic(`vv)
+            !!!!PrintStatic(`zz)
+    0i32
