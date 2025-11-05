@@ -29,7 +29,7 @@ type backend_cpp =
 
 open System.Collections.Generic
 
-type codegen_env =
+type codegen_env_cpp =
     {
         globals : OrderedDictionary<int, string>
         fwd_dcls_types : OrderedDictionary<int, string>
@@ -49,4 +49,26 @@ type codegen_env =
             types = OrderedDictionary()
             functions = OrderedDictionary()
             main_defs = OrderedDictionary()
+        }
+
+type codegen_env_python =
+    {
+        globals : string ResizeArray
+        fwd_dcls_types : string ResizeArray
+        fwd_dcls_methods : string ResizeArray
+        fwd_dcls_main_defs : string ResizeArray
+        types : string ResizeArray
+        functions : string ResizeArray
+        main_defs : string ResizeArray
+    }
+
+    static member Create() =
+        {
+            globals = ResizeArray()
+            fwd_dcls_types = ResizeArray()
+            fwd_dcls_methods = ResizeArray()
+            fwd_dcls_main_defs = ResizeArray()
+            types = ResizeArray()
+            functions = ResizeArray()
+            main_defs = ResizeArray()
         }

@@ -1,3 +1,8 @@
+2.18.5 (prerelease) (11/5/2025)
+
+* Brought back the Python backend.
+* Changed the initial backend name from `CudaHost` to `CppHost` in the partial evaluator when starting compilation using the `C++ + Cuda` backend.
+
 2.18.4 (prerelease) (11/5/2025)
 
 * Fixed a critical bug in how existentials type vars are handled in the prepass.

@@ -97,7 +97,7 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env) =
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env_cpp) =
     let mutable backend_ref = backend_cpp.CppHost
     let backend() = backend_ref
     let tag =
@@ -988,9 +988,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
 
 let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
-    let code_env_cpp_host = codegen_env.Create()
-    let code_env_cuda_host = codegen_env.Create()
-    let code_env_cuda_device = codegen_env.Create()
+    let code_env_cpp_host = codegen_env_cpp.Create()
+    let code_env_cuda_host = codegen_env_cpp.Create()
+    let code_env_cuda_device = codegen_env_cpp.Create()
     let code_env = function
         | backend_cpp.CppHost -> code_env_cpp_host
         | backend_cpp.CudaHost -> code_env_cuda_host
