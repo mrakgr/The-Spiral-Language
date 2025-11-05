@@ -84,9 +84,10 @@ and [<ReferenceEquality>] T =
     | TForall of Range * Id * T
     | TArrow' of Scope * Id * T
     | TArrow of Id * T
-    | TExists
-    | TJoinPoint' of Range * Scope * T
+    | TExists' of Range * Scope * Id list * T
+    | TExists of Range * Id list * T
     | TJoinPoint of Range * T
+    | TJoinPoint' of Range * Scope * T
     | TPatternRef of T ref
     | TB of Range
     | TLit of Range * Tokenize.Literal
@@ -102,7 +103,7 @@ and [<ReferenceEquality>] T =
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
     | TNominal of GlobalId
-    | TNominalTypeVarPlaceholder of T * T list // This is here so that the prepass passes don't accientally filter out the nominal vars.
+    | TTypeVarPlaceholder of T * T list // This is here so that the prepass passes don't accientally filter out the nominal and existential vars.
     | TArray of T
     | TLayout of T * BlockParsing.Layout
     | TMetaV of Id
@@ -186,7 +187,8 @@ module Printable =
         | TForall of Id * PT
         | TArrow' of Scope * Id * PT
         | TArrow of Id * PT
-        | TExists
+        | TExists' of Scope * Id list * PT
+        | TExists of Id list * PT
         | TJoinPoint' of Scope * PT
         | TJoinPoint of PT
         | TB
@@ -205,7 +207,7 @@ module Printable =
         | TTerm of PE
         | TMacro of PTypeMacro list
         | TNominal of GlobalId
-        | TNominalTypeVarPlaceholder of PT * PT list
+        | TTypeVarPlaceholder of PT * PT list
         | TArray of PT
         | TLayout of PT * BlockParsing.Layout
 
@@ -304,7 +306,8 @@ module Printable =
             | T.TForall(_,a,b) -> TForall(a,ty b)
             | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
             | T.TArrow(a,b) -> TArrow(a,ty b)
-            | T.TExists -> TExists
+            | T.TExists'(_,a,b,c) -> TExists'(a,b,ty c)
+            | T.TExists(_,a,b) -> TExists(a,ty b)
             | T.TJoinPoint'(_,a,b) -> TJoinPoint'(a,ty b)
             | T.TJoinPoint(_,a) -> TJoinPoint(ty a)
             | T.TB _ -> TB
@@ -328,7 +331,7 @@ module Printable =
                     )
                 TMacro(a)
             | T.TNominal a -> TNominal a
-            | T.TNominalTypeVarPlaceholder(a,l) -> TNominalTypeVarPlaceholder(ty a,List.map ty l)
+            | T.TTypeVarPlaceholder(a,l) -> TTypeVarPlaceholder(ty a,List.map ty l)
             | T.TArray a -> TArray(ty a)
             | T.TLayout(a,b) -> TLayout(ty a,b)
 
@@ -462,7 +465,7 @@ let propagate x =
                 s + a + b
                 ) (ty a) b
     and ty = function
-        | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
+        | TExists' _ | TJoinPoint' _ | TForall' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
         | TTypecase(_,a,b) -> 
             List.fold (fun s (a,b) -> 
                 let a = ty a
@@ -481,9 +484,10 @@ let propagate x =
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
         | TForall(_,i,a) | TArrow(i,a) as x -> scope x (ty a -. i)
+        | TExists(_,i,a) as x -> scope x (List.foldBack (fun i s -> s -. i) i (ty a))
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(a) | TLayout(a,_) -> ty a
-        | TNominalTypeVarPlaceholder(a,l) -> List.fold (fun s x -> s + ty x) (ty a) l
+        | TTypeVarPlaceholder(a,l) -> List.fold (fun s x -> s + ty x) (ty a) l
     
     let _ = match x with Choice1Of2 x -> term x | Choice2Of2 x -> ty x
     scope_dict
@@ -571,13 +575,12 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
+        | TExists' _ | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
         | TTypecase(_,a,b) -> ty env a; b |> List.iter (fun (a,b) -> ty env a; ty env b)
         | TPatternRef a -> f !a
-        | TForall(_,_,a)
-        | TArrow(_,a) -> subst env x; f a
+        | TForall(_,_,a) | TArrow(_,a) | TExists(_,_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(a,b,_) | TPair(_,a,b) -> f a; f b
-        | TNominalTypeVarPlaceholder(a,l) -> f a; List.iter f l
+        | TTypeVarPlaceholder(a,l) -> f a; List.iter f l
         | TUnion(_,(a,_)) -> a |> Map.iter (fun _ (a,b) -> f a; Option.iter f b)
         | TRecord(_,a) | TModule a -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
@@ -777,7 +780,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty' case_tmetav env_rec env
         match x with
         | TMetaV i -> case_tmetav i
-        | TExists | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
+        | TExists' _ | TJoinPoint' _ | TForall' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
         | TTypecase(r,a,b) -> 
             let b = b |> List.map (fun (a,b) -> 
                 let metavars = Dictionary()
@@ -803,9 +806,13 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let scope, env = scope env x
             let a, env = adj_ty env a
             TArrow'(scope,a,ty env_rec env b)
+        | TExists(r,a,b) as x ->  
+            let scope, env = scope env x
+            let a, env = List.mapFoldBack (fun a env -> adj_ty env a) a env
+            TExists'(r,scope,a,ty env_rec env b)
         | TV i -> TV(env.ty.var.[i])
         | TPair(r,a,b) -> TPair(r,f a,f b)
-        | TNominalTypeVarPlaceholder(a,l) -> f a // We get rid of the placeholder here.
+        | TTypeVarPlaceholder(a,l) -> f a // We get rid of the placeholder here.
         | TFun(a,b,t) -> TFun(f a,f b,t)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
         | TModule a -> TModule(Map.map (fun _ -> f) a)
@@ -1002,12 +1009,14 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTForall(r,a,b) ->
             let id, env = add_ty_var env (typevar_name a)
             TForall(p r,id,ty' case_metavar env b)
+        | RawTExists(r,l,b) -> 
+            let id, env = List.mapFoldBack (fun a env -> add_ty_var env (typevar_name a)) l env
+            TExists(p r,id,TTypeVarPlaceholder(ty' case_metavar env b,List.map TV id))
         | RawTB r -> TB (p r)
         | RawTLit (r, x) -> TLit(p r,x)
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(p r,f a,f b)
         | RawTFun(r,a,b,t) -> TFun(f a,f b,t)
-        | RawTExists(r,l,b) -> TExists
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
         | RawTUnion(r,a,b,this) -> 
             let rec subst_vars_with_metavars vars a =
@@ -1171,7 +1180,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         match x with
         | TArrow(id,x) -> TArrow(id, put_placeholder (TV id :: l) x)
         | TJoinPoint(r,x) -> TJoinPoint(r,put_placeholder l x)
-        | x -> TNominalTypeVarPlaceholder(x, l)
+        | x -> TTypeVarPlaceholder(x, l)
     let eval_type' env l body = List.foldBack eval_type l body env |> process_ty
     let eval_type_nominal env l body = List.foldBack eval_type l body env |> put_placeholder [] |> process_ty
 

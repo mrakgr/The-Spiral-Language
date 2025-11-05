@@ -1,0 +1,16 @@
+// Do the type vars get applied correctly through an existential.
+
+nominal dict k v =
+    exists. k * v
+
+inl failwith forall t. (x : string) : t = !!!!FailWith(`t, x)
+
+inl main() =
+    inl d : dict {x : int} {y : float} = dict (exists [] (failwith "todo"))
+    !!!!PrintStatic("=========")
+    real
+        typecase `d with
+        | dict ~kk ~vv =>
+            !!!!PrintStatic(`kk)
+            !!!!PrintStatic(`vv)
+    0i32

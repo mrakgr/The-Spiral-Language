@@ -1,3 +1,7 @@
+2.18.4 (prerelease) (11/5/2025)
+
+* Fixed a critical bug in how existentials type vars are handled in the prepass.
+
 2.18.3 (prerelease) (11/4/2025)
 
 * Fixed a critical bug in how nominals are being created. The nominal type vars weren't being applied properly when they weren't present in the body of the nominal.

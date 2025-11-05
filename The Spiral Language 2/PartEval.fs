@@ -695,14 +695,14 @@ let peval (env : TopEnv) (x : E) =
         | _ -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty x)
     and ty s x =
         match x with
-        | TNominalTypeVarPlaceholder _ | TPatternRef _ -> failwith "Compiler error: TNominalTypeVarPlaceholder and TPatternRef should have been eliminated during the prepass."
-        | TForall _ | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TTypeVarPlaceholder _ | TPatternRef _ -> failwith "Compiler error: TTypeVarPlaceholder and TPatternRef should have been eliminated during the prepass."
+        | TExists _ | TForall _ | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
         | TMetaV i -> YMetavar i
         | TArrow'(scope,i,body) -> 
             assert (i = scope.ty.free_vars.Length)
             YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
         | TForall' _ -> YForall
-        | TExists -> YExists
+        | TExists' _ -> YExists
         | TJoinPoint'(r,scope,body) ->
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
