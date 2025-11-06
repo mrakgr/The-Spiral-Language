@@ -27,31 +27,7 @@ type backend_cpp =
 
     member t.Name = t.ToString()
 
-open System.Collections.Generic
-
-type codegen_env_cpp =
-    {
-        globals : OrderedDictionary<int, string>
-        fwd_dcls_types : OrderedDictionary<int, string>
-        fwd_dcls_methods : OrderedDictionary<int, string>
-        fwd_dcls_main_defs : OrderedDictionary<int, string>
-        types : OrderedDictionary<int, string>
-        functions : OrderedDictionary<int, string>
-        main_defs : OrderedDictionary<int, string>
-    }
-
-    static member Create() =
-        {
-            globals = OrderedDictionary()
-            fwd_dcls_types = OrderedDictionary()
-            fwd_dcls_methods = OrderedDictionary()
-            fwd_dcls_main_defs = OrderedDictionary()
-            types = OrderedDictionary()
-            functions = OrderedDictionary()
-            main_defs = OrderedDictionary()
-        }
-
-type codegen_env_python =
+type codegen_env =
     {
         globals : string ResizeArray
         fwd_dcls_types : string ResizeArray

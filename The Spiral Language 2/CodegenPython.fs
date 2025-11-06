@@ -101,7 +101,7 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env_python) =
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : codegen_env) =
     let global' =
         let has_added = HashSet()
         fun x -> if has_added.Add x then code_env.globals.Add x
@@ -468,8 +468,8 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
     let g = Dictionary(HashIdentity.Structural)
 
-    let host_code_env = codegen_env_python.Create()
-    let device_code_env = codegen_env_cpp.Create()
+    let host_code_env = codegen_env.Create()
+    let device_code_env = codegen_env.Create()
 
     let cuda_codegen = 
         Cpp.codegen' (fun (jp_body,key,r') previous_backend -> 
@@ -510,21 +510,16 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendLine(aux_library_code_python)
             .ToString()
 
-    let merge (a' : OrderedDictionary<int, string>) =
-        let strb = StringBuilder()
-        a' |> Seq.iter (fun (KeyValue(_,v)) -> strb.Append v |> ignore)
-        strb.ToString()
-
     let code_main = 
         StringBuilder()
             .AppendLine("kernels_main = r\"\"\"")
-            .AppendJoin("", merge device_code_env.globals)
-            .AppendJoin("", merge device_code_env.fwd_dcls_types)
-            .AppendJoin("", merge device_code_env.fwd_dcls_methods)
-            .AppendJoin("", merge device_code_env.fwd_dcls_main_defs)
-            .AppendJoin("", merge device_code_env.types)
-            .AppendJoin("", merge device_code_env.functions)
-            .AppendJoin("", merge device_code_env.main_defs)
+            .AppendJoin("", device_code_env.globals)
+            .AppendJoin("", device_code_env.fwd_dcls_types)
+            .AppendJoin("", device_code_env.fwd_dcls_methods)
+            .AppendJoin("", device_code_env.fwd_dcls_main_defs)
+            .AppendJoin("", device_code_env.types)
+            .AppendJoin("", device_code_env.functions)
+            .AppendJoin("", device_code_env.main_defs)
             .AppendLine("\"\"\"")
             .Replace("__host__ __device__", "__device__")
             .AppendLine($"from {file_name}_auto import *")

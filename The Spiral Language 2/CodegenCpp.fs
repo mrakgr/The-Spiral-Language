@@ -97,12 +97,9 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env_cpp) =
+let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env) =
     let mutable backend_ref = backend_cpp.CppHost
     let backend() = backend_ref
-    let tag =
-        let mutable i = 0
-        fun () -> let x = i in i <- i+1; x
     /// Runs the closure with the new backend. Restores the old one after the backend has been executed.
     let inline substitute_backend_with backend f = 
         let old_backend = backend_ref
@@ -110,7 +107,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         f()
         backend_ref <- old_backend
 
-    let print (show : show_env -> _ -> unit) key r =
+    let print (show : show_env -> _ -> unit) r =
         let s_globals = {text=StringBuilder(); indent=0}
         let s_fwd_dcls_types = {text=StringBuilder(); indent=0}
         let s_fwd_dcls_methods = {text=StringBuilder(); indent=0}
@@ -118,9 +115,9 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let s_typ = {text=StringBuilder(); indent=0}
         let s_fun = {text=StringBuilder(); indent=0}
         show {globals = s_globals; fwd_types = s_fwd_dcls_types; fwd_methods = s_fwd_dcls_methods; fwd_main_defs = s_fwd_dcls_main_defs; types = s_typ; functions = s_fun} r
-        let f (a : OrderedDictionary<int, string>) (b : string_builder_env) = 
+        let f (a : string ResizeArray) (b : string_builder_env) = 
             let text = b.text.ToString()
-            if text <> "" then a.Add(key, text)
+            if text <> "" then a.Add(text)
         let code_env = code_env (backend())
         f code_env.globals s_globals
         f code_env.fwd_dcls_types s_fwd_dcls_types
@@ -140,62 +137,62 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
                     match x with
                     | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
                     | _ -> data_free_vars x, Map.empty
-                {data=x; free_vars=a; free_vars_by_key=b; tag=tag()}
+                {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
             | _ -> raise_codegen_error $"Compiler error: Expected a layout type (1).\nGot: %s{show_ty x}"
         fun x ->
             let r,dirty = Utils.memoize dict (Utils.memoize dict' (fun x -> f x, HashSet())) x
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
         let f (a : Union) : UnionRec = 
             let free_vars = a.Item.cases |> Map.map (fun _ -> part_eval_env.ty_to_data >> data_free_vars)
-            {free_vars=free_vars; tag=tag(); is_heap=a.Item.layout = UHeap}
+            {free_vars=free_vars; tag=dict.Count; is_heap=a.Item.layout = UHeap}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let jp_method f show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f x = f (x, tag()) : MethodRec
+        let f x = f (x, dict.Count) : MethodRec
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) (x, backend())
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let jp_closure f show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f x = f (x, tag()) : ClosureRec
+        let f x = f (x, dict.Count) : ClosureRec
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) (x, backend())
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let tuple show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f x = {tag=tag(); tys=x}
+        let f x = {tag=dict.Count; tys=x}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f (a : Ty, b : Ty, t : FunType) = {tag=tag(); domain=a; range=b; funtype=t}
+        let f (a : Ty, b : Ty, t : FunType) = {tag=dict.Count; domain=a; range=b; funtype=t}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let global' =
         let dict = Dictionary(HashIdentity.Structural)
         let show (s : show_env) (x : GlobalRec) = line s.globals x.text
-        let f x = {tag = tag(); text = x}
+        let f x = {tag = dict.Count; text = x}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r.tag r
+            if dirty.Add (backend()) then print show r
             r
 
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
@@ -941,11 +938,11 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
 
             let s = {text=StringBuilder(); indent=0}
             let code_env = code_env (backend())
-            let key = tag()
+            code_env.fwd_dcls_main_defs.Add($"{ret_ty} {backend_entry_name}();\n")
             line s $"{ret_ty} {backend_entry_name}() {{"
             binds_start (indent s) x
             line s "}"
-            code_env.main_defs.Add(key, s.text.ToString())
+            code_env.main_defs.Add(s.text.ToString())
     | ArgsCudaHost(vs,x,backend_entry_name) ->
         substitute_backend_with backend_cpp.CudaHost <| fun () ->
             let ret_ty =
@@ -955,12 +952,11 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             let code_env = code_env (backend())
-            let key = tag()
-            code_env.fwd_dcls_main_defs.Add(key, $"{ret_ty} {backend_entry_name}(%s{args});\n")
+            code_env.fwd_dcls_main_defs.Add($"{ret_ty} {backend_entry_name}(%s{args});\n")
             line s $"{ret_ty} {backend_entry_name}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
-            code_env.main_defs.Add(key, s.text.ToString())
+            code_env.main_defs.Add(s.text.ToString())
     | ArgsCudaDevice(vs,x,backend_entry_name) ->
         substitute_backend_with backend_cpp.CudaDevice <| fun () ->
             let ret_ty =
@@ -979,18 +975,17 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             let s = {text=StringBuilder(); indent=0}
             let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             let code_env = code_env (backend())
-            let key = tag()
-            code_env.fwd_dcls_main_defs.Add(key, $"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args});\n")
+            code_env.fwd_dcls_main_defs.Add($"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args});\n")
             line s $"extern \"C\" __global__ {ret_ty} {backend_entry_name}(%s{args}) {{"
             binds_start (indent s) x
             line s "}"
-            code_env.main_defs.Add(key,s.text.ToString())
+            code_env.main_defs.Add(s.text.ToString())
 
 let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_env x = 
     let g = Dictionary HashIdentity.Structural
-    let code_env_cpp_host = codegen_env_cpp.Create()
-    let code_env_cuda_host = codegen_env_cpp.Create()
-    let code_env_cuda_device = codegen_env_cpp.Create()
+    let code_env_cpp_host = codegen_env.Create()
+    let code_env_cuda_host = codegen_env.Create()
+    let code_env_cuda_device = codegen_env.Create()
     let code_env = function
         | backend_cpp.CppHost -> code_env_cpp_host
         | backend_cpp.CudaHost -> code_env_cuda_host
@@ -1030,12 +1025,6 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
 
     main_codegen (ArgsCppHost(x, "main"))
 
-    let append_lines (l : string seq) = (StringBuilder(), l) ||> Seq.fold (fun s -> s.AppendLine)
-    let indent_lines (x : string) =
-        x.Split('\n')
-        |> Array.map (fun x -> if x <> "" then $"    {x}" else x)
-        |> fun x -> StringBuilder().AppendJoin("\n", x)
-        
     let code_corelib_hpp =
         let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
         dir "corelib.cuh" |> replace_default_types default_env
@@ -1044,60 +1033,50 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         let strb = StringBuilder()
         a' |> Seq.iter (fun (KeyValue(_,v)) -> strb.Append v |> ignore)
         strb.ToString()
-    let cuda_globals, cpp_globals = split_into_cuda_and_cpp code_env_cuda_host.globals code_env_cuda_device.globals code_env_cpp_host.globals
-    let cuda_fwd_types, cpp_fwd_types = split_into_cuda_and_cpp code_env_cuda_host.fwd_dcls_types code_env_cuda_device.fwd_dcls_types code_env_cpp_host.fwd_dcls_types
-    let cuda_types, cpp_types = split_into_cuda_and_cpp code_env_cuda_host.types code_env_cuda_device.types code_env_cpp_host.types
 
     let file_name = IO.Path.GetFileNameWithoutExtension file_path
     let code_hpp =
         StringBuilder()
-            .AppendLine($"#pragma once")
+            .AppendLine("#pragma once")
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
-            .AppendLine("// Cuda globals")
-            .AppendLine($"#ifdef __CUDACC__")
-            .AppendJoin("", cuda_globals)
-            .AppendLine($"#endif")
-            .AppendLine("// Cpp globals")
-            .AppendJoin("", cpp_globals)
-            .AppendLine("// The Cuda type forward declarations")
-            .AppendLine($"#ifdef __CUDACC__")
-            .AppendJoin("", cuda_fwd_types)
-            .AppendLine($"#endif")
-            .AppendLine("// The Cpp type forward declarations")
-            .AppendJoin("", cpp_fwd_types)
-            .AppendLine($"#ifdef __CUDACC__")
-            .AppendLine("// The Cuda device methods forward declarations")
-            .AppendJoin("", merge code_env_cuda_device.fwd_dcls_methods)
-            .AppendLine("// The Cuda host methods forward declarations")
-            .AppendJoin("", merge code_env_cuda_host.fwd_dcls_methods)
-            .AppendLine("// The Cuda device main defs forward declarations")
-            .AppendJoin("", merge code_env_cuda_device.fwd_dcls_main_defs)
-            .AppendLine($"#else")
-            .AppendLine("// The Cpp host methods forward declarations")
-            .AppendJoin("", merge code_env_cpp_host.fwd_dcls_methods)
-            .AppendLine("// The Cuda host main defs forward declarations")
-            .AppendJoin("", merge code_env_cuda_host.fwd_dcls_main_defs)
-            .AppendLine($"#endif")
-            .AppendLine("// The Cuda type definitions")
-            .AppendLine($"#ifdef __CUDACC__")
-            .AppendJoin("", cuda_types)
-            .AppendLine($"#endif")
-            .AppendLine("// The Cpp type definitions")
-            .AppendJoin("", cpp_types)
+            .AppendLine("#ifdef __CUDACC__")
+            .AppendLine("#ifdef __CUDA_ARCH__")
+            .AppendLine("// Cuda device backend")
+            .AppendJoin("", code_env_cuda_device.globals)
+            .AppendJoin("", code_env_cuda_device.fwd_dcls_types)
+            .AppendJoin("", code_env_cuda_device.fwd_dcls_methods)
+            .AppendJoin("", code_env_cuda_device.fwd_dcls_main_defs)
+            .AppendJoin("", code_env_cuda_device.types)
+            .AppendLine("#else")
+            .AppendLine("// Cuda host backend")
+            .AppendJoin("", code_env_cuda_host.globals)
+            .AppendJoin("", code_env_cuda_host.fwd_dcls_types)
+            .AppendJoin("", code_env_cuda_host.fwd_dcls_methods)
+            .AppendJoin("", code_env_cuda_host.fwd_dcls_main_defs)
+            .AppendJoin("", code_env_cuda_host.types)
+            .AppendLine("#endif")
+            .AppendLine("#else")
+            .AppendLine("// Cpp host backend")
+            .AppendJoin("", code_env_cpp_host.globals)
+            .AppendJoin("", code_env_cpp_host.fwd_dcls_types)
+            .AppendJoin("", code_env_cpp_host.fwd_dcls_methods)
+            .AppendJoin("", code_env_cpp_host.fwd_dcls_main_defs)
+            .AppendJoin("", code_env_cpp_host.types)
+            .AppendLine("#endif")
             .ToString()
     let code_cpp =
         StringBuilder()
             .AppendLine($"#include \"{file_name}.hpp\"")
-            .AppendJoin("", merge code_env_cpp_host.functions)
-            .AppendJoin("", merge code_env_cpp_host.main_defs)
+            .AppendJoin("", code_env_cpp_host.functions)
+            .AppendJoin("", code_env_cpp_host.main_defs)
             .ToString()
     let code_cu =
         StringBuilder()
             .AppendLine($"#include \"{file_name}.hpp\"")
-            .AppendJoin("", merge code_env_cuda_device.functions)
-            .AppendJoin("", merge code_env_cuda_device.main_defs)
-            .AppendJoin("", merge code_env_cuda_host.functions)
-            .AppendJoin("", merge code_env_cuda_host.main_defs)
+            .AppendJoin("", code_env_cuda_device.functions)
+            .AppendJoin("", code_env_cuda_device.main_defs)
+            .AppendJoin("", code_env_cuda_host.functions)
+            .AppendJoin("", code_env_cuda_host.main_defs)
             .ToString()
 
     [
