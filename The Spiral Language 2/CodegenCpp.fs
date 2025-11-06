@@ -1040,24 +1040,6 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
         let dir f = IO.File.ReadAllText(IO.Path.Join(AppDomain.CurrentDomain.BaseDirectory, f))
         dir "corelib.cuh" |> replace_default_types default_env
 
-    let split_into_cuda_and_cpp (a' : OrderedDictionary<int, string>) (b' : OrderedDictionary<int, string>) (c' : OrderedDictionary<int, string>) =
-        let a,b,c = Set a'.Keys, Set b'.Keys, Set c'.Keys
-        let cuda_globals = 
-            a + b - c |> Seq.map (fun i ->
-                match a'.TryGetValue i with
-                | true, v -> v
-                | _ -> 
-                    match b'.TryGetValue i with
-                    | true, v -> v
-                    | _ -> raise_codegen_error "Cannot find the key for the given Cuda global."
-                )
-        let cpp_globals = 
-            c |> Seq.map (fun i ->
-                match c'.TryGetValue i with
-                | true, v -> v
-                | _ -> raise_codegen_error "Cannot find the key for the given Cpp global."
-                )
-        cuda_globals, cpp_globals
     let merge (a' : OrderedDictionary<int, string>) =
         let strb = StringBuilder()
         a' |> Seq.iter (fun (KeyValue(_,v)) -> strb.Append v |> ignore)
