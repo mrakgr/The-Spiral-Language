@@ -100,6 +100,11 @@ let lit_string x =
 let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backend_cpp -> codegen_env) =
     let mutable backend_ref = backend_cpp.CppHost
     let backend() = backend_ref
+    let backend_group() = 
+        match backend_ref with
+        | backend_cpp.CppHost -> backend_cpp.CppHost
+        | backend_cpp.CudaHost -> backend_cpp.CudaHost
+        | backend_cpp.CudaDevice -> backend_cpp.CudaHost // NVCC cannot see the types inside the #ifdef __CUDA_ARCH__
     /// Runs the closure with the new backend. Restores the old one after the backend has been executed.
     let inline substitute_backend_with backend f = 
         let old_backend = backend_ref
@@ -141,7 +146,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             | _ -> raise_codegen_error $"Compiler error: Expected a layout type (1).\nGot: %s{show_ty x}"
         fun x ->
             let r,dirty = Utils.memoize dict (Utils.memoize dict' (fun x -> f x, HashSet())) x
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let union show =
@@ -151,7 +156,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
             {free_vars=free_vars; tag=dict.Count; is_heap=a.Item.layout = UHeap}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let jp_method f show =
@@ -159,7 +164,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let f x = f (x, dict.Count) : MethodRec
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) (x, backend())
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let jp_closure f show =
@@ -167,7 +172,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let f x = f (x, dict.Count) : ClosureRec
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) (x, backend())
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let tuple show =
@@ -175,7 +180,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let f x = {tag=dict.Count; tys=x}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let cfun' show =
@@ -183,7 +188,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let f (a : Ty, b : Ty, t : FunType) = {tag=dict.Count; domain=a; range=b; funtype=t}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let global' =
@@ -192,7 +197,7 @@ let codegen' backend_handler (part_eval_env : PartEvalResult) (code_env : backen
         let f x = {tag = dict.Count; text = x}
         fun x ->
             let r,dirty = Utils.memoize dict (fun x -> f x, HashSet()) x
-            if dirty.Add (backend()) then print show r
+            if dirty.Add (backend_group()) then print show r
             r
 
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
@@ -985,7 +990,14 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
     let g = Dictionary HashIdentity.Structural
     let code_env_cpp_host = codegen_env.Create()
     let code_env_cuda_host = codegen_env.Create()
-    let code_env_cuda_device = codegen_env.Create()
+    let code_env_cuda_device = 
+        {
+            code_env_cuda_host with
+                fwd_dcls_methods = ResizeArray()
+                fwd_dcls_main_defs = ResizeArray()
+                functions = ResizeArray()
+                main_defs = ResizeArray()
+        }
     let code_env = function
         | backend_cpp.CppHost -> code_env_cpp_host
         | backend_cpp.CudaHost -> code_env_cuda_host
@@ -1040,19 +1052,19 @@ let codegen (default_env : Startup.DefaultEnv) (file_path : string) part_eval_en
             .AppendLine("#pragma once")
             .AppendLine($"#include \"{file_name}.corelib.hpp\"")
             .AppendLine("#ifdef __CUDACC__")
+            // .AppendJoin("", code_env_cuda_device.globals) // The Cuda device globals and types are merged into the Cuda host arrays
+            .AppendJoin("", code_env_cuda_host.globals)
+            // .AppendJoin("", code_env_cuda_device.fwd_dcls_types)
+            .AppendJoin("", code_env_cuda_host.fwd_dcls_types)
+            // .AppendJoin("", code_env_cuda_device.types)
+            .AppendJoin("", code_env_cuda_host.types)
             .AppendLine("#ifdef __CUDA_ARCH__")
             .AppendLine("// Cuda device backend")
-            .AppendJoin("", code_env_cuda_device.globals)
-            .AppendJoin("", code_env_cuda_device.fwd_dcls_types)
             .AppendJoin("", code_env_cuda_device.fwd_dcls_methods)
-            .AppendJoin("", code_env_cuda_device.types)
             .AppendLine("#else")
             .AppendLine("// Cuda host backend")
-            .AppendJoin("", code_env_cuda_host.globals)
-            .AppendJoin("", code_env_cuda_host.fwd_dcls_types)
             .AppendJoin("", code_env_cuda_host.fwd_dcls_methods)
             .AppendJoin("", code_env_cuda_device.fwd_dcls_main_defs)
-            .AppendJoin("", code_env_cuda_host.types)
             .AppendLine("#endif")
             .AppendLine("#else")
             .AppendLine("// Cpp host backend")

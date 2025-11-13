@@ -42,9 +42,9 @@ type codegen_env =
         {
             globals = ResizeArray()
             fwd_dcls_types = ResizeArray()
+            types = ResizeArray()
             fwd_dcls_methods = ResizeArray()
             fwd_dcls_main_defs = ResizeArray()
-            types = ResizeArray()
             functions = ResizeArray()
             main_defs = ResizeArray()
         }

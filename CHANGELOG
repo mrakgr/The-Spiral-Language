@@ -1,3 +1,7 @@
+2.18.9 (11/13/2025)
+
+* Moved some type definitions in the generated Cuda header file around. The nvcc compiler wasn't seeing the type inside `#ifdef __CUDA_ARCH__`.
+
 2.18.8 (11/8/2025)
 
 * No change. Taking Spiral out of prerelease.
