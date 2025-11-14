@@ -1,0 +1,14 @@
+// Does recursive type application work?
+
+inl (>) forall t. (a : t) (b : t) : bool = !!!!GT(a,b)
+inl (-) forall t. (a : t) (b : t) : t = !!!!Sub(a,b)
+inl (*) forall t. (a : t) (b : t) : t = !!!!Mult(a,b)
+    
+inl (**) (a : uint) (b : uint) : uint =
+    inl rec f (s : uint) b : uint =
+        if b > 0 then f (s * a) (b - 1) else s
+    f 1 b
+
+inl main() =
+    inl y = 1 ** 2
+    0i32

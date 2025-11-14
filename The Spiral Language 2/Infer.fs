@@ -838,7 +838,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
     /// Dealing with recursive statement type applies requires some special consideration.
-    let fill r rec_term expr =
+    let fill r top_rec_term expr =
         assert (0 = errors.Count)
         let t_to_rawtexpr r vars_to_metavars expr =
             let rec f x = 
@@ -945,7 +945,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let l = l |> List.map (function RawMacroTerm(r,x,b) -> RawMacroTerm(r,f x,b) | x -> x )
                 RawAnnot(r,RawMacro(r,l),annot r x)
             | RawArray(r,a) -> RawAnnot(r,RawArray(r,List.map f a),annot r x)
-        and pattern recbterm x' =
+        and pattern rec_term x' =
             let mutable rec_term = rec_term
             let rec f = function
                 | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
@@ -970,7 +970,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | PatArray(r,a) -> PatArray(r,List.map f a)
             rec_term, f x'
 
-        let x = fill_foralls r rec_term expr
+        let x = fill_foralls r top_rec_term expr
         assert (0 = errors.Count)
         x
 
