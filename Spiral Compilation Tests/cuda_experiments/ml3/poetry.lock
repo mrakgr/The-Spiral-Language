@@ -391,24 +391,25 @@ docs = ["furo", "sphinx"]
 
 [[package]]
 name = "python-socketio"
-version = "5.14.0"
+version = "5.16.2"
 description = "Socket.IO server and client for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "python_socketio-5.14.0-py3-none-any.whl", hash = "sha256:7de5ad8a55efc33e17897f6cf91d20168d3d259f98c38d38e2940af83136d6f8"},
-    {file = "python_socketio-5.14.0.tar.gz", hash = "sha256:d057737f658b3948392ff452a5c865c5ccc969859c37cf095a73393ce755f98e"},
+    {file = "python_socketio-5.16.2-py3-none-any.whl", hash = "sha256:bef2da3374fd533aed4297f57b4f6512b52aa51604cb0da2165f401291c5ca20"},
+    {file = "python_socketio-5.16.2.tar.gz", hash = "sha256:ad88c228d921646efa436c0a0df217e364ef30ec072df4041484e54d49c15989"},
 ]
 
 [package.dependencies]
 bidict = ">=0.21.0"
-python-engineio = ">=4.11.0"
+python-engineio = ">=4.13.2"
 
 [package.extras]
 asyncio-client = ["aiohttp (>=3.4)"]
 client = ["requests (>=2.21.0)", "websocket-client (>=0.54.0)"]
-docs = ["sphinx"]
+dev = ["tox"]
+docs = ["furo", "sphinx"]
 
 [[package]]
 name = "simple-websocket"
